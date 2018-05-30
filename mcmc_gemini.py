@@ -25,10 +25,12 @@ Ca_m = np.array([-0.4,-0.3,-0.2,-0.1,0.0,0.1,0.2,0.3,0.4])
 Z_pm = np.array(['m','m','m','m','p','p','p'])
 ChemAge_m = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13])
 
-modelloc = '/home/elliot/mcmcgemini/widths/'
+#base = '/Users/relliotmeyer/Thesis_Work/ssp_models/'
+#base = '/Users/relliotmeyer/gemini2015a/mcmcgemini/'
+base = '/home/elliot/mcmcgemini/'
 
-imffiles = glob(modelloc + 'VCJ_v8_mcut0.08_t*')
-chemfiles = glob(modelloc + 'atlas*')
+imffiles = glob(base + 'widths/VCJ_v8_mcut0.08_t*')
+chemfiles = glob(base + 'widths/atlas*')
 
 linelow = [9905,10337,11372,11680,11765,12505,13115]
 linehigh = [9935,10360,11415,11705,11793,12545,13165]
@@ -44,7 +46,6 @@ chem_names = ['Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-', 'a/
                     'Mg+', 'Mg-', 'Si+', 'Si-', 'T+', 'T-', 'Cr+', 'Mn+', 'Ba+', 'Ba-', 'Ni+', 'Co+', 'Eu+', 'Sr+', 'K+',\
                     'V+', 'Cu+', 'Na+0.6', 'Na+0.9']
 
-#base = '/Users/relliotmeyer/Thesis_Work/ssp_models/widths/'
 base = modelloc
 
 imfsdict = {}
@@ -340,7 +341,7 @@ def lnprob(theta, y, yerr, gal, smallfit):
 
 def do_mcmc(gal):
 
-    fl = '/home/elliot/mcmcgemini/eqwidths.txt'
+    fl = base + 'eqwidths.txt'
     yfull = load_eqw(fl)
     if gal == 'M85':
         y = np.array(yfull.M85[yfull.Model == 'M85'])
@@ -376,7 +377,7 @@ def do_mcmc(gal):
         pos.append(np.array(newinit))
 
     #savefl = "/Users/relliotmeyer/Desktop/chainM87.dat"
-    savefl = "/home/elliot/mcmcresults/result.dat"
+    savefl = base + "mcmcresults/result.dat"
     f = open(savefl, "w")
     f.close()
 
@@ -389,8 +390,8 @@ def do_mcmc(gal):
         position = result[0]
         f = open(savefl, "a")
         for k in range(position.shape[0]):    
-            f.write("%d\t%s\n" % (k, " ".join(map(str, position[k]))))
-        print zip(range(len(result)), result)
+            f.write("%d\t%s\t%s\n" % (k, " ".join(map(str, position[k])), result[1][k]))
+        #print zip(range(len(result)), result)
         f.close()
         
         #if (i - 4) == 0:
@@ -408,32 +409,8 @@ def do_mcmc(gal):
 
     return sampler
 
-def newchemfile():
-    np.set_printoptions(precision=4)
-
-    Z = ['m1.5','m1.0','m0.5','p0.0','p0.2']
-    for met in Z:
-        fl1 = '/Users/relliotmeyer/Thesis_Work/ssp_models/atlas/atlas_ssp_t05_Z'+met+'.abund.krpa.s100'
-        fl2 = '/Users/relliotmeyer/Thesis_Work/ssp_models/atlas/atlas_ssp_t09_Z'+met+'.abund.krpa.s100'
-
-        fulldata1 = np.loadtxt(fl1, skiprows=2)
-        fulldata2 = np.loadtxt(fl2, skiprows=2)
-
-        newdata = np.zeros(fulldata1.shape)
-        newdata[:,0] = fulldata1[:,0]
-        for i in range(1,len(newdata[0,:])):
-            meanspec = (fulldata1[:,i] + fulldata2[:,i]) / 2.0
-            newdata[:,i] = meanspec
-        np.savetxt('/Users/relliotmeyer/Thesis_Work/ssp_models/atlas/atlas_ssp_t07_Z'+met+'.abund.krpa.s100', newdata\
-                , header= '# lam, Solar, Na+, Na-, Ca+, Ca-, Fe+, Fe-, C+, C-, a/Fe+, N+, N-, as/Fe+, Ti+, Ti-, Mg+, Mg-, Si+, Si-, T+, T-, Cr+, Mn+, Ba+, Ba-, Ni+, Co+, Eu+, Sr+, K+, V+, Cu+, Na+0.6, Na+0.9\n# Kroupa IMF, 13.5 Gyr; +/- is 0.3 dex except for C which is 0.15 dex; T+/- is 50K', fmt = ['%.3f','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E','%.4E'])
-
 if __name__ == '__main__':
     sampler = do_mcmc('M87')
-    #newchemfile()
-    #for i in Z_m:
-    #    for j in Age_m:
-    #        print model_width(i, j, 1.3, 1.3, 0.7, 0.2, 0.2, 0.2, 0.2, 'M85')
-    #print model_width(-1.5, 2.0, 1.3, 1.3, 0.7, 0.2, 0.2, 0.2, 0.2, 'M85')
 
 
 
