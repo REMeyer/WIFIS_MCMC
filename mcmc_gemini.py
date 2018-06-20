@@ -353,7 +353,7 @@ def lnprob(theta, y, yerr, gal, smallfit):
 
 def do_mcmc(gal, nwalkers, n_iter, smallfit = False):
 
-    fl = base + 'eqwidths.txt'
+    fl = base + 'widths/eqwidths.txt'
     yfull = load_eqw(fl)
     if gal == 'M85':
         y = np.array(yfull.M85[yfull.Model == 'M85'])
