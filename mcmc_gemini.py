@@ -46,8 +46,6 @@ chem_names = ['Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-', 'a/
                     'Mg+', 'Mg-', 'Si+', 'Si-', 'T+', 'T-', 'Cr+', 'Mn+', 'Ba+', 'Ba-', 'Ni+', 'Co+', 'Eu+', 'Sr+', 'K+',\
                     'V+', 'Cu+', 'Na+0.6', 'Na+0.9']
 
-base = modelloc
-
 imfsdict = {}
 for i in range(16):
     for j in range(16):
@@ -170,9 +168,11 @@ def select_model_file(Z, Age, mixZ, mixage, noZ = False):
 
 def model_width(inputs, gal, masklines = False, smallfit = False):
 
-    if smallfit:
-        Age, x1, x2, Na, K, Mg, Fe = inputs
+    if smallfit == True:
+        Age, x1, x2, Na, K, Ca, Fe = inputs
         Z = 0.0
+    elif smallfit == 'limited':
+        Z, Age, x1, x2 = inputs
     else:
         Z, Age, x1, x2, Na, K, Mg, Fe, Ca = inputs
 
@@ -206,13 +206,18 @@ def model_width(inputs, gal, masklines = False, smallfit = False):
     if Z not in fullZ:
         mixZ = True
 
-    fl1, cfl1, fl2, cfl2 = select_model_file(Z, Age, mixZ, mixage, noZ = smallfit)
+    if smallfit in [False, 'limited']:
+        noZ = False
+    else:
+        noZ = True
+    fl1, cfl1, fl2, cfl2 = select_model_file(Z, Age, mixZ, mixage, noZ = noZ)
+    #print fl1, cfl1, fl2, cfl2
         
     if mixage or mixZ:
-        w1 = load_eqw(base+fl1)
-        w2 = load_eqw(base+fl2)
-        c1 = load_eqw(base+cfl1)
-        c2 = load_eqw(base+cfl2)
+        w1 = load_eqw(base+'widths/'+fl1)
+        w2 = load_eqw(base+'widths/'+fl2)
+        c1 = load_eqw(base+'widths/'+cfl1)
+        c2 = load_eqw(base+'widths/'+cfl2)
 
         w = pd.DataFrame(data = w1)
         c = pd.DataFrame(data = c1)
@@ -224,8 +229,8 @@ def model_width(inputs, gal, masklines = False, smallfit = False):
             w.M87 = (w1.M87 + w2.M87) / 2.0
             c.M87 = (c1.M87 + c2.M87) / 2.0
     else:
-        w = load_eqw(base+fl1)
-        c = load_eqw(base+cfl1)
+        w = load_eqw(base+'widths/'+fl1)
+        c = load_eqw(base+'widths/'+cfl1)
 
     # ['Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-', 'a/Fe+', 'N+', 'N-', 'as/Fe+', 'Ti+', 'Ti-',\
     #                'Mg+', 'Mg-', 'Si+', 'Si-', 'T+', 'T-', 'Cr+', 'Mn+', 'Ba+', 'Ba-', 'Ni+', 'Co+', 'Eu+', 'Sr+', 'K+',\
@@ -238,60 +243,61 @@ def model_width(inputs, gal, masklines = False, smallfit = False):
             if line in masklines:
                 continue
         linearr = np.array(c[gal][c.Line == line])
-        #NaP.append((linearr[1]-linearr[0])/linearr[0]/3.)
-        #NaM.append((linearr[2]-linearr[0])/linearr[0]/3.)
-        #KP.append((linearr[29]-linearr[0])/linearr[0]/3.)
-        #MgP.append((linearr[15]-linearr[0])/linearr[0]/3.)
-        #MgM.append((linearr[16]-linearr[0])/linearr[0]/3.)
-        #FeP.append((linearr[5]-linearr[0])/linearr[0]/3.)
-        #FeM.append((linearr[6]-linearr[0])/linearr[0]/3.)
-        pf = np.polyfit([-0.3,0.0,0.3,0.6,0.9], [linearr[2], linearr[1], linearr[0], linearr[-2], linearr[-1]], 3)
-        polyfit = np.poly1d(pf)
-        NaP = (polyfit(Na) - linearr[0]) / linearr[0]
-        #if Na >= 0:
-        #    NaP = (linearr[1]-linearr[0])/linearr[0]/0.3
-        #else:
-        #    NaP = (linearr[2]-linearr[0])/linearr[0]/0.3
 
-        pf = np.polyfit([0.0,0.3], [linearr[0], linearr[29]], 1)
-        polyfit = np.poly1d(pf)
-        KP = (polyfit(K) - linearr[0]) / linearr[0]
-        #KP = (linearr[29]-linearr[0])/linearr[0]/0.3
+        if type(smallfit) == bool:
+            pf = np.polyfit([-0.3,0.0,0.3,0.6,0.9], \
+                    [linearr[2], linearr[1], linearr[0], linearr[-2], linearr[-1]], 3)
+            polyfit = np.poly1d(pf)
+            NaP = (polyfit(Na) - linearr[0]) / linearr[0]
+            #if Na >= 0:
+            #    NaP = (linearr[1]-linearr[0])/linearr[0]/0.3
+            #else:
+            #    NaP = (linearr[2]-linearr[0])/linearr[0]/0.3
 
-        pf = np.polyfit([-0.3,0.0,0.3], [linearr[16], linearr[0], linearr[15]], 2)
-        polyfit = np.poly1d(pf)
-        MgP = (polyfit(Mg) - linearr[0]) / linearr[0]
-        #if Mg >= 0:
-        #    MgP = (linearr[15]-linearr[0])/linearr[0]/0.3
-        #else:
-        #    MgP = (linearr[16]-linearr[0])/linearr[0]/0.3
+            pf = np.polyfit([0.0,0.3], [linearr[0], linearr[29]], 1)
+            polyfit = np.poly1d(pf)
+            KP = (polyfit(K) - linearr[0]) / linearr[0]
+            #KP = (linearr[29]-linearr[0])/linearr[0]/0.3
 
-        pf = np.polyfit([-0.3,0.0,0.3], [linearr[6], linearr[0], linearr[5]], 2)
-        polyfit = np.poly1d(pf)
-        FeP = (polyfit(Fe) - linearr[0]) / linearr[0]
-        #if Fe >= 0:
-        #    FeP = (linearr[5]-linearr[0])/linearr[0]/0.3
-        #else:
-        #    FeP = (linearr[6]-linearr[0])/linearr[0]/0.3
+            if not smallfit:
+                pf = np.polyfit([-0.3,0.0,0.3], [linearr[16], linearr[0], linearr[15]], 2)
+                polyfit = np.poly1d(pf)
+                MgP = (polyfit(Mg) - linearr[0]) / linearr[0]
+            #if Mg >= 0:
+            #    MgP = (linearr[15]-linearr[0])/linearr[0]/0.3
+            #else:
+            #    MgP = (linearr[16]-linearr[0])/linearr[0]/0.3
 
-        if not smallfit:
+            pf = np.polyfit([-0.3,0.0,0.3], [linearr[6], linearr[0], linearr[5]], 2)
+            polyfit = np.poly1d(pf)
+            FeP = (polyfit(Fe) - linearr[0]) / linearr[0]
+            #if Fe >= 0:
+            #    FeP = (linearr[5]-linearr[0])/linearr[0]/0.3
+            #else:
+            #    FeP = (linearr[6]-linearr[0])/linearr[0]/0.3
+
+            #if not smallfit:
             pf = np.polyfit([-0.3,0.0,0.3], [linearr[4], linearr[0], linearr[3]], 2)
             polyfit = np.poly1d(pf)
             CaP = (polyfit(Ca) - linearr[0]) / linearr[0]
-        #if Ca >= 0:
-        #    CaP = (linearr[3]-linearr[0])/linearr[0]/0.3
-        #else:
-        #    CaP = (linearr[4]-linearr[0])/linearr[0]/0.3
+            #if Ca >= 0:
+            #    CaP = (linearr[3]-linearr[0])/linearr[0]/0.3
+            #else:
+            #    CaP = (linearr[4]-linearr[0])/linearr[0]/0.3
 
         lwidths = np.array(w[gal][w.Line == line])
         basewidth = lwidths[73]
         imfwidth = lwidths[imfsdict[(x1,x2)]]
         #chemratio = linearr[0] / basewidth
         imfratio = basewidth / imfwidth
+        newratio = imfwidth / basewidth
 
         #newwidth = imfwidth*(1 + imfratio*(NaP*Na + K*KP + Mg*MgP + Fe*FeP))
-        if smallfit:
-            newwidth = imfwidth*(1 + imfratio*(NaP + KP + MgP + FeP))
+        if smallfit == True:
+            #newwidth = imfwidth*(1 + imfratio*(NaP + KP + CaP + FeP))
+            newwidth = imfwidth*newratio*(NaP + KP + CaP + FeP)
+        elif smallfit == 'limited':
+            newwidth = imfwidth
         else:
             newwidth = imfwidth*(1 + imfratio*(NaP + KP + MgP + FeP + CaP))
 
@@ -312,18 +318,24 @@ def chisq(params, width, err, gal, smallfit):
     for i,w in enumerate(widthmodels):
         chisq += (w - width[i])**2.0 / err[i]**2.0
 
-    return -1*chisq
+    width = np.array(width)
+    widthmodels = np.array(widthmodels)
+    err = np.array(err)
+
+    return -0.5*chisq
 
 def lnprior(theta, smallfit):
 
-    Z_m = np.array([-1.5,-1.0, -0.5, -0.25, 0.0, 0.1, 0.2])
-    Age_m = np.array([1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.25,13.5])
-
-    if smallfit:
-        Age, x1, x2, Na, K, Mg, Fe = theta 
-        if (9.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
-                (0.5 <= x2 <= 3.5) and (-0.4 <= Na <= 1.0) and (-0.4 <= K <= 0.4) and (-0.4 <= Mg <= 0.4) and\
+    if smallfit == True:
+        Age, x1, x2, Na, K, Ca, Fe = theta 
+        if (1.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
+                (0.5 <= x2 <= 3.5) and (-0.4 <= Na <= 1.0) and (-0.4 <= K <= 0.4) and (-0.4 <= Ca <= 0.4) and\
                 (-0.4 <= Fe <= 0.4):
+            return 0.0
+    elif smallfit == 'limited':
+        Z, Age, x1, x2 = theta 
+        if (-1.5 <= Z <= 0.2) and (7.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
+                (0.5 <= x2 <= 3.5):
             return 0.0
     else:
         Z, Age, x1, x2, Na, K, Mg, Fe, Ca = theta 
@@ -339,7 +351,7 @@ def lnprob(theta, y, yerr, gal, smallfit):
         return -np.inf
     return lp + chisq(theta, y, yerr, gal, smallfit)
 
-def do_mcmc(gal):
+def do_mcmc(gal, nwalkers, n_iter, smallfit = False):
 
     fl = base + 'eqwidths.txt'
     yfull = load_eqw(fl)
@@ -350,35 +362,35 @@ def do_mcmc(gal):
         y = np.array(yfull.M87[yfull.Model == 'M87'])
         yerr = np.array(yfull.Error[yfull.Model == 'M87'])
 
-    nwalkers = 500
-    n_iter = 5000
-    smallfit = True
-    if smallfit:
+    if smallfit == True:
         ndim = 7
+    elif smallfit == 'limited':
+        ndim = 4
     else:
         ndim = 9
 
     pos = []
     for i in range(nwalkers):
         newinit = []
-        if not smallfit:
+        if smallfit != True:
             newinit.append(np.random.choice(Z_m))
         newinit.append(np.random.choice(Age_m))
-        #newinit.append(np.random.choice(np.array([-0.25, 0.0,0.1, 0.1])))
-        #newinit.append(np.random.choice(np.array([1.0,2.0,3.0,4.0,5.0,6.0,7.0])))
         newinit.append(np.random.choice(x1_m))
         newinit.append(np.random.choice(x2_m))
-        newinit.append(np.random.random()*1.4 - 0.4)
-        newinit.append(np.random.random()*0.8 - 0.4)
-        newinit.append(np.random.random()*0.8 - 0.4)
-        newinit.append(np.random.random()*0.8 - 0.4)
+        if smallfit != 'limited':
+            newinit.append(np.random.random()*1.4 - 0.4)
+            newinit.append(np.random.random()*0.8 - 0.4)
+            newinit.append(np.random.random()*0.8 - 0.4)
+            newinit.append(np.random.random()*0.8 - 0.4)
         if not smallfit:
             newinit.append(np.random.random()*0.8 - 0.4)
         pos.append(np.array(newinit))
 
     #savefl = "/Users/relliotmeyer/Desktop/chainM87.dat"
-    savefl = base + "mcmcresults/result.dat"
+    savefl = base + "mcmcresults/"+time.strftime("%Y%M%dT%H%M%s")+"_%s.dat" % (gal)
     f = open(savefl, "w")
+    f.write("#NWalk\tNStep\tGal\tFit\n")
+    f.write("#%d\t%d\t%s\t%s\n" % (nwalkers, n_iter,gal,str(smallfit)))
     f.close()
 
     threads = 6
@@ -391,17 +403,9 @@ def do_mcmc(gal):
         f = open(savefl, "a")
         for k in range(position.shape[0]):    
             f.write("%d\t%s\t%s\n" % (k, " ".join(map(str, position[k])), result[1][k]))
-        #print zip(range(len(result)), result)
         f.close()
-        
-        #if (i - 4) == 0:
-        #    print "Finished first three iterations...running"
-        #    print
 
         if (i+1) % 100 == 0:
-            #position = result[0]
-            #for k in range(position.shape[0]):
-            #    print "%d\t%s" % (k, " ".join(map(str, position[k])))
             print (time.time() - t1) / 60., " Minutes"
             print (i+1.)*100. / float(n_iter), "% Finished\n"
     
@@ -409,8 +413,31 @@ def do_mcmc(gal):
 
     return sampler
 
+def load_mcmc_file(fl):
+    '''Loads the chain file (fl) as output by the do_mcmc program. Returns
+    the walker data, the probability data, and the run info.'''
+
+    f = open(fl,'r')
+    f.readline()
+    info = f.readline()
+    f.close()
+    info = info[1:]
+    values = info.split()
+    nworkers = int(values[0])
+    niter = int(values[1])
+    gal = values[2]
+    fit = values[3]
+    infol = [nworkers, niter, gal, fit]
+
+    data = np.loadtxt(fl, skiprows = 2)
+    folddata = data.reshape((niter, nworkers,data.shape[1]))
+    postprob = folddata[:,:,-1]
+    realdata = folddata[:,:,1:-1]
+
+    return [realdata, postprob, infol]
+
 if __name__ == '__main__':
-    sampler = do_mcmc('M87')
+    sampler = do_mcmc('M85', 512, 30000, smallfit = True)
 
 
 
