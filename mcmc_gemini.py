@@ -246,49 +246,33 @@ def model_width(inputs, gal, masklines = False, smallfit = False):
 
         if type(smallfit) == bool:
             pf = np.polyfit([-0.3,0.0,0.3,0.6,0.9], \
-                    [linearr[2], linearr[1], linearr[0], linearr[-2], linearr[-1]], 3)
+                    [linearr[2], linearr[0], linearr[1], linearr[-2], linearr[-1]], 3)
             polyfit = np.poly1d(pf)
             NaP = (polyfit(Na) - linearr[0]) / linearr[0]
-            #if Na >= 0:
-            #    NaP = (linearr[1]-linearr[0])/linearr[0]/0.3
-            #else:
-            #    NaP = (linearr[2]-linearr[0])/linearr[0]/0.3
 
             pf = np.polyfit([0.0,0.3], [linearr[0], linearr[29]], 1)
             polyfit = np.poly1d(pf)
             KP = (polyfit(K) - linearr[0]) / linearr[0]
-            #KP = (linearr[29]-linearr[0])/linearr[0]/0.3
 
             if not smallfit:
                 pf = np.polyfit([-0.3,0.0,0.3], [linearr[16], linearr[0], linearr[15]], 2)
                 polyfit = np.poly1d(pf)
                 MgP = (polyfit(Mg) - linearr[0]) / linearr[0]
-            #if Mg >= 0:
-            #    MgP = (linearr[15]-linearr[0])/linearr[0]/0.3
-            #else:
-            #    MgP = (linearr[16]-linearr[0])/linearr[0]/0.3
 
             pf = np.polyfit([-0.3,0.0,0.3], [linearr[6], linearr[0], linearr[5]], 2)
             polyfit = np.poly1d(pf)
             FeP = (polyfit(Fe) - linearr[0]) / linearr[0]
-            #if Fe >= 0:
-            #    FeP = (linearr[5]-linearr[0])/linearr[0]/0.3
-            #else:
-            #    FeP = (linearr[6]-linearr[0])/linearr[0]/0.3
 
             #if not smallfit:
             pf = np.polyfit([-0.3,0.0,0.3], [linearr[4], linearr[0], linearr[3]], 2)
             polyfit = np.poly1d(pf)
             CaP = (polyfit(Ca) - linearr[0]) / linearr[0]
-            #if Ca >= 0:
-            #    CaP = (linearr[3]-linearr[0])/linearr[0]/0.3
-            #else:
-            #    CaP = (linearr[4]-linearr[0])/linearr[0]/0.3
 
         lwidths = np.array(w[gal][w.Line == line])
         basewidth = lwidths[73]
         imfwidth = lwidths[imfsdict[(x1,x2)]]
         #chemratio = linearr[0] / basewidth
+
         imfratio = basewidth / imfwidth
         newratio = imfwidth / basewidth
 
@@ -332,6 +316,7 @@ def lnprior(theta, smallfit):
                 (0.5 <= x2 <= 3.5) and (-0.4 <= Na <= 1.0) and (-0.4 <= K <= 0.4) and (-0.4 <= Ca <= 0.4) and\
                 (-0.4 <= Fe <= 0.4):
             return 0.0
+
     elif smallfit == 'limited':
         Z, Age, x1, x2 = theta 
         if (-1.5 <= Z <= 0.2) and (7.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
@@ -351,7 +336,7 @@ def lnprob(theta, y, yerr, gal, smallfit):
         return -np.inf
     return lp + chisq(theta, y, yerr, gal, smallfit)
 
-def do_mcmc(gal, nwalkers, n_iter, smallfit = False):
+def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6):
 
     fl = base + 'widths/eqwidths.txt'
     yfull = load_eqw(fl)
@@ -393,7 +378,6 @@ def do_mcmc(gal, nwalkers, n_iter, smallfit = False):
     f.write("#%d\t%d\t%s\t%s\n" % (nwalkers, n_iter,gal,str(smallfit)))
     f.close()
 
-    threads = 6
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = (y, yerr, gal, smallfit), threads=threads)
     print "Starting MCMC..."
 
@@ -437,14 +421,6 @@ def load_mcmc_file(fl):
     return [realdata, postprob, infol]
 
 if __name__ == '__main__':
-    sampler = do_mcmc('M85', 512, 30000, smallfit = True)
-
-
-
-
-
-
-
-        
+    sampler = do_mcmc('M85', 512, 30000, smallfit = True, threads = 6)
 
 
