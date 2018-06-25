@@ -29,7 +29,8 @@ ChemAge_m = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13])
 
 #base = '/Users/relliotmeyer/Thesis_Work/ssp_models/'
 #base = '/Users/relliotmeyer/gemini2015a/mcmcgemini/'
-base = '/home/elliot/mcmcgemini/'
+#base = '/home/elliot/mcmcgemini/'
+base = '/Users/relliotmeyer/mcmcgemini/'
 
 imffiles = glob(base + 'widths/VCJ_v8_mcut0.08_t*')
 chemfiles = glob(base + 'widths/atlas*')
@@ -245,65 +246,38 @@ def model_width(inputs, gal, masklines = False, smallfit = False):
     # Z, Age, x1, x2, Na, K, Mg, Fe, Ca = theta 
     if type(smallfit) == bool:
         interp = spi.interp2d(wl, [-0.3,0.0,0.3,0.6,0.9], np.stack(c[:,2],c[:,0],c[:,1],c[:,-2],c[:,-1]), kind = 'cubic')
-        NaP = interp(wl,Na) / c[:,0]
+        NaP = interp(wl,Na) / c[:,0] - 1.
 
-        interp = spi.interp2d(wl, [0.0,0.3], np.stack(c[:,0],c[:,29], kind = 'linear')
-        KP = interp(wl,K) / c[:,0]
+        interp = spi.interp2d(wl, [0.0,0.3], np.stack(c[:,0],c[:,29]), kind = 'linear')
+        KP = interp(wl,K) / c[:,0] - 1.
 
         if not smallfit:
-            interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack(c[:,16], c[:,0],c[:,15], kind = 'cubic')
-            MgP = interp(wl,Mg) / c[:,0]
+            interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack(c[:,16], c[:,0],c[:,15]), kind = 'cubic')
+            MgP = interp(wl,Mg) / c[:,0] - 1.
 
-        interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack(c[:,6], c[:,0],c[:,5], kind = 'cubic')
-        FeP = interp(wl,Fe) / c[:,0]
+        interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack(c[:,6], c[:,0],c[:,5]), kind = 'cubic')
+        FeP = interp(wl,Fe) / c[:,0] - 1.
 
         #if not smallfit:
-        interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack(c[:,4], c[:,0],c[:,3], kind = 'cubic')
-        CaP = interp(wl,Ca) / c[:,0]
+        interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack(c[:,4], c[:,0],c[:,3]), kind = 'cubic')
+        CaP = interp(wl,Ca) / c[:,0] - 1.
 
     basemodel = m[:,73]
     model_ratio = mimf / basemodel
-    if smallfit == True:
-        newm = mimf*model_ratio*(NaP + KP + CaP + FeP)
-    elif smallfit == 'limited':
-        newm = imfwidth
-    else:
-        newm = imfwidth*(1 + imfratio*(NaP + KP + MgP + FeP + CaP))
 
+    if smallfit == True:
+        newm = mimf*(1. + model_ratio*(NaP + KP + CaP + FeP))
+    elif smallfit == 'limited':
+        newm = newm
+    else:
+        newm = mimf*model_ratio*(1. + NaP + KP + MgP + CaP + FeP)
         
     if gal == 'M85':
-        wlc, mconv = convolvemodels(wl, m, 176.)
+        wlc, mconv = convolvemodels(wl, newm, 176.)
     elif gal == 'M87':
-        wlc, mconv = convolvemodels(wl, m, 360.)
-     
+        wlc, mconv = convolvemodels(wl, newm, 360.)
     
-    
-    modellines = []    
-    for j in mlow
-        if masklines:
-            pass
-            #if line in masklines:
-            #    continue
-
-        lwidths = np.array(w[gal][w.Line == line])
-        imfwidth = lwidths[imfsdict[(x1,x2)]]
-        #chemratio = linearr[0] / basewidth
-
-        imfratio = basewidth / imfwidth
-        newratio = imfwidth / basewidth
-
-        #newwidth = imfwidth*(1 + imfratio*(NaP*Na + K*KP + Mg*MgP + Fe*FeP))
-        if smallfit == True:
-            #newwidth = imfwidth*(1 + imfratio*(NaP + KP + CaP + FeP))
-            newwidth = imfwidth*newratio*(NaP + KP + CaP + FeP)
-        elif smallfit == 'limited':
-            newwidth = imfwidth
-        else:
-            newwidth = imfwidth*(1 + imfratio*(NaP + KP + MgP + FeP + CaP))
-
-        modellines.append(newwidth)
-
-    return modellines
+    return wlc, mconv
 
 def chisq(params, wl, data, err, gal, smallfit):
 
@@ -312,11 +286,12 @@ def chisq(params, wl, data, err, gal, smallfit):
     else:
         masklines = False
 
-    widthmodels = model_spec(params, gal, masklines=masklines, smallfit = smallfit)
+    wlc, mconv = model_spec(params, gal, masklines=masklines, smallfit = smallfit)
+    mnew, errnew = splitspec(wlc, mconv, err=False)
     
     chisq = 0
-    for i,w in enumerate(widthmodels):
-        chisq += (w - data[i])**2.0 / err[i]**2.0
+    for i in range(len(mlow)):
+        chisq += sum((mnew[i] - data[i])**2.0 / err[i]**2.0)
 
     width = np.array(width)
     widthmodels = np.array(widthmodels)
@@ -356,7 +331,7 @@ def lnprob(theta, wl, data, err, gal, smallfit):
 def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6):
 
     wl, data, err = preparespec(gal)
-    data, err = splitspec(wl, data, err)
+    data, err = splitspec(wl, data, err = err)
 
     if smallfit == True:
         ndim = 7
@@ -429,7 +404,7 @@ def load_mcmc_file(fl):
 
     return [realdata, postprob, infol]
 
-def preparespec(gal):
+def preparespec(galaxy):
 
     if galaxy == 'M87':
         z = 0.004283
@@ -517,7 +492,7 @@ def preparespec(gal):
 
     return finalwl, finaldata, finalerr
 
-def splitspec(wl, data, err):
+def splitspec(wl, data, err=False):
 
     mlow = [9700,10550,11550,12350]
     mhigh = [10450,11450,12200,13180]
@@ -534,8 +509,9 @@ def splitspec(wl, data, err):
         polyfit = np.poly1d(pf)
         cont = polyfit(wl[wh])
         databands.append(dataslice / cont)
-        errorbands.append(errslice / cont)
-
+        if type(err) != bool:
+            errorbands.append(errslice / cont)
+    
     return databands, errorbands
 
 def read_ssp(fl):
