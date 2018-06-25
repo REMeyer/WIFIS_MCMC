@@ -172,7 +172,7 @@ def select_model_file(Z, Age, mixZ, mixage, noZ = False):
 
     return fl1, cfl1, fl2, cfl2
 
-def model_width(inputs, gal, masklines = False, smallfit = False):
+def model_spec(inputs, gal, masklines = False, smallfit = False):
 
     if smallfit == True:
         Age, x1, x2, Na, K, Ca, Fe = inputs
@@ -230,8 +230,9 @@ def model_width(inputs, gal, masklines = False, smallfit = False):
 
         for i in range(fm1.shape[1]):
             m[:,i] = (fm1[:,i] + fm2[:,i]) / 2.0
+        for i in range(fc1.shape[1]):
             c[:,i] = (fc1[:,i] + fc2[:,i]) / 2.0
-        m = m[:,imfsdict[(x1,x2)]]
+        mimf = m[:,imfsdict[(x1,x2)]]
         wl = wlm1
 
     else:
@@ -245,21 +246,21 @@ def model_width(inputs, gal, masklines = False, smallfit = False):
     #                'V+', 'Cu+', 'Na+0.6', 'Na+0.9']
     # Z, Age, x1, x2, Na, K, Mg, Fe, Ca = theta 
     if type(smallfit) == bool:
-        interp = spi.interp2d(wl, [-0.3,0.0,0.3,0.6,0.9], np.stack(c[:,2],c[:,0],c[:,1],c[:,-2],c[:,-1]), kind = 'cubic')
+        interp = spi.interp2d(wl, [-0.3,0.0,0.3,0.6,0.9], np.stack((c[:,2],c[:,0],c[:,1],c[:,-2],c[:,-1])), kind = 'cubic')
         NaP = interp(wl,Na) / c[:,0] - 1.
 
-        interp = spi.interp2d(wl, [0.0,0.3], np.stack(c[:,0],c[:,29]), kind = 'linear')
+        interp = spi.interp2d(wl, [0.0,0.3], np.stack((c[:,0],c[:,29])), kind = 'linear')
         KP = interp(wl,K) / c[:,0] - 1.
 
         if not smallfit:
-            interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack(c[:,16], c[:,0],c[:,15]), kind = 'cubic')
+            interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack((c[:,16], c[:,0],c[:,15])), kind = 'linear')
             MgP = interp(wl,Mg) / c[:,0] - 1.
 
-        interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack(c[:,6], c[:,0],c[:,5]), kind = 'cubic')
+        interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack((c[:,6], c[:,0],c[:,5])), kind = 'linear')
         FeP = interp(wl,Fe) / c[:,0] - 1.
 
         #if not smallfit:
-        interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack(c[:,4], c[:,0],c[:,3]), kind = 'cubic')
+        interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack((c[:,4], c[:,0],c[:,3])), kind = 'linear')
         CaP = interp(wl,Ca) / c[:,0] - 1.
 
     basemodel = m[:,73]
@@ -287,15 +288,12 @@ def chisq(params, wl, data, err, gal, smallfit):
         masklines = False
 
     wlc, mconv = model_spec(params, gal, masklines=masklines, smallfit = smallfit)
-    mnew, errnew = splitspec(wlc, mconv, err=False)
+    mconvinterp = spi.interp1d(wlc, mconv, kind='cubic', bounds_error=False)
+    #wlnew, mnew, errnew = splitspec(wlc, mconv, err=False)
     
     chisq = 0
     for i in range(len(mlow)):
-        chisq += sum((mnew[i] - data[i])**2.0 / err[i]**2.0)
-
-    width = np.array(width)
-    widthmodels = np.array(widthmodels)
-    err = np.array(err)
+        chisq += np.sum((mconvinterp(wl[i]) - data[i])**2.0 / err[i]**2.0)
 
     return -0.5*chisq
 
@@ -331,7 +329,7 @@ def lnprob(theta, wl, data, err, gal, smallfit):
 def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6):
 
     wl, data, err = preparespec(gal)
-    data, err = splitspec(wl, data, err = err)
+    wl, data, err = splitspec(wl, data, err = err)
 
     if smallfit == True:
         ndim = 7
@@ -349,12 +347,12 @@ def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6):
         newinit.append(np.random.choice(x1_m))
         newinit.append(np.random.choice(x2_m))
         if smallfit != 'limited':
-            newinit.append(np.random.random()*1.4 - 0.4)
-            newinit.append(np.random.random()*0.8 - 0.4)
-            newinit.append(np.random.random()*0.8 - 0.4)
-            newinit.append(np.random.random()*0.8 - 0.4)
+            newinit.append(np.random.random()*1.3 - 0.3)
+            newinit.append(np.random.random()*0.6 - 0.3)
+            newinit.append(np.random.random()*0.6 - 0.3)
+            newinit.append(np.random.random()*0.6 - 0.3)
         if not smallfit:
-            newinit.append(np.random.random()*0.8 - 0.4)
+            newinit.append(np.random.random()*0.6 - 0.3)
         pos.append(np.array(newinit))
 
     #savefl = "/Users/relliotmeyer/Desktop/chainM87.dat"
@@ -479,7 +477,13 @@ def preparespec(galaxy):
     dwj = wlj[50] - wlj[49]
 
     #Cropping the j-band spectrum so no bandpasses overlap between the two
-    jstartval = 11450
+    zendval = 11500
+    zend = np.where(wlz < zendval)[0][-1]
+    wlz = wlz[:zend]
+    dataz = dataz[:zend]
+    errorsz = errorsz[:zend]
+
+    jstartval = 11500
     jstart = np.where(wlj > jstartval)[0][0]
     wlj = wlj[jstart:]
     dataj = dataj[jstart:]
@@ -499,20 +503,22 @@ def splitspec(wl, data, err=False):
     morder = [8,9,7,8]
 
     databands = []
+    wlbands = []
     errorbands = []
     for i in range(len(mlow)):
         wh = np.where( (wl >= mlow[i]) & (wl <= mhigh[i]))[0]
         dataslice = data[wh]
-        errslice = err[wh]
+        wlbands.append(wl[wh])
 
         pf = np.polyfit(wl[wh], dataslice, morder[i])
         polyfit = np.poly1d(pf)
         cont = polyfit(wl[wh])
         databands.append(dataslice / cont)
         if type(err) != bool:
+            errslice = err[wh]
             errorbands.append(errslice / cont)
     
-    return databands, errorbands
+    return wlbands, databands, errorbands
 
 def read_ssp(fl):
 
