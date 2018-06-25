@@ -248,25 +248,25 @@ def model_width(inputs, gal, masklines = False, smallfit = False):
             pf = np.polyfit([-0.3,0.0,0.3,0.6,0.9], \
                     [linearr[2], linearr[0], linearr[1], linearr[-2], linearr[-1]], 3)
             polyfit = np.poly1d(pf)
-            NaP = polyfit(Na) / linearr[0]
+            NaP = polyfit(Na) / linearr[0] - 1.
 
             pf = np.polyfit([0.0,0.3], [linearr[0], linearr[29]], 1)
             polyfit = np.poly1d(pf)
-            KP = (polyfit(K)  / linearr[0]
+            KP = polyfit(K)  / linearr[0] - 1.
 
             if not smallfit:
                 pf = np.polyfit([-0.3,0.0,0.3], [linearr[16], linearr[0], linearr[15]], 2)
                 polyfit = np.poly1d(pf)
-                MgP = polyfit(Mg) / linearr[0]
+                MgP = polyfit(Mg) / linearr[0] - 1.
 
             pf = np.polyfit([-0.3,0.0,0.3], [linearr[6], linearr[0], linearr[5]], 2)
             polyfit = np.poly1d(pf)
-            FeP = polyfit(Fe) / linearr[0]
+            FeP = polyfit(Fe) / linearr[0] - 1.
 
             #if not smallfit:
             pf = np.polyfit([-0.3,0.0,0.3], [linearr[4], linearr[0], linearr[3]], 2)
             polyfit = np.poly1d(pf)
-            CaP = polyfit(Ca) / linearr[0]
+            CaP = polyfit(Ca) / linearr[0] - 1.
 
         lwidths = np.array(w[gal][w.Line == line])
         basewidth = lwidths[73]
@@ -279,7 +279,7 @@ def model_width(inputs, gal, masklines = False, smallfit = False):
         #newwidth = imfwidth*(1 + imfratio*(NaP*Na + K*KP + Mg*MgP + Fe*FeP))
         if smallfit == True:
             #newwidth = imfwidth*(1 + imfratio*(NaP + KP + CaP + FeP))
-            newwidth = imfwidth*newratio*(NaP + KP + CaP + FeP)
+            newwidth = imfwidth*newratio*(1. + NaP + KP + CaP + FeP)
         elif smallfit == 'limited':
             newwidth = imfwidth
         else:
