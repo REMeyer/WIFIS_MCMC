@@ -51,9 +51,6 @@ chem_names = ['Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-', 'a/
 
 imfsdict = {}
 
-modelfileM85 = '/Users/relliotmeyer/Thesis_Work/ssp_models/vcj_ssp/VCJ_v8_mcut0.08_t05.0_Zp0.0.ssp.imf_varydoublex.s100'
-modelfileM87 = '/Users/relliotmeyer/Thesis_Work/ssp_models/vcj_ssp/VCJ_v8_mcut0.08_t13.5_Zp0.2.ssp.imf_varydoublex.s100'
-
 mlow = [9700,10550,11550,12350]
 mhigh = [10450,11450,12200,13180]
 morder = [8,9,7,8]
@@ -406,20 +403,20 @@ def preparespec(galaxy):
 
     if galaxy == 'M87':
         z = 0.004283
-        ejf = '/Users/relliotmeyer/gemini2015a/pipeline/errors/M87J_errors.fits'
-        ezf = '/Users/relliotmeyer/gemini2015a/pipeline/errors/M87Z_errors.fits'
+        ejf = base+'data/M87J_errors.fits'
+        ezf = base+'data/M87Z_errors.fits'
         scale = 1.0
         contcorr = False
-        flz = '/Users/relliotmeyer/gemini2015a/pipeline/M87/Merged/20150602_obs60/20150602_obs60_merged_reduced.fits'
-        flj = '/Users/relliotmeyer/gemini2015a/pipeline/M87/Merged/20150605_obs52/20150605_obs52_merged_reduced.fits'
+        flz = base+'data/20150602_obs60_merged_reduced.fits'
+        flj = base+'data/20150605_obs52_merged_reduced.fits'
     if galaxy == 'M85':
         z = 0.002432
-        ejf = '/Users/relliotmeyer/gemini2015a/pipeline/errors/M85J_errors.fits'
-        ezf = '/Users/relliotmeyer/gemini2015a/pipeline/errors/M85Z0527_errors.fits'
+        ejf = base+'data/M85J_errors.fits'
+        ezf = base+'data/M85Z0527_errors.fits'
         scale = 1.0
         contcorr = False
-        flj = '/Users/relliotmeyer/gemini2015a/pipeline/M85/Merged/20150508_obs36/20150508_obs36_merged_reduced.fits'
-        flz = '/Users/relliotmeyer/gemini2015a/pipeline/M85/Merged/20150527_obs44/20150527_obs44_merged_reduced.fits'
+        flj = base+'data/20150508_obs36_merged_reduced.fits'
+        flz = base+'data/20150527_obs44_merged_reduced.fits'
 
     fz = fits.open(flz)
     dataz = fz[0].data
