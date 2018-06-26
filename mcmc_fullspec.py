@@ -58,9 +58,41 @@ mlow = [9700,10550,11550,12350]
 mhigh = [10450,11450,12200,13180]
 morder = [8,9,7,8]
 
+
 for i in range(16):
     for j in range(16):
         imfsdict[(x1_m[i],x1_m[j])] = i*16 + j
+
+def preload_vcj():
+
+    chem_names = ['WL', 'Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-',\
+            'a/Fe+', 'N+', 'N-', 'as/Fe+', 'Ti+', 'Ti-',\
+            'Mg+', 'Mg-', 'Si+', 'Si-', 'T+', 'T-', 'Cr+', 'Mn+', 'Ba+', 'Ba-', 'Ni+', 'Co+', 'Eu+', 'Sr+', 'K+',\
+            'V+', 'Cu+', 'Na+0.6', 'Na+0.9']
+
+    print "PRELOADING SSP MODELS INTO MEMORY"
+    fls = glob(base+'spec/vcj_ssp/*')    
+    vcj = {}
+    for fl in fls:
+        flspl = fl.split('/')[-1]
+        x = pd.read_table(fl, delim_whitespace = True, header=None)
+        x = np.array(x)
+        vcj[flspl] = x[:,1:]
+
+    print "PRELOADING ABUNDANCE MODELS INTO MEMORY"
+    fls = glob(base+'spec/atlas/*')    
+    for fl in fls:
+        flspl = fl.split('/')[-1]
+        x = pd.read_table(fl, skiprows=2, names = chem_names, delim_whitespace = True, header=None)
+        x = np.array(x)
+        vcj[flspl] = x[:,1:]
+    vcj["WL"] = x[:,0]
+
+    print "FINISHED LOADING MODELS"
+
+    return vcj
+
+vcj = preload_vcj()
 
 def select_model_file(Z, Age, mixZ, mixage, noZ = False):
 
@@ -172,7 +204,7 @@ def select_model_file(Z, Age, mixZ, mixage, noZ = False):
 
     return fl1, cfl1, fl2, cfl2
 
-def model_spec(inputs, vcj, gal, masklines = False, smallfit = False):
+def model_spec(inputs, gal, masklines = False, smallfit = False):
 
     #t1 = time.time()
     if smallfit == True:
@@ -306,15 +338,14 @@ def model_spec(inputs, vcj, gal, masklines = False, smallfit = False):
     #print time.time() - t3
     return wlc, mconv
 
-def chisq(params, wl, data, err, vcj, gal, smallfit):
+def chisq(params, wl, data, err, gal, smallfit):
 
-    t1 = time.time()
     if gal == 'M87':
         masklines = ['KI_1.25']
     else:
         masklines = False
 
-    wlc, mconv = model_spec(params, vcj, gal, masklines=masklines, smallfit = smallfit)
+    wlc, mconv = model_spec(params, gal, masklines=masklines, smallfit = smallfit)
     mconvinterp = spi.interp1d(wlc, mconv, kind='cubic', bounds_error=False)
     #wlnew, mnew, errnew = splitspec(wlc, mconv, err=False)
     
@@ -327,7 +358,9 @@ def chisq(params, wl, data, err, vcj, gal, smallfit):
         modelslice = modelslice / cont
 
         chisq += np.sum((modelslice - data[i])**2.0 / err[i]**2.0)
-    print "TIME ", time.time() - t1
+        #mpl.plot(wl[i], modelslice, 'r')
+        #mpl.plot(wl[i], data[i], 'b')
+    #mpl.show()
 
     return -0.5*chisq
 
@@ -354,11 +387,13 @@ def lnprior(theta, smallfit):
             return 0.0
     return -np.inf
 
-def lnprob(theta, wl, data, err, vcj, gal, smallfit):
+def lnprob(theta, wl, data, err, gal, smallfit):
     lp = lnprior(theta, smallfit)
     if not np.isfinite(lp):
         return -np.inf
-    return lp + chisq(theta, wl, data, err, vcj, gal, smallfit)
+    t2 = time.time()
+    chisqv = chisq(theta, wl, data, err, gal, smallfit)
+    return lp + chisqv
 
 def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6):
 
@@ -389,16 +424,14 @@ def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6):
             newinit.append(np.random.random()*0.6 - 0.3)
         pos.append(np.array(newinit))
 
-    vcj = preload_vcj()
 
-    #savefl = "/Users/relliotmeyer/Desktop/chainM87.dat"
-    savefl = base + "mcmcresults/"+time.strftime("%Y%M%dT%H%M%s")+"_%s_fullfit.dat" % (gal)
+    savefl = base + "mcmcresults/"+time.strftime("%Y%m%dT%H%M%S")+"_%s_fullfit.dat" % (gal)
     f = open(savefl, "w")
     f.write("#NWalk\tNStep\tGal\tFit\n")
     f.write("#%d\t%d\t%s\t%s\n" % (nwalkers, n_iter,gal,str(smallfit)))
     f.close()
 
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = (wl, data, err, vcj, gal, smallfit), threads=threads)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = (wl, data, err, gal, smallfit), threads=threads)
     print "Starting MCMC..."
 
     t1 = time.time() 
@@ -409,7 +442,7 @@ def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6):
             f.write("%d\t%s\t%s\n" % (k, " ".join(map(str, position[k])), result[1][k]))
         f.close()
 
-        if (i+1) % 10 == 0:
+        if (i+1) % 1 == 0:
             print (time.time() - t1) / 60., " Minutes"
             print (i+1.)*100. / float(n_iter), "% Finished\n"
     
@@ -579,35 +612,6 @@ def read_ssp(fl):
         print "MODEL READ FAIL"
         return
 
-def preload_vcj():
-
-    chem_names = ['WL', 'Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-',\
-            'a/Fe+', 'N+', 'N-', 'as/Fe+', 'Ti+', 'Ti-',\
-            'Mg+', 'Mg-', 'Si+', 'Si-', 'T+', 'T-', 'Cr+', 'Mn+', 'Ba+', 'Ba-', 'Ni+', 'Co+', 'Eu+', 'Sr+', 'K+',\
-            'V+', 'Cu+', 'Na+0.6', 'Na+0.9']
-
-    print "PRELOADING SSP MODELS INTO MEMORY"
-    fls = glob(base+'spec/vcj_ssp/*')    
-    vcj = {}
-    for fl in fls:
-        flspl = fl.split('/')[-1]
-        x = pd.read_table(fl, delim_whitespace = True, header=None)
-        x = np.array(x)
-        vcj[flspl] = x[:,1:]
-
-    print "PRELOADING ABUNDANCE MODELS INTO MEMORY"
-    fls = glob(base+'spec/atlas/*')    
-    for fl in fls:
-        flspl = fl.split('/')[-1]
-        x = pd.read_table(fl, skiprows=2, names = chem_names, delim_whitespace = True, header=None)
-        x = np.array(x)
-        vcj[flspl] = x[:,1:]
-    vcj["WL"] = x[:,0]
-
-    print "FINISHED LOADING MODELS"
-
-    return vcj
-    
 
 def convolvemodels(wlfull, datafull, veldisp):
 
