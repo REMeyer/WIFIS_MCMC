@@ -92,7 +92,6 @@ def preload_vcj():
 
     return vcj
 
-vcj = preload_vcj()
 
 def select_model_file(Z, Age, mixZ, mixage, noZ = False):
 
@@ -395,7 +394,7 @@ def lnprob(theta, wl, data, err, gal, smallfit):
     chisqv = chisq(theta, wl, data, err, gal, smallfit)
     return lp + chisqv
 
-def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6):
+def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6, restart=False):
 
     wl, data, err = preparespec(gal)
     wl, data, err = splitspec(wl, data, err = err)
@@ -408,22 +407,25 @@ def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6):
         ndim = 9
 
     pos = []
-    for i in range(nwalkers):
-        newinit = []
-        if smallfit != True:
-            newinit.append(np.random.choice(Z_m))
-        newinit.append(np.random.choice(Age_m))
-        newinit.append(np.random.choice(x1_m))
-        newinit.append(np.random.choice(x2_m))
-        if smallfit != 'limited':
-            newinit.append(np.random.random()*1.3 - 0.3)
-            newinit.append(np.random.random()*0.6 - 0.3)
-            newinit.append(np.random.random()*0.6 - 0.3)
-            newinit.append(np.random.random()*0.6 - 0.3)
-        if not smallfit:
-            newinit.append(np.random.random()*0.6 - 0.3)
-        pos.append(np.array(newinit))
-
+    if not restart:
+        for i in range(nwalkers):
+            newinit = []
+            if smallfit != True:
+                newinit.append(np.random.choice(Z_m))
+            newinit.append(np.random.choice(Age_m))
+            newinit.append(np.random.choice(x1_m))
+            newinit.append(np.random.choice(x2_m))
+            if smallfit != 'limited':
+                newinit.append(np.random.random()*1.3 - 0.3)
+                newinit.append(np.random.random()*0.6 - 0.3)
+                newinit.append(np.random.random()*0.6 - 0.3)
+                newinit.append(np.random.random()*0.6 - 0.3)
+            if not smallfit:
+                newinit.append(np.random.random()*0.6 - 0.3)
+            pos.append(np.array(newinit))
+   else:
+       realdata, postprob, infol, lastdata = load_mcmc_file(restart)
+       pos = lastdata
 
     savefl = base + "mcmcresults/"+time.strftime("%Y%m%dT%H%M%S")+"_%s_fullfit.dat" % (gal)
     f = open(savefl, "w")
@@ -455,7 +457,14 @@ def load_mcmc_file(fl):
     f = open(fl,'r')
     f.readline()
     info = f.readline()
+
+    #Get line count to diagnose
+    lc = 0
+    for line in f:
+        lc += 1
     f.close()
+
+    #Get info from top line
     info = info[1:]
     values = info.split()
     nworkers = int(values[0])
@@ -464,12 +473,30 @@ def load_mcmc_file(fl):
     fit = values[3]
     infol = [nworkers, niter, gal, fit]
 
-    data = np.loadtxt(fl, skiprows = 2)
-    folddata = data.reshape((niter, nworkers,data.shape[1]))
+    #N lines should be nworkers*niter
+    n_lines = nworkers*niter
+    if lc < nworkers:
+        print "FILE DOES NOT HAVE ONE STEP...RETURNING"
+        return
+    elif lc % nworkers != 0:
+        print "FILE HAS INCOMPLETE STEP...REMOVING"
+        n_steps = int(lc / nworkers)
+        initdata = np.loadtxt(fl)
+        data = data[:n_steps*nworkers,:]
+    elif lc != n_lines:
+        print "FILE NOT COMPLETE"
+        data = np.loadtxt(fl)
+        n_steps = int(data.shape[0]/nworkers)
+    else:
+        data = np.loadtxt(fl)
+        n_steps = niter
+
+    folddata = data.reshape((n_steps, nworkers,data.shape[1]))
     postprob = folddata[:,:,-1]
     realdata = folddata[:,:,1:-1]
+    lastdata = realdata[-1,:,:]
 
-    return [realdata, postprob, infol]
+    return [realdata, postprob, infol, lastdata]
 
 def preparespec(galaxy):
 
@@ -612,7 +639,6 @@ def read_ssp(fl):
         print "MODEL READ FAIL"
         return
 
-
 def convolvemodels(wlfull, datafull, veldisp):
 
     reg = (wlfull > 9500) & (wlfull < 13500)
@@ -653,7 +679,7 @@ def convolvemodels(wlfull, datafull, veldisp):
     return wl, out[reg]
 
 if __name__ == '__main__':
+    global vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
     #sampler = do_mcmc('M85', 512, 30000, smallfit = True, threads = 6)
     sampler = do_mcmc('M85', 100, 3000, smallfit = True, threads = 6)
-
 
