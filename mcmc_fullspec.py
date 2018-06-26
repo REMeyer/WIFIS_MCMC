@@ -423,7 +423,7 @@ def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6, restart=False)
             if not smallfit:
                 newinit.append(np.random.random()*0.6 - 0.3)
             pos.append(np.array(newinit))
-   else:
+    else:
        realdata, postprob, infol, lastdata = load_mcmc_file(restart)
        pos = lastdata
 
@@ -679,7 +679,8 @@ def convolvemodels(wlfull, datafull, veldisp):
     return wl, out[reg]
 
 if __name__ == '__main__':
-    global vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
+    vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
+    global vcj
     #sampler = do_mcmc('M85', 512, 30000, smallfit = True, threads = 6)
     sampler = do_mcmc('M85', 100, 3000, smallfit = True, threads = 6)
 
