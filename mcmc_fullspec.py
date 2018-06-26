@@ -8,6 +8,9 @@ import time
 import matplotlib.pyplot as mpl
 import nifsmethods as nm
 import scipy.interpolate as spi
+import warnings
+
+warnings.simplefilter('ignore', np.RankWarning)
 
 # MCMC Parameters
 # Metallicity: -1.5 < [Z/H] < 0.2 steps of 0.1?
@@ -169,8 +172,9 @@ def select_model_file(Z, Age, mixZ, mixage, noZ = False):
 
     return fl1, cfl1, fl2, cfl2
 
-def model_spec(inputs, gal, masklines = False, smallfit = False):
+def model_spec(inputs, vcj, gal, masklines = False, smallfit = False):
 
+    #t1 = time.time()
     if smallfit == True:
         Age, x1, x2, Na, K, Ca, Fe = inputs
         Z = 0.0
@@ -214,34 +218,56 @@ def model_spec(inputs, gal, masklines = False, smallfit = False):
     else:
         noZ = True
     fl1, cfl1, fl2, cfl2 = select_model_file(Z, Age, mixZ, mixage, noZ = noZ)
-    #print fl1, cfl1, fl2, cfl2
+    #t2 = time.time()
+    #print t2 - t1
         
     if mixage or mixZ:
-        wlm1, fm1 = read_ssp(base+'spec/vcj_ssp/'+fl1)
-        wlc1, fc1 = read_ssp(base+'spec/atlas/'+cfl1)
-        wlm2, fm2 = read_ssp(base+'spec/vcj_ssp/'+fl2)
-        wlc2, fc2 = read_ssp(base+'spec/atlas/'+cfl2)
+        #wlm1, fm1 = read_ssp(base+'spec/vcj_ssp/'+fl1, 'vcj', imfsdict[(x1,x2)])
+        fm1 = vcj[fl1]
+        wlc1 = vcj["WL"]
+        fc1 = vcj[cfl1]
+        #wlc1, fc1 = read_ssp(base+'spec/atlas/'+cfl1, 'atlas')
+        fm2 = vcj[fl2]
+        #wlm2, fm2 = read_ssp(base+'spec/vcj_ssp/'+fl2, )
+        fc2 = vcj[cfl2]
+        #wlc2, fc2 = read_ssp(base+'spec/atlas/'+cfl2)
+
+        rel = np.where((wlc1 > 8500) & (wlc1 < 14000))[0]
 
         m = np.zeros(fm1.shape)
         c = np.zeros(fc1.shape)
 
         for i in range(fm1.shape[1]):
             m[:,i] = (fm1[:,i] + fm2[:,i]) / 2.0
+        #mimf = (fm1[:,imfsdict[(x1,x2)]] + fm2[:, imfsdict[(x1,x2)]]) / 2.0
         for i in range(fc1.shape[1]):
             c[:,i] = (fc1[:,i] + fc2[:,i]) / 2.0
-        mimf = m[:,imfsdict[(x1,x2)]]
-        wl = wlm1
+        c = c[rel,:]
+        mimf = m[rel,imfsdict[(x1,x2)]]
+        wl = wlc1
 
     else:
-        wlm1, m = read_ssp(base+'spec/vcj_ssp/'+fl1)
-        wlc1, c = read_ssp(base+'spec/atlas/'+cfl1)
-        mimf = m[:,imfsdict[(x1,x2)]]
-        wl = wlm1
+        #wlm1, m = read_ssp(base+'spec/vcj_ssp/'+fl1)
+        m = vcj[fl1]
+        wlc1 = vcj["WL"]
+        c = vcj[cfl1]
+
+        wl = wlc1
+        rel = np.where((wlc1 > 8500) & (wlc1 < 14000))[0]
+
+        #wlc1, c = read_ssp(base+'spec/atlas/'+cfl1)
+        mimf = m[rel,imfsdict[(x1,x2)]]
+        c = c[rel,:]
+
+    #t3 = time.time()
+    #print t3 - t2
 
     # ['Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-', 'a/Fe+', 'N+', 'N-', 'as/Fe+', 'Ti+', 'Ti-',\
     #                'Mg+', 'Mg-', 'Si+', 'Si-', 'T+', 'T-', 'Cr+', 'Mn+', 'Ba+', 'Ba-', 'Ni+', 'Co+', 'Eu+', 'Sr+', 'K+',\
     #                'V+', 'Cu+', 'Na+0.6', 'Na+0.9']
     # Z, Age, x1, x2, Na, K, Mg, Fe, Ca = theta 
+
+    wl = wl[rel]
     if type(smallfit) == bool:
         interp = spi.interp2d(wl, [-0.3,0.0,0.3,0.6,0.9], np.stack((c[:,2],c[:,0],c[:,1],c[:,-2],c[:,-1])), kind = 'cubic')
         NaP = interp(wl,Na) / c[:,0] - 1.
@@ -260,7 +286,9 @@ def model_spec(inputs, gal, masklines = False, smallfit = False):
         interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack((c[:,4], c[:,0],c[:,3])), kind = 'linear')
         CaP = interp(wl,Ca) / c[:,0] - 1.
 
-    basemodel = m[:,73]
+    basemodel = m[rel,73]
+    #mimf = mimf[rel]
+
     model_ratio = mimf / basemodel
 
     if smallfit == True:
@@ -275,22 +303,31 @@ def model_spec(inputs, gal, masklines = False, smallfit = False):
     elif gal == 'M87':
         wlc, mconv = convolvemodels(wl, newm, 360.)
     
+    #print time.time() - t3
     return wlc, mconv
 
-def chisq(params, wl, data, err, gal, smallfit):
+def chisq(params, wl, data, err, vcj, gal, smallfit):
 
+    t1 = time.time()
     if gal == 'M87':
         masklines = ['KI_1.25']
     else:
         masklines = False
 
-    wlc, mconv = model_spec(params, gal, masklines=masklines, smallfit = smallfit)
+    wlc, mconv = model_spec(params, vcj, gal, masklines=masklines, smallfit = smallfit)
     mconvinterp = spi.interp1d(wlc, mconv, kind='cubic', bounds_error=False)
     #wlnew, mnew, errnew = splitspec(wlc, mconv, err=False)
     
     chisq = 0
     for i in range(len(mlow)):
-        chisq += np.sum((mconvinterp(wl[i]) - data[i])**2.0 / err[i]**2.0)
+        modelslice = mconvinterp(wl[i])
+        pf = np.polyfit(wl[i], modelslice, morder[i])
+        polyfit = np.poly1d(pf)
+        cont = polyfit(wl[i])
+        modelslice = modelslice / cont
+
+        chisq += np.sum((modelslice - data[i])**2.0 / err[i]**2.0)
+    print "TIME ", time.time() - t1
 
     return -0.5*chisq
 
@@ -317,11 +354,11 @@ def lnprior(theta, smallfit):
             return 0.0
     return -np.inf
 
-def lnprob(theta, wl, data, err, gal, smallfit):
+def lnprob(theta, wl, data, err, vcj, gal, smallfit):
     lp = lnprior(theta, smallfit)
     if not np.isfinite(lp):
         return -np.inf
-    return lp + chisq(theta, wl, data, err, gal, smallfit)
+    return lp + chisq(theta, wl, data, err, vcj, gal, smallfit)
 
 def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6):
 
@@ -352,6 +389,8 @@ def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6):
             newinit.append(np.random.random()*0.6 - 0.3)
         pos.append(np.array(newinit))
 
+    vcj = preload_vcj()
+
     #savefl = "/Users/relliotmeyer/Desktop/chainM87.dat"
     savefl = base + "mcmcresults/"+time.strftime("%Y%M%dT%H%M%s")+"_%s_fullfit.dat" % (gal)
     f = open(savefl, "w")
@@ -359,7 +398,7 @@ def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6):
     f.write("#%d\t%d\t%s\t%s\n" % (nwalkers, n_iter,gal,str(smallfit)))
     f.close()
 
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = (wl, data, err, gal, smallfit), threads=threads)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = (wl, data, err, vcj, gal, smallfit), threads=threads)
     print "Starting MCMC..."
 
     t1 = time.time() 
@@ -370,7 +409,7 @@ def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6):
             f.write("%d\t%s\t%s\n" % (k, " ".join(map(str, position[k])), result[1][k]))
         f.close()
 
-        if (i+1) % 100 == 0:
+        if (i+1) % 10 == 0:
             print (time.time() - t1) / 60., " Minutes"
             print (i+1.)*100. / float(n_iter), "% Finished\n"
     
@@ -519,16 +558,56 @@ def splitspec(wl, data, err=False):
 
 def read_ssp(fl):
 
+    chem_names = ['WL', 'Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-',\
+            'a/Fe+', 'N+', 'N-', 'as/Fe+', 'Ti+', 'Ti-',\
+            'Mg+', 'Mg-', 'Si+', 'Si-', 'T+', 'T-', 'Cr+', 'Mn+', 'Ba+', 'Ba-', 'Ni+', 'Co+', 'Eu+', 'Sr+', 'K+',\
+            'V+', 'Cu+', 'Na+0.6', 'Na+0.9']
+
     spl = fl.split('/')[-1]
     spll = spl.split('_')[0]
     if spll == 'VCJ':
-        x = np.loadtxt(fl)
+        #x = np.loadtxt(fl)
+        x = pd.read_table(fl, delim_whitespace = True, header=None)
+        x = np.array(x)
+        return x[:,1:]
     elif spll == 'atlas':
-        x = np.loadtxt(fl, skiprows = 2)
+        #x = np.loadtxt(fl, skiprows = 2)
+        x = pd.read_table(fl, skiprows=2, names = chem_names, delim_whitespace = True, header=None)
+        x = np.array(x)
+        return np.array(x[:,0]), x[:,1:]
     else:
         print "MODEL READ FAIL"
         return
-    return x[:,0], x[:,1:]
+
+def preload_vcj():
+
+    chem_names = ['WL', 'Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-',\
+            'a/Fe+', 'N+', 'N-', 'as/Fe+', 'Ti+', 'Ti-',\
+            'Mg+', 'Mg-', 'Si+', 'Si-', 'T+', 'T-', 'Cr+', 'Mn+', 'Ba+', 'Ba-', 'Ni+', 'Co+', 'Eu+', 'Sr+', 'K+',\
+            'V+', 'Cu+', 'Na+0.6', 'Na+0.9']
+
+    print "PRELOADING SSP MODELS INTO MEMORY"
+    fls = glob(base+'spec/vcj_ssp/*')    
+    vcj = {}
+    for fl in fls:
+        flspl = fl.split('/')[-1]
+        x = pd.read_table(fl, delim_whitespace = True, header=None)
+        x = np.array(x)
+        vcj[flspl] = x[:,1:]
+
+    print "PRELOADING ABUNDANCE MODELS INTO MEMORY"
+    fls = glob(base+'spec/atlas/*')    
+    for fl in fls:
+        flspl = fl.split('/')[-1]
+        x = pd.read_table(fl, skiprows=2, names = chem_names, delim_whitespace = True, header=None)
+        x = np.array(x)
+        vcj[flspl] = x[:,1:]
+    vcj["WL"] = x[:,0]
+
+    print "FINISHED LOADING MODELS"
+
+    return vcj
+    
 
 def convolvemodels(wlfull, datafull, veldisp):
 
@@ -570,6 +649,7 @@ def convolvemodels(wlfull, datafull, veldisp):
     return wl, out[reg]
 
 if __name__ == '__main__':
-    sampler = do_mcmc('M85', 512, 30000, smallfit = True, threads = 6)
+    #sampler = do_mcmc('M85', 512, 30000, smallfit = True, threads = 6)
+    sampler = do_mcmc('M85', 100, 3000, smallfit = True, threads = 6)
 
 
