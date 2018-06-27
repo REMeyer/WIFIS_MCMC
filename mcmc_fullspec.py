@@ -1,3 +1,8 @@
+####################
+#   MCMC program using Prof Charlie Conroy's SSP Models
+#   Based off of emcee 
+#   Author: Elliot Meyer, Dept Astronomy & Astrophysics University of Toronto
+###################
 import numpy as np
 from astropy.io import fits
 from sys import exit
@@ -12,32 +17,28 @@ import warnings
 
 warnings.simplefilter('ignore', np.RankWarning)
 
-# MCMC Parameters
-# Metallicity: -1.5 < [Z/H] < 0.2 steps of 0.1?
-# Age: depends on galaxy, steps of 1 Gyr?
-# IMF: x1 and x2 full range
-# [Na/H]: -0.4 <-> +1.3
-Z_m = np.array([-1.5,-1.0, -0.5, -0.25, 0.0, 0.1, 0.2])
-Age_m = np.array([1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.25,13.5])
-x1_m = 0.5 + np.arange(16)/5.0
-x2_m = 0.5 + np.arange(16)/5.0
-Na_m = np.arange(-0.4,1.0,0.1)
-K_m = np.array([-0.4,-0.3,-0.2,-0.1,0.0,0.1,0.2,0.3,0.4])
-Mg_m = np.array([-0.4,-0.3,-0.2,-0.1,0.0,0.1,0.2,0.3,0.4])
-Fe_m = np.array([-0.4,-0.3,-0.2,-0.1,0.0,0.1,0.2,0.3,0.4])
-Ca_m = np.array([-0.4,-0.3,-0.2,-0.1,0.0,0.1,0.2,0.3,0.4])
-
-Z_pm = np.array(['m','m','m','m','p','p','p'])
-ChemAge_m = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13])
-
+# DEFINES THE BASE PATH -- NEEDS UPDATING FOR ALL SYSTEMS
 #base = '/Users/relliotmeyer/Thesis_Work/ssp_models/'
 #base = '/Users/relliotmeyer/gemini2015a/mcmcgemini/'
 #base = '/home/elliot/mcmcgemini/'
 base = '/Users/relliotmeyer/mcmcgemini/'
 
-imffiles = glob(base + 'widths/VCJ_v8_mcut0.08_t*')
-chemfiles = glob(base + 'widths/atlas*')
+# MCMC Parameters
+# Metallicity: -1.5 < [Z/H] < 0.2 steps of 0.1?
+# Age: depends on galaxy, steps of 1 Gyr?
+# IMF: x1 and x2 full range
+# [Na/H]: -0.4 <-> +1.3
 
+#Setting some of the mcmc priors
+Z_m = np.array([-1.5,-1.0, -0.5, -0.25, 0.0, 0.1, 0.2])
+Age_m = np.array([1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.25,13.5])
+x1_m = 0.5 + np.arange(16)/5.0
+x2_m = 0.5 + np.arange(16)/5.0
+
+Z_pm = np.array(['m','m','m','m','p','p','p'])
+ChemAge_m = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13])
+
+#Line definitions & other definitions
 linelow = [9905,10337,11372,11680,11765,12505,13115]
 linehigh = [9935,10360,11415,11705,11793,12545,13165]
 
@@ -52,18 +53,23 @@ chem_names = ['Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-', 'a/
                     'Mg+', 'Mg-', 'Si+', 'Si-', 'T+', 'T-', 'Cr+', 'Mn+', 'Ba+', 'Ba-', 'Ni+', 'Co+', 'Eu+', 'Sr+', 'K+',\
                     'V+', 'Cu+', 'Na+0.6', 'Na+0.9']
 
-imfsdict = {}
-
+#Definitions for the fitting bandpasses
 mlow = [9700,10550,11550,12350]
 mhigh = [10450,11450,12200,13180]
 morder = [8,9,7,8]
 
-
+#Dictionary to help easily access the IMF index
+imfsdict = {}
 for i in range(16):
     for j in range(16):
         imfsdict[(x1_m[i],x1_m[j])] = i*16 + j
 
+vcj = {}
+
 def preload_vcj():
+    '''Loads the SSP models into memory so the mcmc model creation takes a
+    shorter time. Returns a dict with the filenames as the keys'''
+    global vcj
 
     chem_names = ['WL', 'Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-',\
             'a/Fe+', 'N+', 'N-', 'as/Fe+', 'Ti+', 'Ti-',\
@@ -72,7 +78,7 @@ def preload_vcj():
 
     print "PRELOADING SSP MODELS INTO MEMORY"
     fls = glob(base+'spec/vcj_ssp/*')    
-    vcj = {}
+    #vcj = {}
     for fl in fls:
         flspl = fl.split('/')[-1]
         x = pd.read_table(fl, delim_whitespace = True, header=None)
@@ -92,16 +98,17 @@ def preload_vcj():
 
     return vcj
 
-
 def select_model_file(Z, Age, mixZ, mixage, noZ = False):
+    '''Selects the model file for a given Age and [Z/H]. If the requested values
+    are between two models it returns two filenames for each model set.'''
 
+    #Acceptable parameters...also global variables but restated here...
     Z_m = np.array([-1.5,-1.0, -0.5, -0.25, 0.0, 0.1, 0.2])
     Age_m = np.array([1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.25,13.5])
-    x1_m = 0.5 + np.arange(16)/5.0
-    x2_m = 0.5 + np.arange(16)/5.0
     Z_pm = np.array(['m','m','m','m','p','p','p'])
     ChemAge_m = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13])
 
+    #Long set of if-elif to determine the proper model file...unoptimized.
     if noZ:
         if mixage:
             whAge = np.where(Age_m == Age)[0][0]
@@ -178,6 +185,7 @@ def select_model_file(Z, Age, mixZ, mixage, noZ = False):
                 fl2 = 'VCJ_v8_mcut0.08_t%.1f_Z%s%.1f.ssp.imf_varydoublex.s100' % (Age_m[whAge+1], str(Z_pm[whZ]), abs(Z))
                 cfl1 = 'atlas_ssp_t%1i_Z%s%.1f.abund.krpa.s100' % (ChemAge_m[whAge-1], str(Z_pm[whZ]), abs(Z))
                 cfl2 = 'atlas_ssp_t%1i_Z%s%.1f.abund.krpa.s100' % (ChemAge_m[whAge+1], str(Z_pm[whZ]), abs(Z)) 
+
         elif not mixage and mixZ:
             whAge = np.where(Age_m == Age)[0][0]
             whZ = np.where(Z_m == Z)[0][0]
@@ -204,8 +212,13 @@ def select_model_file(Z, Age, mixZ, mixage, noZ = False):
     return fl1, cfl1, fl2, cfl2
 
 def model_spec(inputs, gal, masklines = False, smallfit = False):
+    '''Core function which takes the input model parameters, finds the appropriate models,
+    and adjusts them for the input abundance ratios. Returns a broadened model spectrum 
+    to be matched with a data spectrum.'''
 
     #t1 = time.time()
+
+    #Determining the fitting parameters from the smallfit variable
     if smallfit == True:
         Age, x1, x2, Na, K, Ca, Fe = inputs
         Z = 0.0
@@ -214,6 +227,7 @@ def model_spec(inputs, gal, masklines = False, smallfit = False):
     else:
         Z, Age, x1, x2, Na, K, Mg, Fe, Ca = inputs
 
+    #Needed prior definitons.
     Z_m = np.array([-1.5,-1.0, -0.5, -0.25, 0.0, 0.1, 0.2])
     Age_m = np.array([1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.25,13.5])
     x1_m = 0.5 + np.arange(16)/5.0
@@ -224,6 +238,7 @@ def model_spec(inputs, gal, masklines = False, smallfit = False):
     fullage = np.array([1.0,3.0,5.0,7.0,9.0,11.0,13.5])
     fullZ = np.array([-1.5, -0.5, 0.0, 0.2])
     
+    #Matching parameters to the nearest acceptable value (for Age, Z, x1, and x2)
     if Z not in Z_m:
         Zmin = np.argmin(np.abs(Z_m - Z))
         Z = Z_m[Zmin]
@@ -248,57 +263,65 @@ def model_spec(inputs, gal, masklines = False, smallfit = False):
         noZ = False
     else:
         noZ = True
+    #Finding the appropriate base model files.
     fl1, cfl1, fl2, cfl2 = select_model_file(Z, Age, mixZ, mixage, noZ = noZ)
+
     #t2 = time.time()
     #print t2 - t1
         
+    # If the Age of Z is inbetween models then this will average the respective models to produce 
+    # one that is closer to what is expected.
+    # NOTE THAT THIS IS AN ASSUMPTION AND THE CHANGE IN THE MODELS IS NOT NECESSARILY LINEAR
     if mixage or mixZ:
-        #wlm1, fm1 = read_ssp(base+'spec/vcj_ssp/'+fl1, 'vcj', imfsdict[(x1,x2)])
+        # Reading models. This step was vastly improved by pre-loading the models prior to running the mcmc
         fm1 = vcj[fl1]
         wlc1 = vcj["WL"]
         fc1 = vcj[cfl1]
-        #wlc1, fc1 = read_ssp(base+'spec/atlas/'+cfl1, 'atlas')
         fm2 = vcj[fl2]
-        #wlm2, fm2 = read_ssp(base+'spec/vcj_ssp/'+fl2, )
         fc2 = vcj[cfl2]
-        #wlc2, fc2 = read_ssp(base+'spec/atlas/'+cfl2)
 
+        #Finding the relevant section of the models to reduce the computational complexity
         rel = np.where((wlc1 > 8500) & (wlc1 < 14000))[0]
 
         m = np.zeros(fm1.shape)
         c = np.zeros(fc1.shape)
 
+        #Taking the average of the models (could be improved?)
         for i in range(fm1.shape[1]):
             m[:,i] = (fm1[:,i] + fm2[:,i]) / 2.0
-        #mimf = (fm1[:,imfsdict[(x1,x2)]] + fm2[:, imfsdict[(x1,x2)]]) / 2.0
         for i in range(fc1.shape[1]):
             c[:,i] = (fc1[:,i] + fc2[:,i]) / 2.0
+
+        # Setting the models to the proper length
         c = c[rel,:]
         mimf = m[rel,imfsdict[(x1,x2)]]
-        wl = wlc1
-
+        wl = wlc1[rel]
     else:
-        #wlm1, m = read_ssp(base+'spec/vcj_ssp/'+fl1)
+        #If theres no need to mix models then just read them in and set the length
         m = vcj[fl1]
         wlc1 = vcj["WL"]
         c = vcj[cfl1]
 
-        wl = wlc1
         rel = np.where((wlc1 > 8500) & (wlc1 < 14000))[0]
 
-        #wlc1, c = read_ssp(base+'spec/atlas/'+cfl1)
         mimf = m[rel,imfsdict[(x1,x2)]]
         c = c[rel,:]
+        wl = wlc1[rel]
 
     #t3 = time.time()
     #print t3 - t2
 
+    # Reminder of the abundance model columns
     # ['Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-', 'a/Fe+', 'N+', 'N-', 'as/Fe+', 'Ti+', 'Ti-',\
     #                'Mg+', 'Mg-', 'Si+', 'Si-', 'T+', 'T-', 'Cr+', 'Mn+', 'Ba+', 'Ba-', 'Ni+', 'Co+', 'Eu+', 'Sr+', 'K+',\
     #                'V+', 'Cu+', 'Na+0.6', 'Na+0.9']
-    # Z, Age, x1, x2, Na, K, Mg, Fe, Ca = theta 
 
-    wl = wl[rel]
+    # DETERMINING THE ABUNDANCE RATIO EFFECTS
+    # The assumption here is that the abundance effects scale linearly...for all except sodium which covers a much wider
+    # range of acceptable values.
+    # The models are interpolated at the various given abundances to allow for abundance values to be continuous.
+    # The interpolated value is then normalized by the solar metallicity model and then subtracted by 1 to 
+    # retain the percentage
     if type(smallfit) == bool:
         interp = spi.interp2d(wl, [-0.3,0.0,0.3,0.6,0.9], np.stack((c[:,2],c[:,0],c[:,1],c[:,-2],c[:,-1])), kind = 'cubic')
         NaP = interp(wl,Na) / c[:,0] - 1.
@@ -318,17 +341,20 @@ def model_spec(inputs, gal, masklines = False, smallfit = False):
         CaP = interp(wl,Ca) / c[:,0] - 1.
 
     basemodel = m[rel,73]
-    #mimf = mimf[rel]
-
     model_ratio = mimf / basemodel
 
+    # The model formula is as follows....
+    # The new model is = the base IMF model * abundance effects. 
+    # The abundance effect %ages are scaled by the ratio of the selected IMF model to the Kroupa IMF model
+    # The formula ensures that if the abundances are solar then the base IMF model is recovered. 
     if smallfit == True:
         newm = mimf*(1. + model_ratio*(NaP + KP + CaP + FeP))
     elif smallfit == 'limited':
         newm = newm
     else:
-        newm = mimf*model_ratio*(1. + NaP + KP + MgP + CaP + FeP)
+        newm = mimf*(1. + model_ratio(NaP + KP + MgP + CaP + FeP))
         
+    # Convolve model to previously determined velocity dispersion (we don't fit dispersion in this code).
     if gal == 'M85':
         wlc, mconv = convolvemodels(wl, newm, 176.)
     elif gal == 'M87':
@@ -337,33 +363,44 @@ def model_spec(inputs, gal, masklines = False, smallfit = False):
     #print time.time() - t3
     return wlc, mconv
 
-def chisq(params, wl, data, err, gal, smallfit):
+def chisq(params, wl, data, err, gal, smallfit, plot=False):
+    ''' Important function that produces the value that essentially
+    represents the likelihood of the mcmc equation. Produces the model
+    spectrum then returns a normal chisq value.'''
 
     if gal == 'M87':
         masklines = ['KI_1.25']
     else:
         masklines = False
 
+    #Creating model spectrum then interpolating it so that it can be easily matched with the data.
     wlc, mconv = model_spec(params, gal, masklines=masklines, smallfit = smallfit)
     mconvinterp = spi.interp1d(wlc, mconv, kind='cubic', bounds_error=False)
-    #wlnew, mnew, errnew = splitspec(wlc, mconv, err=False)
     
+    #Measuring the chisq
     chisq = 0
     for i in range(len(mlow)):
+        #Getting a slice of the model
         modelslice = mconvinterp(wl[i])
+        #Removing a high-order polynomial from the slice
         pf = np.polyfit(wl[i], modelslice, morder[i])
         polyfit = np.poly1d(pf)
         cont = polyfit(wl[i])
         modelslice = modelslice / cont
 
+        #Performing the chisq calculation
         chisq += np.sum((modelslice - data[i])**2.0 / err[i]**2.0)
-        #mpl.plot(wl[i], modelslice, 'r')
-        #mpl.plot(wl[i], data[i], 'b')
-    #mpl.show()
+
+        if plot:
+            mpl.plot(wl[i], modelslice, 'r')
+            mpl.plot(wl[i], data[i], 'b')
+    if plot:
+        mpl.show()
 
     return -0.5*chisq
 
 def lnprior(theta, smallfit):
+    '''Setting the priors for the mcmc. Returns 0.0 if fine and -inf if otherwise.'''
 
     if smallfit == True:
         Age, x1, x2, Na, K, Ca, Fe = theta 
@@ -374,7 +411,7 @@ def lnprior(theta, smallfit):
 
     elif smallfit == 'limited':
         Z, Age, x1, x2 = theta 
-        if (-1.5 <= Z <= 0.2) and (7.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
+        if (-1.5 <= Z <= 0.2) and (1.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
                 (0.5 <= x2 <= 3.5):
             return 0.0
 
@@ -387,14 +424,17 @@ def lnprior(theta, smallfit):
     return -np.inf
 
 def lnprob(theta, wl, data, err, gal, smallfit):
+    '''Primary function of the mcmc. Checks priors and returns the likelihood'''
+
     lp = lnprior(theta, smallfit)
     if not np.isfinite(lp):
         return -np.inf
-    t2 = time.time()
+
     chisqv = chisq(theta, wl, data, err, gal, smallfit)
     return lp + chisqv
 
 def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6, restart=False):
+    '''Main program. Runs the mcmc'''
 
     wl, data, err = preparespec(gal)
     wl, data, err = splitspec(wl, data, err = err)
@@ -680,7 +720,7 @@ def convolvemodels(wlfull, datafull, veldisp):
 
 if __name__ == '__main__':
     vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
-    global vcj
-    #sampler = do_mcmc('M85', 512, 30000, smallfit = True, threads = 6)
-    sampler = do_mcmc('M85', 100, 3000, smallfit = True, threads = 6)
+    #global vcj
+    sampler = do_mcmc('M85', 512, 25000, smallfit = True, threads = 6)
+    #sampler = do_mcmc('M85', 100, 3000, smallfit = True, threads = 6)
 
