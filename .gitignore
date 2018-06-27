@@ -1,2 +1,8 @@
 widths/*.txt
 mcmcresults/*.dat
+*.pyc
+*.swp
+*.swo
+spec/atlas/
+spec/vcj_ssp/
+spec/*.zip
