@@ -14,14 +14,14 @@ import matplotlib.pyplot as mpl
 import nifsmethods as nm
 import scipy.interpolate as spi
 import warnings
+import sys, os
 
 warnings.simplefilter('ignore', np.RankWarning)
 
 # DEFINES THE BASE PATH -- NEEDS UPDATING FOR ALL SYSTEMS
-#base = '/Users/relliotmeyer/Thesis_Work/ssp_models/'
-#base = '/Users/relliotmeyer/gemini2015a/mcmcgemini/'
 #base = '/home/elliot/mcmcgemini/'
-base = '/Users/relliotmeyer/mcmcgemini/'
+#base = '/Users/relliotmeyer/mcmcgemini/'
+base = os.path.dirname(os.path.realpath(sys.argv[0])) + '/'
 
 # MCMC Parameters
 # Metallicity: -1.5 < [Z/H] < 0.2 steps of 0.1?
@@ -744,7 +744,5 @@ def setup_test_models():
 
 if __name__ == '__main__':
     vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
-    #global vcj
     sampler = do_mcmc('M85', 512, 25000, smallfit = True, threads = 6)
-    #sampler = do_mcmc('M85', 100, 3000, smallfit = True, threads = 6)
 
