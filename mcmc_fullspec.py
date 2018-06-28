@@ -513,9 +513,11 @@ def load_mcmc_file(fl):
     f = open(fl,'r')
     f.readline()
     info = f.readline()
+    firstline = f.readline()
+    n_values = len(firstline.split())
 
     #Get line count to diagnose
-    lc = 0
+    lc = 1
     for line in f:
         lc += 1
     f.close()
@@ -529,6 +531,8 @@ def load_mcmc_file(fl):
     fit = values[3]
     infol = [nworkers, niter, gal, fit]
 
+    headerarr = [str(i) for i in range(firstline)]
+
     #N lines should be nworkers*niter
     n_lines = nworkers*niter
     if lc < nworkers:
@@ -537,14 +541,23 @@ def load_mcmc_file(fl):
     elif lc % nworkers != 0:
         print "FILE HAS INCOMPLETE STEP...REMOVING"
         n_steps = int(lc / nworkers)
-        initdata = np.loadtxt(fl)
+        initdata = pd.read_table(fl, comment='#', header = None, \
+                names=headerarr, delim_whitespace=True)
+        #initdata = np.loadtxt(fl)
+        data = np.array(initdata)
         data = data[:n_steps*nworkers,:]
     elif lc != n_lines:
         print "FILE NOT COMPLETE"
-        data = np.loadtxt(fl)
+        initdata = pd.read_table(fl, comment='#', header = None, \
+                names=headerarr, delim_whitespace=True)
+        data = np.array(initdata)
+        #data = np.loadtxt(fl)
         n_steps = int(data.shape[0]/nworkers)
     else:
-        data = np.loadtxt(fl)
+        initdata = pd.read_table(fl, comment='#', header = None, \
+                names=headerarr, delim_whitespace=True)
+        data = np.array(initdata)
+        #data = np.loadtxt(fl)
         n_steps = niter
 
     folddata = data.reshape((n_steps, nworkers,data.shape[1]))
