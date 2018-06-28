@@ -363,10 +363,13 @@ def model_spec(inputs, gal, masklines = False, smallfit = False):
     #print time.time() - t3
     return wlc, mconv
 
-def chisq(params, wl, data, err, gal, smallfit, plot=False):
+def chisq(params, wl, data, err, gal, smallfit, plot=False, timing = False):
     ''' Important function that produces the value that essentially
     represents the likelihood of the mcmc equation. Produces the model
     spectrum then returns a normal chisq value.'''
+    
+    if timing:
+        t1 = time.time()
 
     if gal == 'M87':
         masklines = ['KI_1.25']
@@ -375,7 +378,13 @@ def chisq(params, wl, data, err, gal, smallfit, plot=False):
 
     #Creating model spectrum then interpolating it so that it can be easily matched with the data.
     wlc, mconv = model_spec(params, gal, masklines=masklines, smallfit = smallfit)
+    if timing:
+        t2 = time.time()
+        print "CHISQ T1: ", t2 - t1
     mconvinterp = spi.interp1d(wlc, mconv, kind='cubic', bounds_error=False)
+    if timing:
+        t3 = time.time()
+        print "CHISQ T2: ", t3 - t2
     
     #Measuring the chisq
     chisq = 0
@@ -396,6 +405,10 @@ def chisq(params, wl, data, err, gal, smallfit, plot=False):
             mpl.plot(wl[i], data[i], 'b')
     if plot:
         mpl.show()
+
+    if timing:
+        t4 = time.time()
+        print "CHISQ T3: ", t4 - t3
 
     return -0.5*chisq
 
@@ -484,9 +497,12 @@ def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6, restart=False)
             f.write("%d\t%s\t%s\n" % (k, " ".join(map(str, position[k])), result[1][k]))
         f.close()
 
-        if (i+1) % 1 == 0:
-            print (time.time() - t1) / 60., " Minutes"
-            print (i+1.)*100. / float(n_iter), "% Finished\n"
+        if (i+1) % 10 == 0:
+            ct = time.time() - t1
+            print ct / 60., " Minutes"
+            print (i+1.)*100. / float(n_iter), "% Finished"
+            print ct /((i+1)/float(n_iter)) / 60., "Minutes left"
+            print ct /((i+1)/float(n_iter)) / 3600., "Hours left"
     
     return sampler
 
@@ -717,6 +733,14 @@ def convolvemodels(wlfull, datafull, veldisp):
     out = np.convolve(datafull, gaussplot, mode='same')
 
     return wl, out[reg]
+
+def setup_test_models():
+    mockdata = [7.0,1.3,1.3,0.1,0.2,0.0,-0.1]
+    vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
+    d = preparespec('M85')
+    wl, data, err = splitspec(d[0], d[1], err = d[2])
+    #cs = chisq(mockdata, wl, data, err, gal, smallfit, plot=False, timing = False):
+    return mockdata, wl, data, err, vcj
 
 if __name__ == '__main__':
     vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
