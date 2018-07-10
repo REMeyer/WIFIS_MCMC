@@ -8,7 +8,7 @@ def plot_corner(fl, burnin, smallfit = True):
     dataall = mcfs.load_mcmc_file(fl)
     data = dataall[0]
 
-    if smallfit = True:
+    if smallfit == True:
         names = ['Age','x1','x2','[Na/H]','[K/H]','[Ca/H]','[Fe/H]']
     else:
         names = ['Age','[Z/H]','x1','x2','[Na/H]','[K/H]','[Ca/H]','[Mg/H]','[Fe/H]']

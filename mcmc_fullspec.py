@@ -54,9 +54,13 @@ chem_names = ['Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-', 'a/
                     'V+', 'Cu+', 'Na+0.6', 'Na+0.9']
 
 #Definitions for the fitting bandpasses
-mlow = [9700,10550,11550,12350]
-mhigh = [10450,11450,12200,13180]
-morder = [8,9,7,8]
+#mlow = [9700,10550,11550,12350]
+#mhigh = [10450,11450,12200,13180]
+#morder = [8,9,7,8]
+mlow = [9855,10300,11340,11667,11710,12460,13090]
+mhigh = [9970,10390,11447,11750,11810,12590,13175]
+morder = [1,1,1,1,1,1,1]
+limited = True
 
 #Dictionary to help easily access the IMF index
 imfsdict = {}
@@ -381,6 +385,7 @@ def chisq(params, wl, data, err, gal, smallfit, plot=False, timing = False):
     if timing:
         t2 = time.time()
         print "CHISQ T1: ", t2 - t1
+
     mconvinterp = spi.interp1d(wlc, mconv, kind='cubic', bounds_error=False)
     if timing:
         t3 = time.time()
@@ -392,9 +397,16 @@ def chisq(params, wl, data, err, gal, smallfit, plot=False, timing = False):
         #Getting a slice of the model
         modelslice = mconvinterp(wl[i])
         #Removing a high-order polynomial from the slice
-        pf = np.polyfit(wl[i], modelslice, morder[i])
-        polyfit = np.poly1d(pf)
-        cont = polyfit(wl[i])
+        
+        if limited:
+            pf = np.polyfit([wl[i][0],wl[i][-1]], [modelslice[0],modelslice[-1]], 1)
+            polyfit = np.poly1d(pf)
+            cont = polyfit(wl[i])
+        else:
+            pf = np.polyfit(wl[i], modelslice, morder[i])
+            polyfit = np.poly1d(pf)
+            cont = polyfit(wl[i])
+
         modelslice = modelslice / cont
 
         #Performing the chisq calculation
@@ -403,6 +415,7 @@ def chisq(params, wl, data, err, gal, smallfit, plot=False, timing = False):
         if plot:
             mpl.plot(wl[i], modelslice, 'r')
             mpl.plot(wl[i], data[i], 'b')
+
     if plot:
         mpl.show()
 
@@ -450,7 +463,7 @@ def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6, restart=False)
     '''Main program. Runs the mcmc'''
 
     wl, data, err = preparespec(gal)
-    wl, data, err = splitspec(wl, data, err = err)
+    wl, data, err = splitspec(wl, data, err = err, lines=linefit)
 
     if smallfit == True:
         ndim = 7
@@ -661,11 +674,7 @@ def preparespec(galaxy):
 
     return finalwl, finaldata, finalerr
 
-def splitspec(wl, data, err=False):
-
-    mlow = [9700,10550,11550,12350]
-    mhigh = [10450,11450,12200,13180]
-    morder = [8,9,7,8]
+def splitspec(wl, data, err=False, lines = False):
 
     databands = []
     wlbands = []
@@ -673,12 +682,20 @@ def splitspec(wl, data, err=False):
     for i in range(len(mlow)):
         wh = np.where( (wl >= mlow[i]) & (wl <= mhigh[i]))[0]
         dataslice = data[wh]
-        wlbands.append(wl[wh])
+        wlslice = wl[wh]
+        wlbands.append(wlslice)
 
-        pf = np.polyfit(wl[wh], dataslice, morder[i])
-        polyfit = np.poly1d(pf)
-        cont = polyfit(wl[wh])
+        if lines:
+            pf = np.polyfit([wlslice[0],wlslice[-1]], [dataslice[0],dataslice[-1]], 1)
+            polyfit = np.poly1d(pf)
+            cont = polyfit(wl[wh])
+        else:
+            pf = np.polyfit(wl[wh], dataslice, morder[i])
+            polyfit = np.poly1d(pf)
+            cont = polyfit(wl[wh])
+
         databands.append(dataslice / cont)
+
         if type(err) != bool:
             errslice = err[wh]
             errorbands.append(errslice / cont)
