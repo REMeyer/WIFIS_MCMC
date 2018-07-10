@@ -60,7 +60,7 @@ chem_names = ['Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-', 'a/
 mlow = [9855,10300,11340,11667,11710,12460,13090]
 mhigh = [9970,10390,11447,11750,11810,12590,13175]
 morder = [1,1,1,1,1,1,1]
-limited = True
+linefit = True
 
 #Dictionary to help easily access the IMF index
 imfsdict = {}
@@ -398,7 +398,7 @@ def chisq(params, wl, data, err, gal, smallfit, plot=False, timing = False):
         modelslice = mconvinterp(wl[i])
         #Removing a high-order polynomial from the slice
         
-        if limited:
+        if linefit:
             pf = np.polyfit([wl[i][0],wl[i][-1]], [modelslice[0],modelslice[-1]], 1)
             polyfit = np.poly1d(pf)
             cont = polyfit(wl[i])
