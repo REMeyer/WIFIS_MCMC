@@ -354,7 +354,7 @@ def model_spec(inputs, gal, masklines = False, smallfit = False):
     if smallfit == True:
         newm = mimf*(1. + model_ratio*(NaP + KP + CaP + FeP))
     elif smallfit == 'limited':
-        newm = newm
+        newm = mimf
     else:
         newm = mimf*(1. + model_ratio(NaP + KP + MgP + CaP + FeP))
         
@@ -394,6 +394,10 @@ def chisq(params, wl, data, err, gal, smallfit, plot=False, timing = False):
     #Measuring the chisq
     chisq = 0
     for i in range(len(mlow)):
+        if (gal == 'M87') and linefit:
+            if line_name[i] == 'KI_1.25':
+                continue
+
         #Getting a slice of the model
         modelslice = mconvinterp(wl[i])
         #Removing a high-order polynomial from the slice
@@ -513,9 +517,11 @@ def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6, restart=False)
         if (i+1) % 10 == 0:
             ct = time.time() - t1
             print ct / 60., " Minutes"
-            print (i+1.)*100. / float(n_iter), "% Finished"
-            print ct /((i+1)/float(n_iter)) / 60., "Minutes left"
-            print ct /((i+1)/float(n_iter)) / 3600., "Hours left"
+            pfinished = (i+1.)*100. / float(n_iter)
+            print pfinished, "% Finished"
+            print (ct - (ct / pfinished/100.)) / 60., "Minutes left"
+            print (ct - (ct / pfinished/100.)) / 3600., "Hours left"
+            print 
     
     return sampler
 
@@ -534,8 +540,6 @@ def load_mcmc_file(fl):
     for line in f:
         lc += 1
     f.close()
-
-    #Get info from top line
     info = info[1:]
     values = info.split()
     nworkers = int(values[0])
@@ -774,5 +778,5 @@ def setup_test_models():
 
 if __name__ == '__main__':
     vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
-    sampler = do_mcmc('M85', 512, 25000, smallfit = True, threads = 6)
+    sampler = do_mcmc('M87', 512, 25000, smallfit = 'limited', threads = 10)
 
