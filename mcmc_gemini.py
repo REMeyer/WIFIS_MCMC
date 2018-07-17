@@ -278,8 +278,7 @@ def model_width(inputs, gal, masklines = False, smallfit = False):
 
         #newwidth = imfwidth*(1 + imfratio*(NaP*Na + K*KP + Mg*MgP + Fe*FeP))
         if smallfit == True:
-            #newwidth = imfwidth*(1 + imfratio*(NaP + KP + CaP + FeP))
-            newwidth = imfwidth*newratio*(1. + NaP + KP + CaP + FeP)
+            newwidth = imfwidth*(1. + newratio*(NaP + KP + CaP + FeP))
         elif smallfit == 'limited':
             newwidth = imfwidth
         else:
@@ -372,7 +371,7 @@ def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6):
         pos.append(np.array(newinit))
 
     #savefl = "/Users/relliotmeyer/Desktop/chainM87.dat"
-    savefl = base + "mcmcresults/"+time.strftime("%Y%M%dT%H%M%s")+"_%s.dat" % (gal)
+    savefl = base + "mcmcresults/"+time.strftime("%Y%m%dT%H%M%S")+"_%s_widthfit.dat" % (gal)
     f = open(savefl, "w")
     f.write("#NWalk\tNStep\tGal\tFit\n")
     f.write("#%d\t%d\t%s\t%s\n" % (nwalkers, n_iter,gal,str(smallfit)))
@@ -389,9 +388,14 @@ def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6):
             f.write("%d\t%s\t%s\n" % (k, " ".join(map(str, position[k])), result[1][k]))
         f.close()
 
-        if (i+1) % 100 == 0:
-            print (time.time() - t1) / 60., " Minutes"
-            print (i+1.)*100. / float(n_iter), "% Finished\n"
+        if (i+1) % 10 == 0:
+            ct = time.time() - t1
+            pfinished = (i+1.)*100. / float(n_iter)
+            print ct / 60., " Minutes"
+            print pfinished, "% Finished"
+            print ((ct / (pfinished/100.)) - ct) / 60., "Minutes left"
+            print ((ct / (pfinished/100.)) - ct) / 3600., "Hours left"
+            print 
     
     #sampler.run_mcmc(pos, 5000)
 
@@ -421,6 +425,6 @@ def load_mcmc_file(fl):
     return [realdata, postprob, infol]
 
 if __name__ == '__main__':
-    sampler = do_mcmc('M85', 512, 30000, smallfit = True, threads = 6)
+    sampler = do_mcmc('M85', 512, 15000, smallfit = True, threads = 12)
 
 

@@ -516,11 +516,11 @@ def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6, restart=False)
 
         if (i+1) % 10 == 0:
             ct = time.time() - t1
-            print ct / 60., " Minutes"
             pfinished = (i+1.)*100. / float(n_iter)
+            print ct / 60., " Minutes"
             print pfinished, "% Finished"
-            print (ct - (ct / pfinished/100.)) / 60., "Minutes left"
-            print (ct - (ct / pfinished/100.)) / 3600., "Hours left"
+            print ((ct / (pfinished/100.)) - ct) / 60., "Minutes left"
+            print ((ct / (pfinished/100.)) - ct) / 3600., "Hours left"
             print 
     
     return sampler
