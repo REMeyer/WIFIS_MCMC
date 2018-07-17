@@ -3,19 +3,21 @@ import matplotlib.pyplot as mpl
 import numpy as np
 import corner
 
-def plot_corner(fl, burnin, smallfit = True):
+def plot_corner(fl, burnin):
 
     dataall = mcfs.load_mcmc_file(fl)
     data = dataall[0]
+    smallfit = dataall[2][3]
+    names = dataall[2][4]
 
-    if smallfit == True:
-        names = ['Age','x1','x2','[Na/H]','[K/H]','[Ca/H]','[Fe/H]']
-    else:
-        names = ['Age','[Z/H]','x1','x2','[Na/H]','[K/H]','[Ca/H]','[Mg/H]','[Fe/H]']
+    flspl = fl.split('/')[-1]
+    flspl = flspl.split('_')[0]
+    #infol = [nworkers, niter, gal, smallfit, names]
 
     samples = data[burnin:,:,:].reshape((-1,len(names)))
 
     fig = corner.corner(samples, labels = names)
+    fig.suptitle(dataall[2][2] + ' ' + flspl + ' ' + str(smallfit))
 
     fig.savefig(fl[:-4]+'.png')
 

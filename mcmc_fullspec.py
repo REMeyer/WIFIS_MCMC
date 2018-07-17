@@ -444,7 +444,6 @@ def lnprior(theta, smallfit):
         if (-1.5 <= Z <= 0.2) and (1.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
                 (0.5 <= x2 <= 3.5):
             return 0.0
-
     else:
         Z, Age, x1, x2, Na, K, Mg, Fe, Ca = theta 
         if (-1.5 <= Z <= 0.2) and (1.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
@@ -545,10 +544,16 @@ def load_mcmc_file(fl):
     nworkers = int(values[0])
     niter = int(values[1])
     gal = values[2]
-    fit = values[3]
-    infol = [nworkers, niter, gal, fit]
+    smallfit = values[3]
 
-    headerarr = [str(i) for i in range(firstline)]
+    if smallfit == True:
+        names = ['Age','x1','x2','[Na/H]','[K/H]','[Ca/H]','[Fe/H]']
+    elif smallfit == False:
+        names = ['[Z/H]','Age','x1','x2','[Na/H]','[K/H]','[Ca/H]','[Mg/H]','[Fe/H]']
+    else:
+        names = ['[Z/H]','Age','x1','x2']
+    names.insert(0,"Worker")
+    names.insert(len(names), "ChiSq")
 
     #N lines should be nworkers*niter
     n_lines = nworkers*niter
@@ -559,25 +564,28 @@ def load_mcmc_file(fl):
         print "FILE HAS INCOMPLETE STEP...REMOVING"
         n_steps = int(lc / nworkers)
         initdata = pd.read_table(fl, comment='#', header = None, \
-                names=headerarr, delim_whitespace=True)
+                names=names, delim_whitespace=True)
         #initdata = np.loadtxt(fl)
         data = np.array(initdata)
         data = data[:n_steps*nworkers,:]
     elif lc != n_lines:
         print "FILE NOT COMPLETE"
         initdata = pd.read_table(fl, comment='#', header = None, \
-                names=headerarr, delim_whitespace=True)
+                names=names, delim_whitespace=True)
         data = np.array(initdata)
         #data = np.loadtxt(fl)
         n_steps = int(data.shape[0]/nworkers)
     else:
         initdata = pd.read_table(fl, comment='#', header = None, \
-                names=headerarr, delim_whitespace=True)
+                names=names, delim_whitespace=True)
         data = np.array(initdata)
         #data = np.loadtxt(fl)
         n_steps = niter
 
-    folddata = data.reshape((n_steps, nworkers,data.shape[1]))
+    names = names[1:-1]
+    infol = [nworkers, niter, gal, smallfit, names]
+
+    folddata = data.reshape((n_steps, nworkers,len(names)+2))
     postprob = folddata[:,:,-1]
     realdata = folddata[:,:,1:-1]
     lastdata = realdata[-1,:,:]
