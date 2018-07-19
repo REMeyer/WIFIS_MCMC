@@ -425,6 +425,6 @@ def load_mcmc_file(fl):
     return [realdata, postprob, infol]
 
 if __name__ == '__main__':
-    sampler = do_mcmc('M85', 512, 15000, smallfit = True, threads = 12)
+    sampler = do_mcmc('M85', 512, 15000, smallfit = 'limited', threads = 12)
 
 

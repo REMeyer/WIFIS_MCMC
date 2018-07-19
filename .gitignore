@@ -6,3 +6,4 @@ mcmcresults/*.dat
 spec/atlas/
 spec/vcj_ssp/
 spec/*.zip
+*.png

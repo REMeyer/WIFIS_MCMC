@@ -546,14 +546,15 @@ def load_mcmc_file(fl):
     gal = values[2]
     smallfit = values[3]
 
-    if smallfit == True:
+    if smallfit == 'True':
         names = ['Age','x1','x2','[Na/H]','[K/H]','[Ca/H]','[Fe/H]']
-    elif smallfit == False:
+    elif smallfit == 'False':
         names = ['[Z/H]','Age','x1','x2','[Na/H]','[K/H]','[Ca/H]','[Mg/H]','[Fe/H]']
     else:
         names = ['[Z/H]','Age','x1','x2']
     names.insert(0,"Worker")
     names.insert(len(names), "ChiSq")
+    print "MODE: ", smallfit
 
     #N lines should be nworkers*niter
     n_lines = nworkers*niter
@@ -589,6 +590,7 @@ def load_mcmc_file(fl):
     postprob = folddata[:,:,-1]
     realdata = folddata[:,:,1:-1]
     lastdata = realdata[-1,:,:]
+    print "DATASHAPE: ", realdata.shape
 
     return [realdata, postprob, infol, lastdata]
 
