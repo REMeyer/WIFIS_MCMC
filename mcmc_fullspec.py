@@ -465,8 +465,13 @@ def lnprob(theta, wl, data, err, gal, smallfit):
 def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6, restart=False):
     '''Main program. Runs the mcmc'''
 
+    if (gal == 'M87') and (linefit == True):
+        contcorr = True
+    else:
+        contcorr = False
+
     wl, data, err = preparespec(gal)
-    wl, data, err = splitspec(wl, data, err = err, lines=linefit)
+    wl, data, err = splitspec(wl, data, err = err, lines=linefit, contcorr = contcorr)
 
     if smallfit == True:
         ndim = 7
@@ -601,7 +606,6 @@ def preparespec(galaxy):
         ejf = base+'data/M87J_errors.fits'
         ezf = base+'data/M87Z_errors.fits'
         scale = 1.0
-        contcorr = False
         flz = base+'data/20150602_obs60_merged_reduced.fits'
         flj = base+'data/20150605_obs52_merged_reduced.fits'
     if galaxy == 'M85':
@@ -609,7 +613,6 @@ def preparespec(galaxy):
         ejf = base+'data/M85J_errors.fits'
         ezf = base+'data/M85Z0527_errors.fits'
         scale = 1.0
-        contcorr = False
         flj = base+'data/20150508_obs36_merged_reduced.fits'
         flz = base+'data/20150527_obs44_merged_reduced.fits'
 
@@ -688,7 +691,7 @@ def preparespec(galaxy):
 
     return finalwl, finaldata, finalerr
 
-def splitspec(wl, data, err=False, lines = False):
+def splitspec(wl, data, err=False, lines = False, contcorr = False):
 
     databands = []
     wlbands = []
@@ -703,6 +706,12 @@ def splitspec(wl, data, err=False, lines = False):
             pf = np.polyfit([wlslice[0],wlslice[-1]], [dataslice[0],dataslice[-1]], 1)
             polyfit = np.poly1d(pf)
             cont = polyfit(wl[wh])
+            if contcorr:
+                #Do the continuum correction (for M87 - value is 15% of continuum), then remeasure continuum
+                dataslice -= 0.15 * cont
+                pf = np.polyfit([wlslice[0],wlslice[-1]], [dataslice[0],dataslice[-1]], 1)
+                polyfit = np.poly1d(pf)
+                cont = polyfit(wl[wh])
         else:
             pf = np.polyfit(wl[wh], dataslice, morder[i])
             polyfit = np.poly1d(pf)
