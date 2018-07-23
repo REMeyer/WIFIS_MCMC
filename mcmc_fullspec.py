@@ -70,10 +70,14 @@ for i in range(16):
 
 vcj = {}
 
-def preload_vcj():
+def preload_vcj(overwrite_base = False):
     '''Loads the SSP models into memory so the mcmc model creation takes a
     shorter time. Returns a dict with the filenames as the keys'''
     global vcj
+    global base
+
+    if overwrite_base:
+        base = overwrite_base
 
     chem_names = ['WL', 'Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-',\
             'a/Fe+', 'N+', 'N-', 'as/Fe+', 'Ti+', 'Ti-',\
@@ -334,8 +338,9 @@ def model_spec(inputs, gal, fitmode = False):
         interp = spi.interp2d(wl, [-0.3,0.0,0.3,0.6,0.9], np.stack((c[:,2],c[:,0],c[:,1],c[:,-2],c[:,-1])), kind = 'cubic')
         NaP = interp(wl,Na) / c[:,0] - 1.
 
-        #K adjustment
-        interp = spi.interp2d(wl, [0.0,0.3], np.stack((c[:,0],c[:,29])), kind = 'linear')
+        #K adjustment (assume symmetrical K adjustment)
+        Kminus = (2. - (c[:,29] / c[:,0]))*c[:,0]
+        interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack((Kminus,c[:,0],c[:,29])), kind = 'linear')
         KP = interp(wl,K) / c[:,0] - 1.
 
         #Mg adjustment (only for full fitting)
@@ -566,6 +571,7 @@ def load_mcmc_file(fl):
         names = ['x1','x2','[Na/H]','[K/H]','[Ca/H]','[Fe/H]']
     else:
         names = ['[Z/H]','Age','x1','x2']
+
     names.insert(0,"Worker")
     names.insert(len(names), "ChiSq")
     print "MODE: ", fitmode
@@ -871,5 +877,5 @@ def compare_bestfit(fl, burnin=-1000):
 
 if __name__ == '__main__':
     vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
-    sampler = do_mcmc('M87', 512, 15000, fitmode = 'NoAge', threads = 13)
+    sampler = do_mcmc('M85', 512, 15000, fitmode = 'NoAge', threads = 18)
     #compare_bestfit('20180710T005703_M85_fullfit.dat')
