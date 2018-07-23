@@ -102,15 +102,40 @@ def preload_vcj():
 
     return vcj
 
-def select_model_file(Z, Age, mixZ, mixage, noZ = False):
+def select_model_file(Z, Age, fitmode):
     '''Selects the model file for a given Age and [Z/H]. If the requested values
     are between two models it returns two filenames for each model set.'''
 
     #Acceptable parameters...also global variables but restated here...
     Z_m = np.array([-1.5,-1.0, -0.5, -0.25, 0.0, 0.1, 0.2])
     Age_m = np.array([1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.25,13.5])
+    x1_m = 0.5 + np.arange(16)/5.0
+    x2_m = 0.5 + np.arange(16)/5.0
     Z_pm = np.array(['m','m','m','m','p','p','p'])
     ChemAge_m = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13])
+
+    fullage = np.array([1.0,3.0,5.0,7.0,9.0,11.0,13.5])
+    fullZ = np.array([-1.5, -0.5, 0.0, 0.2])
+    
+    #Matching parameters to the nearest acceptable value (for Age, Z, x1, and x2)
+    if Z not in Z_m:
+        Zmin = np.argmin(np.abs(Z_m - Z))
+        Z = Z_m[Zmin]
+    if Age not in Age_m:
+        Agemin = np.argmin(np.abs(Age_m - Age))
+        Age = Age_m[Agemin]
+
+    mixage = False
+    mixZ = False
+    if Age not in fullage:
+        mixage = True
+    if Z not in fullZ:
+        mixZ = True
+
+    if fitmode in [False, 'limited']:
+        noZ = False
+    else:
+        noZ = True
 
     #Long set of if-elif to determine the proper model file...unoptimized.
     if noZ:
@@ -213,42 +238,31 @@ def select_model_file(Z, Age, mixZ, mixage, noZ = False):
             fl2 = ''
             cfl2 = ''
 
-    return fl1, cfl1, fl2, cfl2
+    return fl1, cfl1, fl2, cfl2, mixage, mixZ
 
-def model_spec(inputs, gal, masklines = False, smallfit = False):
+def model_spec(inputs, gal, fitmode = False):
     '''Core function which takes the input model parameters, finds the appropriate models,
     and adjusts them for the input abundance ratios. Returns a broadened model spectrum 
     to be matched with a data spectrum.'''
 
     #t1 = time.time()
 
-    #Determining the fitting parameters from the smallfit variable
-    if smallfit == True:
+    #Determining the fitting parameters from the fitmode variable
+    if fitmode == True:
         Age, x1, x2, Na, K, Ca, Fe = inputs
         Z = 0.0
-    elif smallfit == 'limited':
+    elif fitmode == 'limited':
         Z, Age, x1, x2 = inputs
+    elif fitmode == 'NoAge':
+        x1, x2, Na, K, Ca, Fe = inputs
+        Z = 0.0
+        if gal == 'M85':
+            Age = 5.0
+        elif gal == 'M87':
+            Age = 13.5
     else:
         Z, Age, x1, x2, Na, K, Mg, Fe, Ca = inputs
 
-    #Needed prior definitons.
-    Z_m = np.array([-1.5,-1.0, -0.5, -0.25, 0.0, 0.1, 0.2])
-    Age_m = np.array([1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.25,13.5])
-    x1_m = 0.5 + np.arange(16)/5.0
-    x2_m = 0.5 + np.arange(16)/5.0
-    Z_pm = np.array(['m','m','m','m','p','p','p'])
-    ChemAge_m = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13])
-
-    fullage = np.array([1.0,3.0,5.0,7.0,9.0,11.0,13.5])
-    fullZ = np.array([-1.5, -0.5, 0.0, 0.2])
-    
-    #Matching parameters to the nearest acceptable value (for Age, Z, x1, and x2)
-    if Z not in Z_m:
-        Zmin = np.argmin(np.abs(Z_m - Z))
-        Z = Z_m[Zmin]
-    if Age not in Age_m:
-        Agemin = np.argmin(np.abs(Age_m - Age))
-        Age = Age_m[Agemin]
     if x1 not in x1_m:
         x1min = np.argmin(np.abs(x1_m - x1))
         x1 = x1_m[x1min]
@@ -256,19 +270,8 @@ def model_spec(inputs, gal, masklines = False, smallfit = False):
         x2min = np.argmin(np.abs(x2_m - x2))
         x2 = x2_m[x2min]
 
-    mixage = False
-    mixZ = False
-    if Age not in fullage:
-        mixage = True
-    if Z not in fullZ:
-        mixZ = True
-
-    if smallfit in [False, 'limited']:
-        noZ = False
-    else:
-        noZ = True
     #Finding the appropriate base model files.
-    fl1, cfl1, fl2, cfl2 = select_model_file(Z, Age, mixZ, mixage, noZ = noZ)
+    fl1, cfl1, fl2, cfl2, mixage, mixZ = select_model_file(Z, Age, fitmode)
 
     #t2 = time.time()
     #print t2 - t1
@@ -326,21 +329,25 @@ def model_spec(inputs, gal, masklines = False, smallfit = False):
     # The models are interpolated at the various given abundances to allow for abundance values to be continuous.
     # The interpolated value is then normalized by the solar metallicity model and then subtracted by 1 to 
     # retain the percentage
-    if type(smallfit) == bool:
+    if fitmode in [True, False, 'NoAge']:
+        #Na adjustment
         interp = spi.interp2d(wl, [-0.3,0.0,0.3,0.6,0.9], np.stack((c[:,2],c[:,0],c[:,1],c[:,-2],c[:,-1])), kind = 'cubic')
         NaP = interp(wl,Na) / c[:,0] - 1.
 
+        #K adjustment
         interp = spi.interp2d(wl, [0.0,0.3], np.stack((c[:,0],c[:,29])), kind = 'linear')
         KP = interp(wl,K) / c[:,0] - 1.
 
-        if not smallfit:
+        #Mg adjustment (only for full fitting)
+        if fitmode == False:
             interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack((c[:,16], c[:,0],c[:,15])), kind = 'linear')
             MgP = interp(wl,Mg) / c[:,0] - 1.
 
+        #Fe Adjustment
         interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack((c[:,6], c[:,0],c[:,5])), kind = 'linear')
         FeP = interp(wl,Fe) / c[:,0] - 1.
 
-        #if not smallfit:
+        #Ca Adjustment
         interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack((c[:,4], c[:,0],c[:,3])), kind = 'linear')
         CaP = interp(wl,Ca) / c[:,0] - 1.
 
@@ -351,9 +358,9 @@ def model_spec(inputs, gal, masklines = False, smallfit = False):
     # The new model is = the base IMF model * abundance effects. 
     # The abundance effect %ages are scaled by the ratio of the selected IMF model to the Kroupa IMF model
     # The formula ensures that if the abundances are solar then the base IMF model is recovered. 
-    if smallfit == True:
+    if fitmode in [True, 'NoAge']:
         newm = mimf*(1. + model_ratio*(NaP + KP + CaP + FeP))
-    elif smallfit == 'limited':
+    elif fitmode == 'limited':
         newm = mimf
     else:
         newm = mimf*(1. + model_ratio(NaP + KP + MgP + CaP + FeP))
@@ -367,7 +374,7 @@ def model_spec(inputs, gal, masklines = False, smallfit = False):
     #print time.time() - t3
     return wlc, mconv
 
-def chisq(params, wl, data, err, gal, smallfit, plot=False, timing = False):
+def chisq(params, wl, data, err, gal, fitmode, plot=False, timing = False):
     ''' Important function that produces the value that essentially
     represents the likelihood of the mcmc equation. Produces the model
     spectrum then returns a normal chisq value.'''
@@ -375,13 +382,8 @@ def chisq(params, wl, data, err, gal, smallfit, plot=False, timing = False):
     if timing:
         t1 = time.time()
 
-    if gal == 'M87':
-        masklines = ['KI_1.25']
-    else:
-        masklines = False
-
     #Creating model spectrum then interpolating it so that it can be easily matched with the data.
-    wlc, mconv = model_spec(params, gal, masklines=masklines, smallfit = smallfit)
+    wlc, mconv = model_spec(params, gal, fitmode = fitmode)
     if timing:
         t2 = time.time()
         print "CHISQ T1: ", t2 - t1
@@ -429,21 +431,28 @@ def chisq(params, wl, data, err, gal, smallfit, plot=False, timing = False):
 
     return -0.5*chisq
 
-def lnprior(theta, smallfit):
+def lnprior(theta, fitmode):
     '''Setting the priors for the mcmc. Returns 0.0 if fine and -inf if otherwise.'''
 
-    if smallfit == True:
+    if fitmode == True:
         Age, x1, x2, Na, K, Ca, Fe = theta 
         if (1.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
                 (0.5 <= x2 <= 3.5) and (-0.3 <= Na <= 0.9) and (-0.3 <= K <= 0.3) and (-0.3 <= Ca <= 0.3) and\
                 (-0.3 <= Fe <= 0.3):
             return 0.0
 
-    elif smallfit == 'limited':
+    elif fitmode == 'limited':
         Z, Age, x1, x2 = theta 
         if (-1.5 <= Z <= 0.2) and (1.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
                 (0.5 <= x2 <= 3.5):
             return 0.0
+
+    elif fitmode == 'NoAge':
+        x1, x2, Na, K, Ca, Fe = theta 
+        if (0.5 <= x1 <= 3.5) and (0.5 <= x2 <= 3.5) and (-0.3 <= Na <= 0.9) and (-0.3 <= K <= 0.3)\
+                and (-0.3 <= Ca <= 0.3) and (-0.3 <= Fe <= 0.3):
+            return 0.0
+
     else:
         Z, Age, x1, x2, Na, K, Mg, Fe, Ca = theta 
         if (-1.5 <= Z <= 0.2) and (1.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
@@ -452,49 +461,47 @@ def lnprior(theta, smallfit):
             return 0.0
     return -np.inf
 
-def lnprob(theta, wl, data, err, gal, smallfit):
+def lnprob(theta, wl, data, err, gal, fitmode):
     '''Primary function of the mcmc. Checks priors and returns the likelihood'''
 
-    lp = lnprior(theta, smallfit)
+    lp = lnprior(theta, fitmode)
     if not np.isfinite(lp):
         return -np.inf
 
-    chisqv = chisq(theta, wl, data, err, gal, smallfit)
+    chisqv = chisq(theta, wl, data, err, gal, fitmode)
     return lp + chisqv
 
-def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6, restart=False):
+def do_mcmc(gal, nwalkers, n_iter, fitmode = False, threads = 6, restart=False):
     '''Main program. Runs the mcmc'''
 
-    if (gal == 'M87') and (linefit == True):
-        contcorr = True
-    else:
-        contcorr = False
-
     wl, data, err = preparespec(gal)
-    wl, data, err = splitspec(wl, data, err = err, lines=linefit, contcorr = contcorr)
+    wl, data, err = splitspec(wl, data, err = err, lines=linefit)
 
-    if smallfit == True:
+    if fitmode == True:
         ndim = 7
-    elif smallfit == 'limited':
+    elif fitmode == 'limited':
         ndim = 4
-    else:
+    elif fitmode == False:
         ndim = 9
+    elif fitmode == 'NoAge':
+        ndim = 6
 
     pos = []
     if not restart:
         for i in range(nwalkers):
             newinit = []
-            if smallfit != True:
+            if fitmode in [False, 'limited']:
                 newinit.append(np.random.choice(Z_m))
-            newinit.append(np.random.choice(Age_m))
+            if fitmode not in ['NoAge']:
+                newinit.append(np.random.choice(Age_m))
             newinit.append(np.random.choice(x1_m))
             newinit.append(np.random.choice(x2_m))
-            if smallfit != 'limited':
+            if fitmode in [True, False,'NoAge']:
                 newinit.append(np.random.random()*1.3 - 0.3)
                 newinit.append(np.random.random()*0.6 - 0.3)
                 newinit.append(np.random.random()*0.6 - 0.3)
                 newinit.append(np.random.random()*0.6 - 0.3)
-            if not smallfit:
+            if fitmode == False:
                 newinit.append(np.random.random()*0.6 - 0.3)
             pos.append(np.array(newinit))
     else:
@@ -504,10 +511,10 @@ def do_mcmc(gal, nwalkers, n_iter, smallfit = False, threads = 6, restart=False)
     savefl = base + "mcmcresults/"+time.strftime("%Y%m%dT%H%M%S")+"_%s_fullfit.dat" % (gal)
     f = open(savefl, "w")
     f.write("#NWalk\tNStep\tGal\tFit\n")
-    f.write("#%d\t%d\t%s\t%s\n" % (nwalkers, n_iter,gal,str(smallfit)))
+    f.write("#%d\t%d\t%s\t%s\n" % (nwalkers, n_iter,gal,str(fitmode)))
     f.close()
 
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = (wl, data, err, gal, smallfit), threads=threads)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = (wl, data, err, gal, fitmode), threads=threads)
     print "Starting MCMC..."
 
     t1 = time.time() 
@@ -549,17 +556,19 @@ def load_mcmc_file(fl):
     nworkers = int(values[0])
     niter = int(values[1])
     gal = values[2]
-    smallfit = values[3]
+    fitmode = values[3]
 
-    if smallfit == 'True':
+    if fitmode == 'True':
         names = ['Age','x1','x2','[Na/H]','[K/H]','[Ca/H]','[Fe/H]']
-    elif smallfit == 'False':
+    elif fitmode == 'False':
         names = ['[Z/H]','Age','x1','x2','[Na/H]','[K/H]','[Ca/H]','[Mg/H]','[Fe/H]']
+    elif fitmode == 'NoAge':
+        names = ['x1','x2','[Na/H]','[K/H]','[Ca/H]','[Fe/H]']
     else:
         names = ['[Z/H]','Age','x1','x2']
     names.insert(0,"Worker")
     names.insert(len(names), "ChiSq")
-    print "MODE: ", smallfit
+    print "MODE: ", fitmode
 
     #N lines should be nworkers*niter
     n_lines = nworkers*niter
@@ -589,7 +598,7 @@ def load_mcmc_file(fl):
         n_steps = niter
 
     names = names[1:-1]
-    infol = [nworkers, niter, gal, smallfit, names]
+    infol = [nworkers, niter, gal, fitmode, names]
 
     folddata = data.reshape((n_steps, nworkers,len(names)+2))
     postprob = folddata[:,:,-1]
@@ -606,6 +615,7 @@ def preparespec(galaxy):
         ejf = base+'data/M87J_errors.fits'
         ezf = base+'data/M87Z_errors.fits'
         scale = 1.0
+        contcorr = False
         flz = base+'data/20150602_obs60_merged_reduced.fits'
         flj = base+'data/20150605_obs52_merged_reduced.fits'
     if galaxy == 'M85':
@@ -613,6 +623,7 @@ def preparespec(galaxy):
         ejf = base+'data/M85J_errors.fits'
         ezf = base+'data/M85Z0527_errors.fits'
         scale = 1.0
+        contcorr = False
         flj = base+'data/20150508_obs36_merged_reduced.fits'
         flz = base+'data/20150527_obs44_merged_reduced.fits'
 
@@ -691,7 +702,7 @@ def preparespec(galaxy):
 
     return finalwl, finaldata, finalerr
 
-def splitspec(wl, data, err=False, lines = False, contcorr = False):
+def splitspec(wl, data, err=False, lines = False):
 
     databands = []
     wlbands = []
@@ -706,12 +717,6 @@ def splitspec(wl, data, err=False, lines = False, contcorr = False):
             pf = np.polyfit([wlslice[0],wlslice[-1]], [dataslice[0],dataslice[-1]], 1)
             polyfit = np.poly1d(pf)
             cont = polyfit(wl[wh])
-            if contcorr:
-                #Do the continuum correction (for M87 - value is 15% of continuum), then remeasure continuum
-                dataslice -= 0.15 * cont
-                pf = np.polyfit([wlslice[0],wlslice[-1]], [dataslice[0],dataslice[-1]], 1)
-                polyfit = np.poly1d(pf)
-                cont = polyfit(wl[wh])
         else:
             pf = np.polyfit(wl[wh], dataslice, morder[i])
             polyfit = np.poly1d(pf)
@@ -792,10 +797,79 @@ def setup_test_models():
     vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
     d = preparespec('M85')
     wl, data, err = splitspec(d[0], d[1], err = d[2])
-    #cs = chisq(mockdata, wl, data, err, gal, smallfit, plot=False, timing = False):
     return mockdata, wl, data, err, vcj
+
+def compare_bestfit(fl, burnin=-1000):
+
+    dataall = load_mcmc_file(fl)
+    data = dataall[0]
+    fitmode = dataall[2][3]
+    names = dataall[2][4]
+    gal = dataall[2][2]
+
+    flsplname = fl.split('/')[-1]
+    flspl = flsplname.split('_')[0]
+    datatype = flsplname.split('_')[-1][:-4]
+    if datatype == "widthfit":
+        datatype = "Widths"
+    elif datatype == "fullfit":
+        datatype = "Spectra"
+    #infol = [nworkers, niter, gal, fitmode, names]
+
+    if fitmode == 'limited':
+        mcmctype = 'Base Params'
+    elif fitmode == 'True':
+        mcmctype = 'Abundance Fit'
+        fitmode = True
+    elif fitmode == 'False':
+        mcmctype = 'Full Fit'
+        fitmode = False
+
+    samples = data[burnin:,:,:].reshape((-1,len(names)))
+    truevalues = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),\
+            zip(*np.percentile(samples, [16, 50, 84], axis=0)))
+    truevalues = np.array(truevalues)
+    truevalues = truevalues[:,0]
+
+    wl, data, err = preparespec(gal)
+    wl, data, err = splitspec(wl, data, err = err, lines=linefit)
+
+    wlc, mconv = model_spec(truevalues, gal, fitmode = fitmode)
+
+    mconvinterp = spi.interp1d(wlc, mconv, kind='cubic', bounds_error=False)
+    
+    fig, axes = mpl.subplots(2,4,figsize = (16,6.5))
+    axes = axes.flatten()
+    fig.delaxes(axes[-1])
+
+    for i in range(len(mlow)):
+        if (gal == 'M87') and linefit:
+            if line_name[i] == 'KI_1.25':
+                continue
+
+        #Getting a slice of the model
+        modelslice = mconvinterp(wl[i])
+        #Removing a high-order polynomial from the slice
+        
+        if linefit:
+            pf = np.polyfit([wl[i][0],wl[i][-1]], [modelslice[0],modelslice[-1]], 1)
+            polyfit = np.poly1d(pf)
+            cont = polyfit(wl[i])
+        else:
+            pf = np.polyfit(wl[i], modelslice, morder[i])
+            polyfit = np.poly1d(pf)
+            cont = polyfit(wl[i])
+
+        modelslice = modelslice / cont
+
+        print err[i]
+        axes[i].plot(wl[i], modelslice, 'r')
+        axes[i].errorbar(wl[i], data[i],fmt='b', yerr=err[i])
+        axes[i].set_title(line_name[i])
+
+    mpl.show()
 
 if __name__ == '__main__':
     vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
-    sampler = do_mcmc('M87', 512, 25000, smallfit = 'limited', threads = 10)
-
+    sampler = do_mcmc('M87', 512, 15000, fitmode = 'NoAge', threads = 13)
+    #compare_bestfit('20180710T005703_M85_fullfit.dat')

@@ -4,6 +4,12 @@ import numpy as np
 import corner
 from glob import glob
 
+line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI']
+mlow = [9855,10300,11340,11667,11710,12460,13090]
+mhigh = [9970,10390,11447,11750,11810,12590,13175]
+morder = [1,1,1,1,1,1,1]
+linefit = True
+
 def plot_corner(fl, burnin):
 
     mpl.close('all')
@@ -59,11 +65,7 @@ def plot_corner(fl, burnin):
 
     figure.savefig(fl[:-4]+'.png')
 
-def compare_bestfit(fl)
 
-    samples = data[burnin:,:,:].reshape((-1,len(names)))
-    truevalues = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),\
-            zip(*np.percentile(samples, [16, 50, 84], axis=0)))
 
 def multiplot(fls, burnin = -1000):
     for fl in fls:
