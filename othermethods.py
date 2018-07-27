@@ -54,6 +54,8 @@ def plot_corner(fl, burnin):
         ax.axvline(truevalues[i][0], color="r")
         ax.axvline(truevalues[i][0] + truevalues[i][1], color="g")
         ax.axvline(truevalues[i][0] - truevalues[i][2], color="g")
+        ax.set_title("$%s_{-%s}^{+%s}$" % (np.round(truevalues[i][0],3), \
+                np.round(truevalues[i][2],3), np.round(truevalues[i][1],3)))
 
     # Loop over the histograms
     for yi in range(len(names)):

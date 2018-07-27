@@ -15,6 +15,7 @@ import nifsmethods as nm
 import scipy.interpolate as spi
 import warnings
 import sys, os
+import mcmc_support as mcsp
 
 warnings.simplefilter('ignore', np.RankWarning)
 
@@ -54,13 +55,17 @@ chem_names = ['Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-', 'a/
                     'V+', 'Cu+', 'Na+0.6', 'Na+0.9']
 
 #Definitions for the fitting bandpasses
-#mlow = [9700,10550,11550,12350]
-#mhigh = [10450,11450,12200,13180]
-#morder = [8,9,7,8]
-mlow = [9855,10300,11340,11667,11710,12460,13090]
-mhigh = [9970,10390,11447,11750,11810,12590,13175]
-morder = [1,1,1,1,1,1,1]
 linefit = True
+if linefit:
+    #mlow = [9855,10300,11340,11667,11710,12460,13090]
+    #mhigh = [9970,10390,11447,11750,11810,12590,13175]
+    mlow = [9905,10337,11372,11680,11765,12505,13115]
+    mhigh = [9935,10360,11415,11705,11793,12545,13165]
+    morder = [1,1,1,1,1,1,1]
+else:
+    mlow = [9700,10550,11550,12350]
+    mhigh = [10450,11450,12200,13180]
+    morder = [8,9,7,8]
 
 #Dictionary to help easily access the IMF index
 imfsdict = {}
@@ -389,11 +394,13 @@ def chisq(params, wl, data, err, gal, fitmode, plot=False, timing = False):
 
     #Creating model spectrum then interpolating it so that it can be easily matched with the data.
     wlc, mconv = model_spec(params, gal, fitmode = fitmode)
+    
     if timing:
         t2 = time.time()
         print "CHISQ T1: ", t2 - t1
 
     mconvinterp = spi.interp1d(wlc, mconv, kind='cubic', bounds_error=False)
+
     if timing:
         t3 = time.time()
         print "CHISQ T2: ", t3 - t2
@@ -406,22 +413,40 @@ def chisq(params, wl, data, err, gal, fitmode, plot=False, timing = False):
                 continue
 
         #Getting a slice of the model
-        modelslice = mconvinterp(wl[i])
-        #Removing a high-order polynomial from the slice
-        
-        if linefit:
-            pf = np.polyfit([wl[i][0],wl[i][-1]], [modelslice[0],modelslice[-1]], 1)
-            polyfit = np.poly1d(pf)
-            cont = polyfit(wl[i])
-        else:
-            pf = np.polyfit(wl[i], modelslice, morder[i])
-            polyfit = np.poly1d(pf)
-            cont = polyfit(wl[i])
+        wli = wl[i]
+        modelslice = mconvinterp(wli)
 
+        #Removing a high-order polynomial from the slice
+        if linefit:
+            #Define the bandpasses for each line 
+            bluepass = np.where((wlc >= bluelow[i]) & (wlc <= bluehigh[i]))[0]
+            redpass = np.where((wlc >= redlow[i]) & (wlc <= redhigh[i]))[0]
+
+            #Cacluating center value of the blue and red bandpasses
+            blueavg = np.mean([bluelow[i],bluehigh[i]])
+            redavg = np.mean([redlow[i],redhigh[i]])
+
+            blueval = np.mean(mconv[bluepass])
+            redval = np.mean(mconv[redpass])
+
+            pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
+            polyfit = np.poly1d(pf)
+            cont = polyfit(wli)
+        else:
+            pf = np.polyfit(wli, modelslice, morder[i])
+            polyfit = np.poly1d(pf)
+            cont = polyfit(wli)
+
+        #Normalizing the model
         modelslice = modelslice / cont
 
         #Performing the chisq calculation
-        chisq += np.sum((modelslice - data[i])**2.0 / err[i]**2.0)
+        if linefit and (line_name[i] == 'FeH'):
+            whbad = (wli > 9894) & (wli < 9908)
+            wg = np.logical_not(whbad)
+            chisq += np.sum((modelslice[wg] - data[i][wg])**2.0 / (err[i][wg]**2.0))
+        else:
+            chisq += np.sum((modelslice - data[i])**2.0 / (err[i]**2.0))
 
         if plot:
             mpl.plot(wl[i], modelslice, 'r')
@@ -720,13 +745,24 @@ def splitspec(wl, data, err=False, lines = False):
         wlbands.append(wlslice)
 
         if lines:
-            pf = np.polyfit([wlslice[0],wlslice[-1]], [dataslice[0],dataslice[-1]], 1)
+            #Define the bandpasses for each line 
+            bluepass = np.where((wl >= bluelow[i]) & (wl <= bluehigh[i]))[0]
+            redpass = np.where((wl >= redlow[i]) & (wl <= redhigh[i]))[0]
+
+            #Cacluating center value of the blue and red bandpasses
+            blueavg = np.mean([bluelow[i],bluehigh[i]])
+            redavg = np.mean([redlow[i],redhigh[i]])
+
+            blueval = np.mean(data[bluepass])
+            redval = np.mean(data[redpass])
+
+            pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
             polyfit = np.poly1d(pf)
-            cont = polyfit(wl[wh])
+            cont = polyfit(wlslice)
         else:
-            pf = np.polyfit(wl[wh], dataslice, morder[i])
+            pf = np.polyfit(wlslice, dataslice, morder[i])
             polyfit = np.poly1d(pf)
-            cont = polyfit(wl[wh])
+            cont = polyfit(wlslice)
 
         databands.append(dataslice / cont)
 
@@ -775,12 +811,13 @@ def convolvemodels(wlfull, datafull, veldisp):
     linewl = wl[mainpass]
 
     try:
-        popt, pcov = gf.gaussian_fit_os(linewl, linedata, [-0.005, 5.0,11693, 0.0695])
+        popt, pcov = mcsp.gaussian_fit_os(linewl, linedata, [-0.005, 5.0, 11693, 0.0695])
         #popt, pcov = gf.gaussian_fit_os(linewl, linedata, [-0.005, 5.0 ,12525, 0.064])
         #Sigma measured from fit
         m_sigma = popt[1]
         m_center = popt[2]
     except:
+        print "LINEFIT DIDNT WORK -- GAUSSIAN"
         return wl, data
 
     #Sigma from description of models
@@ -792,7 +829,7 @@ def convolvemodels(wlfull, datafull, veldisp):
     sigma_conv = np.sqrt(sigma_gal**2. - m_sigma**2.)
 
     convolvex = np.arange(-4*sigma_conv,4*sigma_conv, 2)
-    gaussplot = gf.gauss_nat(convolvex, [sigma_conv,0.])
+    gaussplot = mcsp.gauss_nat(convolvex, [sigma_conv,0.])
 
     out = np.convolve(datafull, gaussplot, mode='same')
 
@@ -854,13 +891,25 @@ def compare_bestfit(fl, burnin=-1000):
                 continue
 
         #Getting a slice of the model
-        modelslice = mconvinterp(wl[i])
+        wli = wl[i]
+        modelslice = mconvinterp(wli)
+
         #Removing a high-order polynomial from the slice
-        
         if linefit:
-            pf = np.polyfit([wl[i][0],wl[i][-1]], [modelslice[0],modelslice[-1]], 1)
+            #Define the bandpasses for each line 
+            bluepass = np.where((wlc >= bluelow[i]) & (wlc <= bluehigh[i]))[0]
+            redpass = np.where((wlc >= redlow[i]) & (wlc <= redhigh[i]))[0]
+
+            #Cacluating center value of the blue and red bandpasses
+            blueavg = np.mean([bluelow[i],bluehigh[i]])
+            redavg = np.mean([redlow[i],redhigh[i]])
+
+            blueval = np.mean(mconv[bluepass])
+            redval = np.mean(mconv[redpass])
+
+            pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
             polyfit = np.poly1d(pf)
-            cont = polyfit(wl[i])
+            cont = polyfit(wli)
         else:
             pf = np.polyfit(wl[i], modelslice, morder[i])
             polyfit = np.poly1d(pf)
@@ -868,9 +917,10 @@ def compare_bestfit(fl, burnin=-1000):
 
         modelslice = modelslice / cont
 
-        print err[i]
         axes[i].plot(wl[i], modelslice, 'r')
-        axes[i].errorbar(wl[i], data[i],fmt='b', yerr=err[i])
+        #axes[i].errorbar(wl[i], data[i],fmt='b', yerr=err[i])
+        axes[i].plot(wl[i], data[i],'b')
+        axes[i].fill_between(wl[i],data[i] + err[i],data[i]-err[i], facecolor = 'gray', alpha=0.5)
         axes[i].set_title(line_name[i])
 
     mpl.show()
@@ -878,4 +928,4 @@ def compare_bestfit(fl, burnin=-1000):
 if __name__ == '__main__':
     vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
     sampler = do_mcmc('M85', 512, 15000, fitmode = 'NoAge', threads = 18)
-    #compare_bestfit('20180710T005703_M85_fullfit.dat')
+    #compare_bestfit('20180726T120716_M85_fullfit.dat')
