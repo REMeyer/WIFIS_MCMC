@@ -57,10 +57,10 @@ chem_names = ['Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-', 'a/
 #Definitions for the fitting bandpasses
 linefit = True
 if linefit:
-    #mlow = [9855,10300,11340,11667,11710,12460,13090]
-    #mhigh = [9970,10390,11447,11750,11810,12590,13175]
-    mlow = [9905,10337,11372,11680,11765,12505,13115]
-    mhigh = [9935,10360,11415,11705,11793,12545,13165]
+    mlow = [9855,10300,11340,11667,11710,12460,13090]
+    mhigh = [9970,10390,11447,11750,11810,12590,13175]
+    #mlow = [9905,10337,11372,11680,11765,12505,13115]
+    #mhigh = [9935,10360,11415,11705,11793,12545,13165]
     morder = [1,1,1,1,1,1,1]
 else:
     mlow = [9700,10550,11550,12350]
@@ -93,6 +93,7 @@ def preload_vcj(overwrite_base = False):
     fls = glob(base+'spec/vcj_ssp/*')    
     #vcj = {}
     for fl in fls:
+        print fl
         flspl = fl.split('/')[-1]
         x = pd.read_table(fl, delim_whitespace = True, header=None)
         x = np.array(x)
@@ -101,6 +102,7 @@ def preload_vcj(overwrite_base = False):
     print "PRELOADING ABUNDANCE MODELS INTO MEMORY"
     fls = glob(base+'spec/atlas/*')    
     for fl in fls:
+        print fl
         flspl = fl.split('/')[-1]
         x = pd.read_table(fl, skiprows=2, names = chem_names, delim_whitespace = True, header=None)
         x = np.array(x)
@@ -116,15 +118,15 @@ def select_model_file(Z, Age, fitmode):
     are between two models it returns two filenames for each model set.'''
 
     #Acceptable parameters...also global variables but restated here...
-    Z_m = np.array([-1.5,-1.0, -0.5, -0.25, 0.0, 0.1, 0.2])
+    Z_m = np.array([-1.5,-1.25, -1.0, -0.75, -0.5, -0.25, 0.0, 0.1, 0.2])
     Age_m = np.array([1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.25,13.5])
     x1_m = 0.5 + np.arange(16)/5.0
     x2_m = 0.5 + np.arange(16)/5.0
-    Z_pm = np.array(['m','m','m','m','p','p','p'])
+    Z_pm = np.array(['m','m','m','m','m','m','p','p','p'])
     ChemAge_m = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13])
 
     fullage = np.array([1.0,3.0,5.0,7.0,9.0,11.0,13.5])
-    fullZ = np.array([-1.5, -0.5, 0.0, 0.2])
+    fullZ = np.array([-1.5, -1.0, -0.5, 0.0, 0.2])
     
     #Matching parameters to the nearest acceptable value (for Age, Z, x1, and x2)
     if Z not in Z_m:
@@ -249,10 +251,15 @@ def select_model_file(Z, Age, fitmode):
 
     return fl1, cfl1, fl2, cfl2, mixage, mixZ
 
-def model_spec(inputs, gal, fitmode = False):
+def model_spec(inputs, gal, fitmode = False, vcjset = False):
     '''Core function which takes the input model parameters, finds the appropriate models,
     and adjusts them for the input abundance ratios. Returns a broadened model spectrum 
     to be matched with a data spectrum.'''
+
+    if vcjset:
+        vcj = vcjset
+    else:
+        global vcj
 
     #t1 = time.time()
 
@@ -291,22 +298,26 @@ def model_spec(inputs, gal, fitmode = False):
     if mixage or mixZ:
         # Reading models. This step was vastly improved by pre-loading the models prior to running the mcmc
         fm1 = vcj[fl1]
-        wlc1 = vcj["WL"]
-        fc1 = vcj[cfl1]
         fm2 = vcj[fl2]
+
+        fc1 = vcj[cfl1]
         fc2 = vcj[cfl2]
 
+        wlc1 = vcj["WL"]
+
         #Finding the relevant section of the models to reduce the computational complexity
-        rel = np.where((wlc1 > 8500) & (wlc1 < 14000))[0]
+        rel = np.where((wlc1 > 6500) & (wlc1 < 16000))[0]
 
         m = np.zeros(fm1.shape)
         c = np.zeros(fc1.shape)
 
         #Taking the average of the models (could be improved?)
-        for i in range(fm1.shape[1]):
-            m[:,i] = (fm1[:,i] + fm2[:,i]) / 2.0
-        for i in range(fc1.shape[1]):
-            c[:,i] = (fc1[:,i] + fc2[:,i]) / 2.0
+        m = (fm1 + fm2)/2.0
+        c = (fc1 + fc2)/2.0
+        #for i in range(fm1.shape[1]):
+        #    m[:,i] = (fm1[:,i] + fm2[:,i]) / 2.0
+        #for i in range(fc1.shape[1]):
+        #    c[:,i] = (fc1[:,i] + fc2[:,i]) / 2.0
 
         # Setting the models to the proper length
         c = c[rel,:]
@@ -318,7 +329,7 @@ def model_spec(inputs, gal, fitmode = False):
         wlc1 = vcj["WL"]
         c = vcj[cfl1]
 
-        rel = np.where((wlc1 > 8500) & (wlc1 < 14000))[0]
+        rel = np.where((wlc1 > 6500) & (wlc1 < 16000))[0]
 
         mimf = m[rel,imfsdict[(x1,x2)]]
         c = c[rel,:]
@@ -375,14 +386,8 @@ def model_spec(inputs, gal, fitmode = False):
     else:
         newm = mimf*(1. + model_ratio(NaP + KP + MgP + CaP + FeP))
         
-    # Convolve model to previously determined velocity dispersion (we don't fit dispersion in this code).
-    if gal == 'M85':
-        wlc, mconv = convolvemodels(wl, newm, 176.)
-    elif gal == 'M87':
-        wlc, mconv = convolvemodels(wl, newm, 360.)
-    
     #print time.time() - t3
-    return wlc, mconv
+    return wl, newm
 
 def chisq(params, wl, data, err, gal, fitmode, plot=False, timing = False):
     ''' Important function that produces the value that essentially
@@ -393,7 +398,14 @@ def chisq(params, wl, data, err, gal, fitmode, plot=False, timing = False):
         t1 = time.time()
 
     #Creating model spectrum then interpolating it so that it can be easily matched with the data.
-    wlc, mconv = model_spec(params, gal, fitmode = fitmode)
+    wlm, newm = model_spec(params, gal, fitmode = fitmode)
+
+    # Convolve model to previously determined velocity dispersion (we don't fit dispersion in this code).
+    if gal == 'M85':
+        #wlc, mconv = convolvemodels(wl, newm, 176.)
+        wlc, mconv = convolvemodels(wlm, newm, 145.)
+    elif gal == 'M87':
+        wlc, mconv = convolvemodels(wlm, newm, 370.)
     
     if timing:
         t2 = time.time()
@@ -414,6 +426,16 @@ def chisq(params, wl, data, err, gal, fitmode, plot=False, timing = False):
 
         #Getting a slice of the model
         wli = wl[i]
+        if i in [3,4]:
+            wli = np.array(wli)
+            wli -= 2.0
+        #elif i == 5:
+        #    wli = np.array(wli)
+        #    wli += 1.0
+        #elif i == 1:
+        #    wli = np.array(wli)
+        #    wli += 1.0
+
         modelslice = mconvinterp(wli)
 
         #Removing a high-order polynomial from the slice
@@ -442,7 +464,7 @@ def chisq(params, wl, data, err, gal, fitmode, plot=False, timing = False):
 
         #Performing the chisq calculation
         if linefit and (line_name[i] == 'FeH'):
-            whbad = (wli > 9894) & (wli < 9908)
+            whbad = (wl[i] > 9894) & (wl[i] < 9908)
             wg = np.logical_not(whbad)
             chisq += np.sum((modelslice[wg] - data[i][wg])**2.0 / (err[i][wg]**2.0))
         else:
@@ -535,7 +557,7 @@ def do_mcmc(gal, nwalkers, n_iter, fitmode = False, threads = 6, restart=False):
                 newinit.append(np.random.random()*0.6 - 0.3)
             pos.append(np.array(newinit))
     else:
-       realdata, postprob, infol, lastdata = load_mcmc_file(restart)
+       realdata, postprob, infol, lastdata = mcsp.load_mcmc_file(restart)
        pos = lastdata
 
     savefl = base + "mcmcresults/"+time.strftime("%Y%m%dT%H%M%S")+"_%s_fullfit.dat" % (gal)
@@ -566,80 +588,13 @@ def do_mcmc(gal, nwalkers, n_iter, fitmode = False, threads = 6, restart=False):
     
     return sampler
 
-def load_mcmc_file(fl):
-    '''Loads the chain file (fl) as output by the do_mcmc program. Returns
-    the walker data, the probability data, and the run info.'''
 
-    f = open(fl,'r')
-    f.readline()
-    info = f.readline()
-    firstline = f.readline()
-    n_values = len(firstline.split())
+def preparespec(galaxy, baseforce = False):
 
-    #Get line count to diagnose
-    lc = 1
-    for line in f:
-        lc += 1
-    f.close()
-    info = info[1:]
-    values = info.split()
-    nworkers = int(values[0])
-    niter = int(values[1])
-    gal = values[2]
-    fitmode = values[3]
-
-    if fitmode == 'True':
-        names = ['Age','x1','x2','[Na/H]','[K/H]','[Ca/H]','[Fe/H]']
-    elif fitmode == 'False':
-        names = ['[Z/H]','Age','x1','x2','[Na/H]','[K/H]','[Ca/H]','[Mg/H]','[Fe/H]']
-    elif fitmode == 'NoAge':
-        names = ['x1','x2','[Na/H]','[K/H]','[Ca/H]','[Fe/H]']
+    if baseforce:
+        base = baseforce
     else:
-        names = ['[Z/H]','Age','x1','x2']
-
-    names.insert(0,"Worker")
-    names.insert(len(names), "ChiSq")
-    print "MODE: ", fitmode
-
-    #N lines should be nworkers*niter
-    n_lines = nworkers*niter
-    if lc < nworkers:
-        print "FILE DOES NOT HAVE ONE STEP...RETURNING"
-        return
-    elif lc % nworkers != 0:
-        print "FILE HAS INCOMPLETE STEP...REMOVING"
-        n_steps = int(lc / nworkers)
-        initdata = pd.read_table(fl, comment='#', header = None, \
-                names=names, delim_whitespace=True)
-        #initdata = np.loadtxt(fl)
-        data = np.array(initdata)
-        data = data[:n_steps*nworkers,:]
-    elif lc != n_lines:
-        print "FILE NOT COMPLETE"
-        initdata = pd.read_table(fl, comment='#', header = None, \
-                names=names, delim_whitespace=True)
-        data = np.array(initdata)
-        #data = np.loadtxt(fl)
-        n_steps = int(data.shape[0]/nworkers)
-    else:
-        initdata = pd.read_table(fl, comment='#', header = None, \
-                names=names, delim_whitespace=True)
-        data = np.array(initdata)
-        #data = np.loadtxt(fl)
-        n_steps = niter
-
-    names = names[1:-1]
-    infol = [nworkers, niter, gal, fitmode, names]
-
-    folddata = data.reshape((n_steps, nworkers,len(names)+2))
-    postprob = folddata[:,:,-1]
-    realdata = folddata[:,:,1:-1]
-    lastdata = realdata[-1,:,:]
-    print "DATASHAPE: ", realdata.shape
-
-    return [realdata, postprob, infol, lastdata]
-
-def preparespec(galaxy):
+        global base
 
     if galaxy == 'M87':
         z = 0.004283
@@ -797,7 +752,7 @@ def read_ssp(fl):
 
 def convolvemodels(wlfull, datafull, veldisp):
 
-    reg = (wlfull > 9500) & (wlfull < 13500)
+    reg = (wlfull >= 9500) & (wlfull <= 13500)
     
     wl = wlfull[reg]
     data = datafull[reg]
@@ -805,35 +760,43 @@ def convolvemodels(wlfull, datafull, veldisp):
     c = 299792.458
 
     #Measuring on KIa line
-    mainpass = np.where((wl >= bluelow[3]) & (wl <= redhigh[3]))[0]
+    #mainpass = np.where((wl >= bluelow[3]) & (wl <= redhigh[3]))[0]
 
-    linedata = data[mainpass]
-    linewl = wl[mainpass]
+    #linedata = data[mainpass]
+    #linewl = wl[mainpass]
+    #mpl.plot(linewl, linedata)
+    #mpl.show()
 
-    try:
-        popt, pcov = mcsp.gaussian_fit_os(linewl, linedata, [-0.005, 5.0, 11693, 0.0695])
+    #try:
+    #    popt, pcov = mcsp.gaussian_fit_os(linewl, linedata, [-0.005, 5.0, 11693, 0.0695])
         #popt, pcov = gf.gaussian_fit_os(linewl, linedata, [-0.005, 5.0 ,12525, 0.064])
         #Sigma measured from fit
-        m_sigma = popt[1]
-        m_center = popt[2]
-    except:
-        print "LINEFIT DIDNT WORK -- GAUSSIAN"
-        return wl, data
+    #    m_sigma = popt[1]
+    #    m_center = popt[2]
+    #except:
+    #    print "LINEFIT DIDNT WORK -- GAUSSIAN"
+    #    return wl, data
 
     #Sigma from description of models
-    m_sigma = np.abs(m_center / (1 + 100./c) - m_center)
+    m_center = 11500
+    m_sigma = np.abs((m_center / (1 + 100./c)) - m_center)
     f = m_center + m_sigma
     v = c * ((f/m_center) - 1)
     
-    sigma_gal = (m_center * (veldisp/c + 1.)) - m_center
+    sigma_gal = np.abs((m_center * (veldisp/c + 1.)) - m_center)
     sigma_conv = np.sqrt(sigma_gal**2. - m_sigma**2.)
 
-    convolvex = np.arange(-4*sigma_conv,4*sigma_conv, 2)
+    convolvex = np.arange(-5*sigma_conv,5*sigma_conv, 2.0)
     gaussplot = mcsp.gauss_nat(convolvex, [sigma_conv,0.])
 
     out = np.convolve(datafull, gaussplot, mode='same')
-
-    return wl, out[reg]
+    #mpl.plot(out)
+    #mpl.plot(datafull)
+    #mpl.show()
+    
+    #print len(wl), len(out), len(reg), len(out[reg])
+    #return wl, out[reg]
+    return wlfull, out
 
 def setup_test_models():
     mockdata = [7.0,1.3,1.3,0.1,0.2,0.0,-0.1]
@@ -842,90 +805,26 @@ def setup_test_models():
     wl, data, err = splitspec(d[0], d[1], err = d[2])
     return mockdata, wl, data, err, vcj
 
-def compare_bestfit(fl, burnin=-1000):
+def removeLineSlope(wlc, mconv,i):
+    #Define the bandpasses for each line 
+    bluepass = np.where((wlc >= bluelow[i]) & (wlc <= bluehigh[i]))[0]
+    redpass = np.where((wlc >= redlow[i]) & (wlc <= redhigh[i]))[0]
 
-    dataall = load_mcmc_file(fl)
-    data = dataall[0]
-    fitmode = dataall[2][3]
-    names = dataall[2][4]
-    gal = dataall[2][2]
+    #Cacluating center value of the blue and red bandpasses
+    blueavg = np.mean([bluelow[i],bluehigh[i]])
+    redavg = np.mean([redlow[i],redhigh[i]])
 
-    flsplname = fl.split('/')[-1]
-    flspl = flsplname.split('_')[0]
-    datatype = flsplname.split('_')[-1][:-4]
-    if datatype == "widthfit":
-        datatype = "Widths"
-    elif datatype == "fullfit":
-        datatype = "Spectra"
-    #infol = [nworkers, niter, gal, fitmode, names]
+    blueval = np.mean(mconv[bluepass])
+    redval = np.mean(mconv[redpass])
 
-    if fitmode == 'limited':
-        mcmctype = 'Base Params'
-    elif fitmode == 'True':
-        mcmctype = 'Abundance Fit'
-        fitmode = True
-    elif fitmode == 'False':
-        mcmctype = 'Full Fit'
-        fitmode = False
+    pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
+    polyfit = np.poly1d(pf)
 
-    samples = data[burnin:,:,:].reshape((-1,len(names)))
-    truevalues = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),\
-            zip(*np.percentile(samples, [16, 50, 84], axis=0)))
-    truevalues = np.array(truevalues)
-    truevalues = truevalues[:,0]
-
-    wl, data, err = preparespec(gal)
-    wl, data, err = splitspec(wl, data, err = err, lines=linefit)
-
-    wlc, mconv = model_spec(truevalues, gal, fitmode = fitmode)
-
-    mconvinterp = spi.interp1d(wlc, mconv, kind='cubic', bounds_error=False)
-    
-    fig, axes = mpl.subplots(2,4,figsize = (16,6.5))
-    axes = axes.flatten()
-    fig.delaxes(axes[-1])
-
-    for i in range(len(mlow)):
-        if (gal == 'M87') and linefit:
-            if line_name[i] == 'KI_1.25':
-                continue
-
-        #Getting a slice of the model
-        wli = wl[i]
-        modelslice = mconvinterp(wli)
-
-        #Removing a high-order polynomial from the slice
-        if linefit:
-            #Define the bandpasses for each line 
-            bluepass = np.where((wlc >= bluelow[i]) & (wlc <= bluehigh[i]))[0]
-            redpass = np.where((wlc >= redlow[i]) & (wlc <= redhigh[i]))[0]
-
-            #Cacluating center value of the blue and red bandpasses
-            blueavg = np.mean([bluelow[i],bluehigh[i]])
-            redavg = np.mean([redlow[i],redhigh[i]])
-
-            blueval = np.mean(mconv[bluepass])
-            redval = np.mean(mconv[redpass])
-
-            pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
-            polyfit = np.poly1d(pf)
-            cont = polyfit(wli)
-        else:
-            pf = np.polyfit(wl[i], modelslice, morder[i])
-            polyfit = np.poly1d(pf)
-            cont = polyfit(wl[i])
-
-        modelslice = modelslice / cont
-
-        axes[i].plot(wl[i], modelslice, 'r')
-        #axes[i].errorbar(wl[i], data[i],fmt='b', yerr=err[i])
-        axes[i].plot(wl[i], data[i],'b')
-        axes[i].fill_between(wl[i],data[i] + err[i],data[i]-err[i], facecolor = 'gray', alpha=0.5)
-        axes[i].set_title(line_name[i])
-
-    mpl.show()
+    return polyfit
 
 if __name__ == '__main__':
     vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
-    sampler = do_mcmc('M85', 512, 15000, fitmode = 'NoAge', threads = 18)
-    #compare_bestfit('20180726T120716_M85_fullfit.dat')
+    #sampler = do_mcmc('M85', 512, 15000, fitmode = 'NoAge', threads = 18)
+    sampler = do_mcmc('M87', 512, 15000, fitmode = 'limited', threads = 18)
+    #compare_bestfit('20180807T031027_M85_fullfit.dat')
+    #compare_bestfit('20180727T104340_M87_fullfit.dat')

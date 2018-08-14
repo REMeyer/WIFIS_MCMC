@@ -5,6 +5,8 @@ import corner
 from glob import glob
 import scipy.interpolate as spi
 import sys
+import mcmc_support as mcsp
+from mcmc_support import load_mcmc_file
 
 line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI']
 mlow = [9855,10300,11340,11667,11710,12460,13090]
@@ -15,7 +17,7 @@ linefit = True
 def plot_corner(fl, burnin):
 
     mpl.close('all')
-    dataall = mcfs.load_mcmc_file(fl)
+    dataall = load_mcmc_file(fl)
     data = dataall[0]
     smallfit = dataall[2][3]
     names = dataall[2][4]
@@ -169,6 +171,42 @@ def testChemVariance(Z, Age, fitmode):
         mpl.legend()
         mpl.show()
 
+def measureveldisp(gal):
+    c = 299792.458
+
+    wl, data, err = mcfs.preparespec(gal, baseforce = '/home/elliot/mcmcgemini/')
+    wl, data, err = mcfs.splitspec(wl, data, err = err, lines=True)
+
+    if gal == 'M85':
+        kwl = wl[4]
+        kdata = data[4]
+        gausreturn = mcsp.gaussian_fit_os(kwl, kdata, [-0.04,10.0,11780,1.0])
+        print gausreturn[0]
+    if gal == 'M87':
+        kwl = wl[4]
+        kdata = data[4]
+        gausreturn = mcsp.gaussian_fit_os(kwl, kdata, [-0.04,10.0,11780,1.0])
+        print gausreturn[0]
+
+    popt = list(gausreturn[0])
+    popt.insert(0, kwl)
+    mpl.plot(kwl, kdata, 'b')
+    mpl.plot(kwl, mcsp.gaussian_os(*popt))
+    mpl.show()
+
+    m_sigma = popt[2]
+    m_center = popt[3]
+
+    #Sigma from description of models
+    #m_sigma = np.abs(m_center / (1 + 100./c) - m_center)
+    #f = m_center + m_sigma
+    #v = c * ((f/m_center) - 1)
+    
+    #sigma_gal = (m_center * (veldisp/c + 1.)) - m_center
+    #sigma_conv = np.sqrt(sigma_gal**2. - m_sigma**2.)
+    print c * (m_sigma/m_center)
+
 if __name__=='__main__':
-    multiplot(glob('/home/elliot/mcmcgemini/mcmcresults/201807*.dat'))
+    #multiplot(glob('/home/elliot/mcmcgemini/mcmcresults/201807*.dat'))
+    measureveldisp('M87')
 
