@@ -276,7 +276,7 @@ def compare_bestfit(fl, burnin=-1000, onesigma = False, addshift = False, vcjset
     if plot:
         mpl.show()
 
-def deriveShifts(fl, burnin = -1000, vcjset = False):
+def deriveShifts(fl, burnin = -1000, vcjset = False, plot = False):
 
     data, fitmode, names, gal, datatype, mcmctype, fitvalues, truevalues, galveldisp\
             = bestfitPrepare(fl, burnin)
@@ -290,45 +290,119 @@ def deriveShifts(fl, burnin = -1000, vcjset = False):
 
     mconvinterp = spi.interp1d(wlc, mconv, kind='cubic', bounds_error=False)
     shifts = np.arange(-3.0,3.0,0.1)
-    #shifts = [1.75,-1.35,-1.3,-0.9,0.45,0.35,-1.35]
+    shifts = [0.9,-0.8,-1.5,-2.8,-1.1,1.0,-0.6]
 
-    for sh in shifts: 
+    shfit = np.zeros((len(shifts),7))
+    #for j,sh in enumerate(shifts): 
+    if plot:
         fig, axes = mpl.subplots(2,4,figsize = (16,6.5))
+        #fig.suptitle(str(sh))
         axes = axes.flatten()
         fig.delaxes(axes[-1])
-        for i in range(len(wl)):
-            if (gal == 'M87') and linefit:
-                if line_name[i] == 'KI_1.25':
-                    continue
+    for i in range(len(wl)):
+        if (gal == 'M87') and linefit:
+            if line_name[i] == 'KI_1.25':
+                continue
 
-            #Getting a slice of the model
-            wli = wl[i]
-            wli += sh
+        #Getting a slice of the model
+        wli = np.array(wl[i])
+        #wli += sh
+        wli += shifts[i]
 
-            modelslice = mconvinterp(wli)
-            
-            #-1.8/1.75, -1.4/1.35,-1.35/1.3, -0.95/0.9,-0.5/0.45,-0.4/0.35,-1.4,1.35
-            #Removing a high-order polynomial from the slice
+        modelslice = mconvinterp(wli)
+        
+        #-1.8/1.75, -1.4/1.35,-1.35/1.3, -0.95/0.9,-0.5/0.45,-0.4/0.35,-1.4,1.35
+        #Removing a high-order polynomial from the slice
 
-            if linefit:
-                polyfit = mcfs.removeLineSlope(wlc, mconv,i)
-                cont = polyfit(wli)
-            else:
-                pf = np.polyfit(wl[i], modelslice, morder[i])
-                polyfit = np.poly1d(pf)
-                cont = polyfit(wl[i])
+        if linefit:
+            polyfit = mcfs.removeLineSlope(wlc, mconv,i)
+            cont = polyfit(wli)
+        else:
+            pf = np.polyfit(wl[i], modelslice, morder[i])
+            polyfit = np.poly1d(pf)
+            cont = polyfit(wl[i])
 
-            modelslice = modelslice / cont
-            
+        modelslice = modelslice / cont
+        #shfit[j,i] = np.std(data[i] / modelslice)
+        
+        if plot:
             axes[i].plot(wl[i], modelslice, 'r')
             axes[i].plot(wl[i], data[i],'b')
             axes[i].fill_between(wl[i],data[i] + err[i],data[i]-err[i], facecolor = 'gray', alpha=0.5)
-            axes[i].set_title(line_name[i] + ' '+ str(np.std(data[i] / modelslice)))
+            axes[i].set_title(line_name[i] + ' %.2f' % (np.std(data[i] / modelslice)))
             if linefit:
                 axes[i].set_xlim((bluelow[i],redhigh[i]))
 
+    if plot:
         mpl.show()
+    for i in range(len(wl)):
+        print shifts[np.argmin(shfit[:,i])]
+
+    return shfit
+
+def deriveVelDisp(fl, burnin = -1000, vcjset = False, plot = False):
+
+    data, fitmode, names, gal, datatype, mcmctype, fitvalues, truevalues, galveldisp\
+            = bestfitPrepare(fl, burnin)
+
+    wl, data, err = mcfs.preparespec(gal)
+    wl, data, err = mcfs.splitspec(wl, data, err = err, lines=linefit)
+
+    wlg, newm = mcfs.model_spec(truevalues, gal, fitmode = fitmode, vcjset = vcjset)
+    # Convolve model to previously determined velocity dispersion (we don't fit dispersion in this code).
+    veldists = np.arange(120,390,10)
+    wlc, mconv = mcfs.convolvemodels(wlg, newm, galveldisp)
+
+    mconvinterp = spi.interp1d(wlc, mconv, kind='cubic', bounds_error=False)
+
+    shfit = np.zeros((len(shifts),7))
+    #for j,sh in enumerate(shifts): 
+    if plot:
+        fig, axes = mpl.subplots(2,4,figsize = (16,6.5))
+        #fig.suptitle(str(sh))
+        axes = axes.flatten()
+        fig.delaxes(axes[-1])
+    for i in range(len(wl)):
+        if (gal == 'M87') and linefit:
+            if line_name[i] == 'KI_1.25':
+                continue
+
+        #Getting a slice of the model
+        wli = np.array(wl[i])
+        #wli += sh
+        wli += shifts[i]
+
+        modelslice = mconvinterp(wli)
+        
+        #-1.8/1.75, -1.4/1.35,-1.35/1.3, -0.95/0.9,-0.5/0.45,-0.4/0.35,-1.4,1.35
+        #Removing a high-order polynomial from the slice
+
+        if linefit:
+            polyfit = mcfs.removeLineSlope(wlc, mconv,i)
+            cont = polyfit(wli)
+        else:
+            pf = np.polyfit(wl[i], modelslice, morder[i])
+            polyfit = np.poly1d(pf)
+            cont = polyfit(wl[i])
+
+        modelslice = modelslice / cont
+        #shfit[j,i] = np.std(data[i] / modelslice)
+        
+        if plot:
+            axes[i].plot(wl[i], modelslice, 'r')
+            axes[i].plot(wl[i], data[i],'b')
+            axes[i].fill_between(wl[i],data[i] + err[i],data[i]-err[i], facecolor = 'gray', alpha=0.5)
+            axes[i].set_title(line_name[i] + ' %.2f' % (np.std(data[i] / modelslice)))
+            if linefit:
+                axes[i].set_xlim((bluelow[i],redhigh[i]))
+
+    if plot:
+        mpl.show()
+    for i in range(len(wl)):
+        print shifts[np.argmin(shfit[:,i])]
+
+    return shfit
 
 if __name__ == '__main__':
     vcj = mcfs.preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
-    deriveShifts('20180807T031027_M85_fullfit.dat', vcjset = vcj)
+    shfit = deriveShifts('mcmcresults/20180807T031027_M85_fullfit.dat', vcjset = vcj, plot = True)

@@ -16,6 +16,7 @@ import scipy.interpolate as spi
 import warnings
 import sys, os
 import mcmc_support as mcsp
+from random import uniform
 
 warnings.simplefilter('ignore', np.RankWarning)
 
@@ -95,18 +96,35 @@ def preload_vcj(overwrite_base = False):
     for fl in fls:
         print fl
         flspl = fl.split('/')[-1]
+        mnamespl = flspl.split('_')
+        age = float(mnamespl[3][1:])
+        Zsign = mnamespl[4][1]
+        Zval = float(mnamespl[4][2:5])
+        if Zsign == "m":
+            Zval = -1.0 * Zval
         x = pd.read_table(fl, delim_whitespace = True, header=None)
         x = np.array(x)
-        vcj[flspl] = x[:,1:]
+        vcj["%.1f_%.1f" % (age, Zval)] = [x[:,1:]]
 
     print "PRELOADING ABUNDANCE MODELS INTO MEMORY"
     fls = glob(base+'spec/atlas/*')    
     for fl in fls:
         print fl
         flspl = fl.split('/')[-1]
+
+        mnamespl = flspl.split('_')
+        age = float(mnamespl[2][1:])
+        Zsign = mnamespl[3][1]
+        Zval = float(mnamespl[3][2:5])
+        if Zsign == "m":
+            Zval = -1.0 * Zval
+        if age == 13.0:
+            age = 13.5
+
         x = pd.read_table(fl, skiprows=2, names = chem_names, delim_whitespace = True, header=None)
         x = np.array(x)
-        vcj[flspl] = x[:,1:]
+        vcj["%.1f_%.1f" % (age, Zval)].append(x[:,1:])
+
     vcj["WL"] = x[:,0]
 
     print "FINISHED LOADING MODELS"
@@ -153,6 +171,8 @@ def select_model_file(Z, Age, fitmode):
         if mixage:
             whAge = np.where(Age_m == Age)[0][0]
             whZ = np.where(Z_m == Z)[0][0]        
+            #fl1 = "%.1f_%.1f" % (Age_m[whAge-1],0.0)
+            #fl2 = "%.1f_%.1f" % (Age_m[whAge+1],0.0)
 
             if Age < 9.0:
                 fl1 = 'VCJ_v8_mcut0.08_t0%.1f_Zp0.0.ssp.imf_varydoublex.s100' % (Age_m[whAge-1])
@@ -251,7 +271,61 @@ def select_model_file(Z, Age, fitmode):
 
     return fl1, cfl1, fl2, cfl2, mixage, mixZ
 
-def model_spec(inputs, gal, fitmode = False, vcjset = False):
+def select_model_file_new(Z, Age, fitmode):
+    '''Selects the model file for a given Age and [Z/H]. If the requested values
+    are between two models it returns two filenames for each model set.'''
+
+    #Acceptable parameters...also global variables but restated here...
+    Z_m = np.array([-1.5,-1.25, -1.0, -0.75, -0.5, -0.25, 0.0, 0.1, 0.2])
+    Age_m = np.array([1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.25,13.5])
+    x1_m = 0.5 + np.arange(16)/5.0
+    x2_m = 0.5 + np.arange(16)/5.0
+    Z_pm = np.array(['m','m','m','m','m','m','p','p','p'])
+    ChemAge_m = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13])
+
+    fullage = np.array([1.0,3.0,5.0,7.0,9.0,11.0,13.5])
+    fullZ = np.array([-1.5, -1.0, -0.5, 0.0, 0.2])
+    
+    #Matching parameters to the nearest acceptable value (for Age, Z, x1, and x2)
+    if Z not in Z_m:
+        Zmin = np.argmin(np.abs(Z_m - Z))
+        Z = Z_m[Zmin]
+    if Age not in Age_m:
+        Agemin = np.argmin(np.abs(Age_m - Age))
+        Age = Age_m[Agemin]
+
+    mixage = False
+    mixZ = False
+    if Age not in fullage:
+        mixage = True
+    if Z not in fullZ:
+        mixZ = True
+
+    if fitmode in [False, 'limited']:
+        noZ = False
+    else:
+        noZ = True
+        Z = 0.0
+
+    whAge = np.where(Age_m == Age)[0][0]
+    whZ = np.where(Z_m == Z)[0][0]        
+
+    if mixage and mixZ:
+        fl1 = "%.1f_%.1f" % (Age_m[whAge-1],Z_m[whZ-1])
+        fl2 = "%.1f_%.1f" % (Age_m[whAge+1],Z_m[whZ+1])
+    elif mixage:
+        fl1 = "%.1f_%.1f" % (Age_m[whAge-1],0.0)
+        fl2 = "%.1f_%.1f" % (Age_m[whAge+1],0.0)
+    elif mixZ:
+        fl1 = "%.1f_%.1f" % (Age,Z_m[whZ-1])
+        fl2 = "%.1f_%.1f" % (Age,Z_m[whZ+1])
+    else:
+        fl1 = "%.1f_%.1f" % (Age,Z)
+        fl2 = ''
+
+    return fl1, fl2, mixage, mixZ
+
+def model_spec(inputs, gal, fitmode = False, vcjset = False, timing = False):
     '''Core function which takes the input model parameters, finds the appropriate models,
     and adjusts them for the input abundance ratios. Returns a broadened model spectrum 
     to be matched with a data spectrum.'''
@@ -261,7 +335,9 @@ def model_spec(inputs, gal, fitmode = False, vcjset = False):
     else:
         global vcj
 
-    #t1 = time.time()
+    if timing:
+        print "Starting Model Spec Time"
+        t1 = time.time()
 
     #Determining the fitting parameters from the fitmode variable
     if fitmode == True:
@@ -287,32 +363,42 @@ def model_spec(inputs, gal, fitmode = False, vcjset = False):
         x2 = x2_m[x2min]
 
     #Finding the appropriate base model files.
-    fl1, cfl1, fl2, cfl2, mixage, mixZ = select_model_file(Z, Age, fitmode)
+    #fl1, cfl1, fl2, cfl2, mixage, mixZ = select_model_file(Z, Age, fitmode)
+    fl1, fl2, mixage, mixZ = select_model_file_new(Z, Age, fitmode)
 
-    #t2 = time.time()
-    #print t2 - t1
+    if timing:
+        t2 = time.time()
+        print "MSPEC T1: ",t2 - t1
         
     # If the Age of Z is inbetween models then this will average the respective models to produce 
     # one that is closer to what is expected.
     # NOTE THAT THIS IS AN ASSUMPTION AND THE CHANGE IN THE MODELS IS NOT NECESSARILY LINEAR
     if mixage or mixZ:
         # Reading models. This step was vastly improved by pre-loading the models prior to running the mcmc
-        fm1 = vcj[fl1]
-        fm2 = vcj[fl2]
+        #fm1 = vcj[fl1]
+        #fm2 = vcj[fl2]
 
-        fc1 = vcj[cfl1]
-        fc2 = vcj[cfl2]
+        #fc1 = vcj[cfl1]
+        #fc2 = vcj[cfl2]
+        fm1 = vcj[fl1][0]
+        fm2 = vcj[fl2][0]
+        fc1 = vcj[fl1][1]
+        fc2 = vcj[fl2][1]
 
         wlc1 = vcj["WL"]
 
         #Finding the relevant section of the models to reduce the computational complexity
         rel = np.where((wlc1 > 6500) & (wlc1 < 16000))[0]
 
-        m = np.zeros(fm1.shape)
+        fc1 = fc1[rel,:]
+        fc2 = fc2[rel,:]
+
+        #m = np.zeros(fm1.shape)
         c = np.zeros(fc1.shape)
 
         #Taking the average of the models (could be improved?)
-        m = (fm1 + fm2)/2.0
+        mimf = (fm1[rel,imfsdict[(x1,x2)]] + fm2[rel,imfsdict[(x1,x2)]])/2.0
+        basemodel = (fm1[rel,73] + fm2[rel,73])/2.0
         c = (fc1 + fc2)/2.0
         #for i in range(fm1.shape[1]):
         #    m[:,i] = (fm1[:,i] + fm2[:,i]) / 2.0
@@ -320,23 +406,25 @@ def model_spec(inputs, gal, fitmode = False, vcjset = False):
         #    c[:,i] = (fc1[:,i] + fc2[:,i]) / 2.0
 
         # Setting the models to the proper length
-        c = c[rel,:]
-        mimf = m[rel,imfsdict[(x1,x2)]]
+        #c = c[rel,:]
+        #mimf = m[rel,imfsdict[(x1,x2)]]
         wl = wlc1[rel]
     else:
         #If theres no need to mix models then just read them in and set the length
-        m = vcj[fl1]
+        m = vcj[fl1][0]
         wlc1 = vcj["WL"]
-        c = vcj[cfl1]
+        c = vcj[fl1][1]
 
         rel = np.where((wlc1 > 6500) & (wlc1 < 16000))[0]
 
         mimf = m[rel,imfsdict[(x1,x2)]]
         c = c[rel,:]
         wl = wlc1[rel]
+        basemodel = m[rel,73]
 
-    #t3 = time.time()
-    #print t3 - t2
+    if timing:
+        t3 = time.time()
+        print "MSPEC T2: ", t3 - t2
 
     # Reminder of the abundance model columns
     # ['Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-', 'a/Fe+', 'N+', 'N-', 'as/Fe+', 'Ti+', 'Ti-',\
@@ -372,7 +460,6 @@ def model_spec(inputs, gal, fitmode = False, vcjset = False):
         interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack((c[:,4], c[:,0],c[:,3])), kind = 'linear')
         CaP = interp(wl,Ca) / c[:,0] - 1.
 
-    basemodel = m[rel,73]
     model_ratio = mimf / basemodel
 
     # The model formula is as follows....
@@ -386,7 +473,8 @@ def model_spec(inputs, gal, fitmode = False, vcjset = False):
     else:
         newm = mimf*(1. + model_ratio(NaP + KP + MgP + CaP + FeP))
         
-    #print time.time() - t3
+    if timing:
+        print "MSPEC T3: ", time.time() - t3
     return wl, newm
 
 def chisq(params, wl, data, err, gal, fitmode, plot=False, timing = False):
@@ -398,7 +486,7 @@ def chisq(params, wl, data, err, gal, fitmode, plot=False, timing = False):
         t1 = time.time()
 
     #Creating model spectrum then interpolating it so that it can be easily matched with the data.
-    wlm, newm = model_spec(params, gal, fitmode = fitmode)
+    wlm, newm = model_spec(params, gal, fitmode = fitmode, timing=timing)
 
     # Convolve model to previously determined velocity dispersion (we don't fit dispersion in this code).
     if gal == 'M85':
@@ -798,11 +886,19 @@ def convolvemodels(wlfull, datafull, veldisp):
     #return wl, out[reg]
     return wlfull, out
 
-def setup_test_models():
-    mockdata = [7.0,1.3,1.3,0.1,0.2,0.0,-0.1]
-    vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
+def test_chisq(fitmode, trials = 5):
     d = preparespec('M85')
     wl, data, err = splitspec(d[0], d[1], err = d[2])
+
+    if fitmode == 'limited':
+        mockdata = [uniform(-1.5,0.2),uniform(1.0,13.5),uniform(0.5,3.5), uniform(0.5,3.5)]
+    elif fitmode == 'NoAge':
+        mockdata = [uniform(0.5,3.5), uniform(0.5,3.5), uniform(-0.3,0.9),uniform(-0.3,0.3),\
+                uniform(-0.3,0.3),uniform(-0.3,0.3)]
+
+    for i in range(trials):
+        chisq(mockdata, wl, data, err, 'M85', fitmode, plot=False, timing = True)
+
     return mockdata, wl, data, err, vcj
 
 def removeLineSlope(wlc, mconv,i):
@@ -824,7 +920,10 @@ def removeLineSlope(wlc, mconv,i):
 
 if __name__ == '__main__':
     vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
+    #test_chisq('limited',trials = 25)
+    #test_chisq('NoAge',trials = 2)
+
     #sampler = do_mcmc('M85', 512, 15000, fitmode = 'NoAge', threads = 18)
-    sampler = do_mcmc('M87', 512, 15000, fitmode = 'limited', threads = 18)
+    sampler = do_mcmc('M87', 512, 30000, fitmode = 'limited', threads = 18)
     #compare_bestfit('20180807T031027_M85_fullfit.dat')
     #compare_bestfit('20180727T104340_M87_fullfit.dat')
