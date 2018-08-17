@@ -21,6 +21,9 @@ def plot_corner(fl, burnin):
     data = dataall[0]
     smallfit = dataall[2][3]
     names = dataall[2][4]
+    high = dataall[2][5]
+    low = dataall[2][6]
+    legacy = dataall[2][8]
 
     flsplname = fl.split('/')[-1]
     flspl = flsplname.split('_')[0]
@@ -31,14 +34,25 @@ def plot_corner(fl, burnin):
         datatype = "Spectra"
     #infol = [nworkers, niter, gal, smallfit, names]
 
-    if smallfit == 'limited':
-        mcmctype = 'Base Params'
-    elif smallfit == 'True':
-        mcmctype = 'Abundance Fit'
-    elif smallfit == 'False':
-        mcmctype = 'Full Fit'
-    elif smallfit == 'NoAge':
-        mcmctype = 'Abundance Fit (no Age)'
+    if legacy:
+        if smallfit == 'limited':
+            mcmctype = 'Base Params'
+        if smallfit == 'LimitedVelDisp':
+            mcmctype = 'Base + VelDisp'
+        elif smallfit == 'True':
+            mcmctype = 'Abundance Fit'
+        elif smallfit == 'False':
+            mcmctype = 'Full Fit'
+        elif smallfit == 'NoAge':
+            mcmctype = 'Abundance Fit (no Age)'
+        elif smallfit == 'NoAgeVelDisp':
+            mcmctype = 'No Age / VelDisp'
+        elif smallfit == 'NoAgeLimited':
+            mcmctype = 'Base - Age + [Na/H]'
+        elif smallfit == 'VeryBase':
+            mcmctype = 'Very Base Params'
+    else:
+        mcmctype = ''
 
     samples = data[burnin:,:,:].reshape((-1,len(names)))
     truevalues = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),\
@@ -58,6 +72,7 @@ def plot_corner(fl, burnin):
         ax.axvline(truevalues[i][0] - truevalues[i][2], color="g")
         ax.set_title(names[i]+"=$%s_{-%s}^{+%s}$" % (np.round(truevalues[i][0],3), \
                 np.round(truevalues[i][2],3), np.round(truevalues[i][1],3)))
+        ax.set_xlim((low[i],high[i]))
 
     # Loop over the histograms
     for yi in range(len(names)):
@@ -70,10 +85,10 @@ def plot_corner(fl, burnin):
             ax.axvline(truevalues[xi][0] - truevalues[xi][2], color="g")
             ax.axhline(truevalues[yi][0] + truevalues[yi][1], color="g")
             ax.axhline(truevalues[yi][0] - truevalues[yi][2], color="g")
+            ax.set_ylim((low[yi], high[yi]))
+            ax.set_xlim((low[xi], high[xi]))
 
     figure.savefig(fl[:-4]+'.png')
-
-
 
 def multiplot(fls, burnin = -1000):
     for fl in fls:

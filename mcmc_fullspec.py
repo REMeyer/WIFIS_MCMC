@@ -64,9 +64,9 @@ if linefit:
     #mhigh = [9935,10360,11415,11705,11793,12545,13165]
     morder = [1,1,1,1,1,1,1]
 else:
-    mlow = [9700,10550,11550,12350]
-    mhigh = [10450,11450,12200,13180]
-    morder = [8,9,7,8]
+    mlow = [9700,10550,11340,11550,12350]
+    mhigh = [10450,10993,11447,12200,13180]
+    morder = [8,9,1,7,8]
 
 #Dictionary to help easily access the IMF index
 imfsdict = {}
@@ -161,7 +161,7 @@ def select_model_file(Z, Age, fitmode):
     if Z not in fullZ:
         mixZ = True
 
-    if fitmode in [False, 'limited']:
+    if fitmode in [False, 'limited', 'LimitedVelDisp', 'NoAgeLimited']:
         noZ = False
     else:
         noZ = True
@@ -271,7 +271,7 @@ def select_model_file(Z, Age, fitmode):
 
     return fl1, cfl1, fl2, cfl2, mixage, mixZ
 
-def select_model_file_new(Z, Age, fitmode):
+def select_model_file_new(Z, Age):
     '''Selects the model file for a given Age and [Z/H]. If the requested values
     are between two models it returns two filenames for each model set.'''
 
@@ -301,11 +301,11 @@ def select_model_file_new(Z, Age, fitmode):
     if Z not in fullZ:
         mixZ = True
 
-    if fitmode in [False, 'limited']:
-        noZ = False
-    else:
-        noZ = True
-        Z = 0.0
+    #if fitmode in [False, 'limited', 'LimitedVelDisp', 'NoAgeLimited']:
+    #    noZ = False
+    #else:
+    #    noZ = True
+    #    Z = 0.0
 
     whAge = np.where(Age_m == Age)[0][0]
     whZ = np.where(Z_m == Z)[0][0]        
@@ -325,7 +325,7 @@ def select_model_file_new(Z, Age, fitmode):
 
     return fl1, fl2, mixage, mixZ
 
-def model_spec(inputs, gal, fitmode = False, vcjset = False, timing = False):
+def model_spec(inputs, gal, paramnames, fitmode = False, vcjset = False, timing = False):
     '''Core function which takes the input model parameters, finds the appropriate models,
     and adjusts them for the input abundance ratios. Returns a broadened model spectrum 
     to be matched with a data spectrum.'''
@@ -339,21 +339,60 @@ def model_spec(inputs, gal, fitmode = False, vcjset = False, timing = False):
         print "Starting Model Spec Time"
         t1 = time.time()
 
-    #Determining the fitting parameters from the fitmode variable
-    if fitmode == True:
-        Age, x1, x2, Na, K, Ca, Fe = inputs
-        Z = 0.0
-    elif fitmode == 'limited':
-        Z, Age, x1, x2 = inputs
-    elif fitmode == 'NoAge':
-        x1, x2, Na, K, Ca, Fe = inputs
-        Z = 0.0
+    for j in range(len(paramnames)):
+        if paramnames[j] == 'Age':
+            Age = inputs[j]
+        elif paramnames[j] == 'Z':
+            Z = inputs[j]
+        elif paramnames[j] == 'x1':
+            x1 = inputs[j]
+        elif paramnames[j] == 'x2':
+            x2 = inputs[j]
+        elif paramnames[j] == 'Na':
+            Na = inputs[j]
+        elif paramnames[j] == 'K':
+            K = inputs[j]
+        elif paramnames[j] == 'Fe':
+            Fe = inputs[j]
+        elif paramnames[j] == 'Ca':
+            Ca = inputs[j]
+        elif paramnames[j] == 'Mg':
+            Mg = inputs[j]
+        elif paramnames[j] == 'VelDisp':
+            veldisp = inputs[j]
+
+    if 'Age' not in paramnames:
         if gal == 'M85':
             Age = 5.0
         elif gal == 'M87':
             Age = 13.5
-    else:
-        Z, Age, x1, x2, Na, K, Mg, Fe, Ca = inputs
+    if 'Z' not in paramnames:
+        Z = 0.0
+
+    #Determining the fitting parameters from the fitmode variable
+    #if fitmode == True:
+    #    Age, x1, x2, Na, K, Ca, Fe = inputs
+    #    Z = 0.0
+    #elif fitmode == 'limited':
+    #    Z, Age, x1, x2 = inputs
+    #elif fitmode == 'LimitedVelDisp':
+    #    Z, Age, x1, x2,veldisp = inputs
+    #elif fitmode == 'NoAge':
+    #    x1, x2, Na, K, Ca, Fe = inputs
+    #    Z = 0.0
+    #    if gal == 'M85':
+    #        Age = 5.0
+    #    elif gal == 'M87':
+    #        Age = 13.5
+    #elif fitmode == 'NoAgeVelDisp':
+    #    x1, x2, Na, K, Ca, Fe, veldisp = inputs
+    #    Z = 0.0
+    #    if gal == 'M85':
+    #        Age = 5.0
+    #    elif gal == 'M87':
+    #        Age = 13.5
+    #else:
+    #    Z, Age, x1, x2, Na, K, Mg, Fe, Ca = inputs
 
     if x1 not in x1_m:
         x1min = np.argmin(np.abs(x1_m - x1))
@@ -364,7 +403,7 @@ def model_spec(inputs, gal, fitmode = False, vcjset = False, timing = False):
 
     #Finding the appropriate base model files.
     #fl1, cfl1, fl2, cfl2, mixage, mixZ = select_model_file(Z, Age, fitmode)
-    fl1, fl2, mixage, mixZ = select_model_file_new(Z, Age, fitmode)
+    fl1, fl2, mixage, mixZ = select_model_file_new(Z, Age)
 
     if timing:
         t2 = time.time()
@@ -437,28 +476,39 @@ def model_spec(inputs, gal, fitmode = False, vcjset = False, timing = False):
     # The models are interpolated at the various given abundances to allow for abundance values to be continuous.
     # The interpolated value is then normalized by the solar metallicity model and then subtracted by 1 to 
     # retain the percentage
-    if fitmode in [True, False, 'NoAge']:
+    #if fitmode in [True, False, 'NoAge', 'NoAgeVelDisp']:
         #Na adjustment
+    ab_contribution = 0.0
+    if 'Na' in paramnames:
         interp = spi.interp2d(wl, [-0.3,0.0,0.3,0.6,0.9], np.stack((c[:,2],c[:,0],c[:,1],c[:,-2],c[:,-1])), kind = 'cubic')
         NaP = interp(wl,Na) / c[:,0] - 1.
+        ab_contribution += NaP
 
         #K adjustment (assume symmetrical K adjustment)
+    if 'K' in paramnames:
         Kminus = (2. - (c[:,29] / c[:,0]))*c[:,0]
         interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack((Kminus,c[:,0],c[:,29])), kind = 'linear')
         KP = interp(wl,K) / c[:,0] - 1.
+        ab_contribution += KP
 
+    if 'Mg' in paramnames:
         #Mg adjustment (only for full fitting)
-        if fitmode == False:
-            interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack((c[:,16], c[:,0],c[:,15])), kind = 'linear')
-            MgP = interp(wl,Mg) / c[:,0] - 1.
+        #if fitmode == False:
+        interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack((c[:,16], c[:,0],c[:,15])), kind = 'linear')
+        MgP = interp(wl,Mg) / c[:,0] - 1.
+        ab_contribution += MgP
 
+    if 'Fe' in paramnames:
         #Fe Adjustment
         interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack((c[:,6], c[:,0],c[:,5])), kind = 'linear')
         FeP = interp(wl,Fe) / c[:,0] - 1.
+        ab_contribution += FeP
 
+    if 'Ca' in paramnames:
         #Ca Adjustment
         interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack((c[:,4], c[:,0],c[:,3])), kind = 'linear')
         CaP = interp(wl,Ca) / c[:,0] - 1.
+        ab_contribution += CaP
 
     model_ratio = mimf / basemodel
 
@@ -466,18 +516,21 @@ def model_spec(inputs, gal, fitmode = False, vcjset = False, timing = False):
     # The new model is = the base IMF model * abundance effects. 
     # The abundance effect %ages are scaled by the ratio of the selected IMF model to the Kroupa IMF model
     # The formula ensures that if the abundances are solar then the base IMF model is recovered. 
-    if fitmode in [True, 'NoAge']:
-        newm = mimf*(1. + model_ratio*(NaP + KP + CaP + FeP))
-    elif fitmode == 'limited':
-        newm = mimf
-    else:
-        newm = mimf*(1. + model_ratio(NaP + KP + MgP + CaP + FeP))
+    newm = mimf*(1. + model_ratio*ab_contribution)
+
+    #if fitmode in [True, 'NoAge', 'NoAgeVelDisp']:
+    #    newm = mimf*(1. + model_ratio*(NaP + KP + CaP + FeP))
+    #elif fitmode in ['limited', 'LimitedVelDisp']:
+    #    newm = mimf
+    #else:
+    #    newm = mimf*(1. + model_ratio(NaP + KP + MgP + CaP + FeP))
         
     if timing:
         print "MSPEC T3: ", time.time() - t3
+
     return wl, newm
 
-def chisq(params, wl, data, err, gal, fitmode, plot=False, timing = False):
+def chisq(params, wl, data, err, gal, fitmode, paramnames, plot=False, timing = False):
     ''' Important function that produces the value that essentially
     represents the likelihood of the mcmc equation. Produces the model
     spectrum then returns a normal chisq value.'''
@@ -486,14 +539,17 @@ def chisq(params, wl, data, err, gal, fitmode, plot=False, timing = False):
         t1 = time.time()
 
     #Creating model spectrum then interpolating it so that it can be easily matched with the data.
-    wlm, newm = model_spec(params, gal, fitmode = fitmode, timing=timing)
+    wlm, newm = model_spec(params, gal, paramnames, fitmode = fitmode, timing=timing)
 
     # Convolve model to previously determined velocity dispersion (we don't fit dispersion in this code).
-    if gal == 'M85':
-        #wlc, mconv = convolvemodels(wl, newm, 176.)
-        wlc, mconv = convolvemodels(wlm, newm, 145.)
-    elif gal == 'M87':
-        wlc, mconv = convolvemodels(wlm, newm, 370.)
+    if fitmode in ['NoAgeVelDisp', 'LimitedVelDisp']:
+        wlc, mconv = convolvemodels(wlm, newm, params[-1])
+    else:
+        if gal == 'M85':
+            #wlc, mconv = convolvemodels(wl, newm, 176.)
+            wlc, mconv = convolvemodels(wlm, newm, 170.)
+        elif gal == 'M87':
+            wlc, mconv = convolvemodels(wlm, newm, 308.)
     
     if timing:
         t2 = time.time()
@@ -571,78 +627,129 @@ def chisq(params, wl, data, err, gal, fitmode, plot=False, timing = False):
 
     return -0.5*chisq
 
-def lnprior(theta, fitmode):
+def lnprior(theta, fitmode, paramnames):
     '''Setting the priors for the mcmc. Returns 0.0 if fine and -inf if otherwise.'''
 
-    if fitmode == True:
-        Age, x1, x2, Na, K, Ca, Fe = theta 
-        if (1.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
-                (0.5 <= x2 <= 3.5) and (-0.3 <= Na <= 0.9) and (-0.3 <= K <= 0.3) and (-0.3 <= Ca <= 0.3) and\
-                (-0.3 <= Fe <= 0.3):
-            return 0.0
+    goodpriors = True
+    for j in range(len(paramnames)):
+        if paramnames[j] == 'Age':
+            if not (1.0 <= theta[j] <= 13.5):
+                goodpriors = False
+        elif paramnames[j] == 'Z':
+            if not (-1.5 <= theta[j] <= 0.2):
+                goodpriors = False
+        elif paramnames[j] in ['x1', 'x2']:
+            if not (0.5 <= theta[j] <= 3.5):
+                goodpriors = False
+        elif paramnames[j] == 'Na':
+            if not (-0.3 <= theta[j] <= 0.9):
+                goodpriors = False
+        elif paramnames[j] in ['K','Ca','Fe','Mg']:
+            if not (-0.3 <= theta[j] <= 0.3):
+                goodpriors = False
+        elif paramnames[j] == 'VelDisp':
+            if not (120 <= theta[j] <= 390):
+                goodpriors = False
 
-    elif fitmode == 'limited':
-        Z, Age, x1, x2 = theta 
-        if (-1.5 <= Z <= 0.2) and (1.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
-                (0.5 <= x2 <= 3.5):
-            return 0.0
-
-    elif fitmode == 'NoAge':
-        x1, x2, Na, K, Ca, Fe = theta 
-        if (0.5 <= x1 <= 3.5) and (0.5 <= x2 <= 3.5) and (-0.3 <= Na <= 0.9) and (-0.3 <= K <= 0.3)\
-                and (-0.3 <= Ca <= 0.3) and (-0.3 <= Fe <= 0.3):
-            return 0.0
-
+    if goodpriors == True:
+        return 0.0
     else:
-        Z, Age, x1, x2, Na, K, Mg, Fe, Ca = theta 
-        if (-1.5 <= Z <= 0.2) and (1.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
-                (0.5 <= x2 <= 3.5) and (-0.3 <= Na <= 0.9) and (-0.3 <= K <= 0.3) and (-0.3 <= Mg <= 0.3) and\
-                (-0.3 <= Fe <= 0.3) and (-0.3 <= Ca <= 0.3):
-            return 0.0
-    return -np.inf
+        return -np.inf
 
-def lnprob(theta, wl, data, err, gal, fitmode):
+    #if fitmode == True:
+    #    Age, x1, x2, Na, K, Ca, Fe = theta 
+    #    if (1.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
+    #            (0.5 <= x2 <= 3.5) and (-0.3 <= Na <= 0.9) and (-0.3 <= K <= 0.3) and (-0.3 <= Ca <= 0.3) and\
+    #            (-0.3 <= Fe <= 0.3):
+    #        return 0.0
+
+    #elif fitmode == 'limited':
+    #    Z, Age, x1, x2 = theta 
+    #    if (-1.5 <= Z <= 0.2) and (1.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
+    #            (0.5 <= x2 <= 3.5):
+    #        return 0.0
+
+    #elif fitmode == 'LimitedVelDisp':
+    #    Z, Age, x1, x2, veldisp = theta 
+    #    if (-1.5 <= Z <= 0.2) and (1.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
+    #            (0.5 <= x2 <= 3.5) and (120 <= veldisp <= 390):
+    #        return 0.0
+
+    #elif fitmode == 'NoAge':
+    #    x1, x2, Na, K, Ca, Fe = theta 
+    #    if (0.5 <= x1 <= 3.5) and (0.5 <= x2 <= 3.5) and (-0.3 <= Na <= 0.9) and (-0.3 <= K <= 0.3)\
+    #            and (-0.3 <= Ca <= 0.3) and (-0.3 <= Fe <= 0.3):
+    #        return 0.0
+
+    #elif fitmode == 'NoAgeVelDisp':
+    #    x1, x2, Na, K, Ca, Fe, veldisp = theta 
+    #    if (0.5 <= x1 <= 3.5) and (0.5 <= x2 <= 3.5) and (-0.3 <= Na <= 0.9) and (-0.3 <= K <= 0.3)\
+    #            and (-0.3 <= Ca <= 0.3) and (-0.3 <= Fe <= 0.3) and (120 <= veldisp <= 390):
+    #        return 0.0
+
+    #else:
+    #    Z, Age, x1, x2, Na, K, Mg, Fe, Ca = theta 
+    #    if (-1.5 <= Z <= 0.2) and (1.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
+    #            (0.5 <= x2 <= 3.5) and (-0.3 <= Na <= 0.9) and (-0.3 <= K <= 0.3) and (-0.3 <= Mg <= 0.3) and\
+    #            (-0.3 <= Fe <= 0.3) and (-0.3 <= Ca <= 0.3):
+    #        return 0.0
+    #return -np.inf
+
+def lnprob(theta, wl, data, err, gal, fitmode, paramnames):
     '''Primary function of the mcmc. Checks priors and returns the likelihood'''
 
-    lp = lnprior(theta, fitmode)
+    lp = lnprior(theta, fitmode, paramnames)
     if not np.isfinite(lp):
         return -np.inf
 
-    chisqv = chisq(theta, wl, data, err, gal, fitmode)
+    chisqv = chisq(theta, wl, data, err, gal, fitmode, paramnames)
     return lp + chisqv
 
 def do_mcmc(gal, nwalkers, n_iter, fitmode = False, threads = 6, restart=False):
     '''Main program. Runs the mcmc'''
 
     wl, data, err = preparespec(gal)
-    wl, data, err = splitspec(wl, data, err = err, lines=linefit)
+    if gal == 'M87':
+        wl, data, err = splitspec(wl, data, err = err, lines=linefit, scale = 0.15)
+    else:
+        wl, data, err = splitspec(wl, data, err = err, lines=linefit)
 
     if fitmode == True:
-        ndim = 7
+        paramnames = ['Age', 'x1', 'x2', 'Na', 'K', 'Ca', 'Fe']
     elif fitmode == 'limited':
-        ndim = 4
+        paramnames = ['Z', 'Age', 'x1', 'x2']
+    elif fitmode == 'LimitedVelDisp':
+        paramnames = ['Z', 'Age', 'x1', 'x2', 'VelDisp']
     elif fitmode == False:
-        ndim = 9
+        paramnames = ['Z','Age', 'x1', 'x2', 'Na', 'K', 'Mg','Fe','Ca']
     elif fitmode == 'NoAge':
-        ndim = 6
+        paramnames = ['x1', 'x2', 'Na', 'K', 'Ca', 'Fe']
+    elif fitmode == 'NoAgeVelDisp':
+        paramnames = ['x1', 'x2', 'Na', 'K', 'Ca', 'Fe', 'VelDisp']
+    elif fitmode == 'NoAgeLimited':
+        paramnames = ['Z', 'x1', 'x2', 'Na']
+    elif fitmode == 'VeryBase':
+        paramnames = ['Z', 'x1', 'x2']
+
+    ndim = len(paramnames)
 
     pos = []
     if not restart:
         for i in range(nwalkers):
             newinit = []
-            if fitmode in [False, 'limited']:
-                newinit.append(np.random.choice(Z_m))
-            if fitmode not in ['NoAge']:
-                newinit.append(np.random.choice(Age_m))
-            newinit.append(np.random.choice(x1_m))
-            newinit.append(np.random.choice(x2_m))
-            if fitmode in [True, False,'NoAge']:
-                newinit.append(np.random.random()*1.3 - 0.3)
-                newinit.append(np.random.random()*0.6 - 0.3)
-                newinit.append(np.random.random()*0.6 - 0.3)
-                newinit.append(np.random.random()*0.6 - 0.3)
-            if fitmode == False:
-                newinit.append(np.random.random()*0.6 - 0.3)
+            for j in range(len(paramnames)):
+                if paramnames[j] == 'Age':
+                    newinit.append(np.random.choice(Age_m))
+                elif paramnames[j] == 'Z':
+                    newinit.append(np.random.choice(Z_m))
+                elif paramnames[j] in ['x1', 'x2']:
+                    newinit.append(np.random.choice(x1_m))
+                elif paramnames[j] == 'Na':
+                    newinit.append(np.random.random()*1.3 - 0.3)
+                elif paramnames[j] in ['K','Ca','Fe','Mg']:
+                    newinit.append(np.random.random()*0.6 - 0.3)
+                elif paramnames[j] == 'VelDisp':
+                    newinit.append(np.random.random()*240 + 120)
             pos.append(np.array(newinit))
     else:
        realdata, postprob, infol, lastdata = mcsp.load_mcmc_file(restart)
@@ -650,11 +757,13 @@ def do_mcmc(gal, nwalkers, n_iter, fitmode = False, threads = 6, restart=False):
 
     savefl = base + "mcmcresults/"+time.strftime("%Y%m%dT%H%M%S")+"_%s_fullfit.dat" % (gal)
     f = open(savefl, "w")
+    strparams = '\t'.join(paramnames)
     f.write("#NWalk\tNStep\tGal\tFit\n")
     f.write("#%d\t%d\t%s\t%s\n" % (nwalkers, n_iter,gal,str(fitmode)))
+    f.write("#%s\n" % (strparams))
     f.close()
 
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = (wl, data, err, gal, fitmode), threads=threads)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = (wl, data, err, gal, fitmode, paramnames), threads=threads)
     print "Starting MCMC..."
 
     t1 = time.time() 
@@ -675,7 +784,6 @@ def do_mcmc(gal, nwalkers, n_iter, fitmode = False, threads = 6, restart=False):
             print 
     
     return sampler
-
 
 def preparespec(galaxy, baseforce = False):
 
@@ -776,11 +884,12 @@ def preparespec(galaxy, baseforce = False):
 
     return finalwl, finaldata, finalerr
 
-def splitspec(wl, data, err=False, lines = False):
+def splitspec(wl, data, err=False, lines = False, scale = False):
 
     databands = []
     wlbands = []
     errorbands = []
+
     for i in range(len(mlow)):
         wh = np.where( (wl >= mlow[i]) & (wl <= mhigh[i]))[0]
         dataslice = data[wh]
@@ -791,6 +900,7 @@ def splitspec(wl, data, err=False, lines = False):
             #Define the bandpasses for each line 
             bluepass = np.where((wl >= bluelow[i]) & (wl <= bluehigh[i]))[0]
             redpass = np.where((wl >= redlow[i]) & (wl <= redhigh[i]))[0]
+            fullpass = np.where((wl >= bluelow[i]) & (wl <= redhigh[i]))[0]
 
             #Cacluating center value of the blue and red bandpasses
             blueavg = np.mean([bluelow[i],bluehigh[i]])
@@ -802,12 +912,50 @@ def splitspec(wl, data, err=False, lines = False):
             pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
             polyfit = np.poly1d(pf)
             cont = polyfit(wlslice)
-        else:
-            pf = np.polyfit(wlslice, dataslice, morder[i])
-            polyfit = np.poly1d(pf)
-            cont = polyfit(wlslice)
 
-        databands.append(dataslice / cont)
+            if scale:
+                data[fullpass] -= scale*polyfit(wl[fullpass])
+
+                blueval = np.mean(data[bluepass])
+                redval = np.mean(data[redpass])
+                pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
+                polyfit = np.poly1d(pf)
+                cont = polyfit(wlslice)
+
+        else:
+            if i == 2:
+                #Define the bandpasses for each line 
+                bluepass = np.where((wl >= bluelow[2]) & (wl <= bluehigh[2]))[0]
+                redpass = np.where((wl >= redlow[2]) & (wl <= redhigh[2]))[0]
+
+                #Cacluating center value of the blue and red bandpasses
+                blueavg = np.mean([bluelow[2],bluehigh[2]])
+                redavg = np.mean([redlow[2],redhigh[2]])
+
+                blueval = np.mean(data[bluepass])
+                redval = np.mean(data[redpass])
+
+                pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
+                polyfit = np.poly1d(pf)
+                cont = polyfit(wlslice)
+
+                if scale:
+                    data[fullpass] -= scale*polyfit(wl[fullpass])
+
+                    blueval = np.mean(data[bluepass])
+                    redval = np.mean(data[redpass])
+                    pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
+                    polyfit = np.poly1d(pf)
+                    cont = polyfit(wlslice)
+            else:
+                pf = np.polyfit(wlslice, dataslice, morder[i])
+                polyfit = np.poly1d(pf)
+                cont = polyfit(wlslice)
+
+        #if scale:
+        #    dataslice -= scale*cont
+
+        databands.append(data[wh] / cont)
 
         if type(err) != bool:
             errslice = err[wh]
@@ -888,7 +1036,8 @@ def convolvemodels(wlfull, datafull, veldisp):
 
 def test_chisq(fitmode, trials = 5):
     d = preparespec('M85')
-    wl, data, err = splitspec(d[0], d[1], err = d[2])
+    wl, data, err = splitspec(d[0], d[1], err = d[2], scale = 0.15, lines = linefit)
+    sys.exit()
 
     if fitmode == 'limited':
         mockdata = [uniform(-1.5,0.2),uniform(1.0,13.5),uniform(0.5,3.5), uniform(0.5,3.5)]
@@ -923,7 +1072,8 @@ if __name__ == '__main__':
     #test_chisq('limited',trials = 25)
     #test_chisq('NoAge',trials = 2)
 
-    #sampler = do_mcmc('M85', 512, 15000, fitmode = 'NoAge', threads = 18)
-    sampler = do_mcmc('M87', 512, 30000, fitmode = 'limited', threads = 18)
+    sampler = do_mcmc('M85', 512, 40000, fitmode = True, threads = 18)
+    sampler = do_mcmc('M87', 512, 40000, fitmode = 'limited', threads = 18)
+    #sampler = do_mcmc('M87', 512, 20000, fitmode = '', threads = 18)
     #compare_bestfit('20180807T031027_M85_fullfit.dat')
     #compare_bestfit('20180727T104340_M87_fullfit.dat')
