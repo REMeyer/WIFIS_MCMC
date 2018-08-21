@@ -91,10 +91,11 @@ def load_mcmc_file(fl):
     nworkers = int(values[0])
     niter = int(values[1])
     gal = values[2]
-    fitmode = values[3]
     if not legacy:
+        fitmode = ''
         paramnames = paramstr.split()
     else:
+        fitmode = values[3]
         paramnames = []
 
     if legacy:
@@ -143,7 +144,8 @@ def load_mcmc_file(fl):
             elif paramnames[j] == 'Z':
                 names.append('[Z/H]')
                 high.append(0.2)
-                low.append(-1.5)
+                #low.append(-1.5)
+                low.append(-0.25)
             elif paramnames[j] in ['x1', 'x2']:
                 if paramnames[j] == 'x1':
                     names.append('x1')
@@ -166,7 +168,10 @@ def load_mcmc_file(fl):
 
     names.insert(0,"Worker")
     names.insert(len(names), "ChiSq")
-    print "MODE: ", fitmode
+    if legacy:
+        print "MODE: ", fitmode
+    else:
+        print "Params: ", paramnames
 
     #N lines should be nworkers*niter
     n_lines = nworkers*niter
@@ -218,7 +223,8 @@ def bestfitPrepare(fl, burnin):
         #galveldisp = 145.
         galveldisp = 161.
     elif gal == 'M87':
-        galveldisp = 370.
+        #galveldisp = 370.
+        galveldisp = 307.
 
     flsplname = fl.split('/')[-1]
     flspl = flsplname.split('_')[0]

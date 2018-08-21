@@ -312,20 +312,102 @@ def select_model_file_new(Z, Age):
 
     if mixage and mixZ:
         fl1 = "%.1f_%.1f" % (Age_m[whAge-1],Z_m[whZ-1])
-        fl2 = "%.1f_%.1f" % (Age_m[whAge+1],Z_m[whZ+1])
+        fl2 = "%.1f_%.1f" % (Age_m[whAge+1],Z_m[whZ-1])
+        fl3 = "%.1f_%.1f" % (Age_m[whAge-1],Z_m[whZ+1])
+        fl4 = "%.1f_%.1f" % (Age_m[whAge+1],Z_m[whZ+1])
     elif mixage:
-        fl1 = "%.1f_%.1f" % (Age_m[whAge-1],0.0)
-        fl2 = "%.1f_%.1f" % (Age_m[whAge+1],0.0)
+        fl1 = "%.1f_%.1f" % (Age_m[whAge-1],Z)
+        fl2 = "%.1f_%.1f" % (Age_m[whAge+1],Z)
+        fl3 = ''
+        fl4 = ''
     elif mixZ:
         fl1 = "%.1f_%.1f" % (Age,Z_m[whZ-1])
         fl2 = "%.1f_%.1f" % (Age,Z_m[whZ+1])
+        fl3 = ''
+        fl4 = ''
     else:
         fl1 = "%.1f_%.1f" % (Age,Z)
         fl2 = ''
+        fl3 = ''
+        fl4 = ''
 
-    return fl1, fl2, mixage, mixZ
+    return fl1, fl2, fl3, fl4, whAge, whZ, mixage, mixZ
 
-def model_spec(inputs, gal, paramnames, fitmode = False, vcjset = False, timing = False):
+def select_model_file_new_2(Z, Age):
+    '''Selects the model file for a given Age and [Z/H]. If the requested values
+    are between two models it returns two filenames for each model set.'''
+
+    #Acceptable parameters...also global variables but restated here...
+    Z_m = np.array([-1.5,-1.25, -1.0, -0.75, -0.5, -0.25, 0.0, 0.1, 0.2])
+    Age_m = np.array([1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.25,13.5])
+    x1_m = 0.5 + np.arange(16)/5.0
+    x2_m = 0.5 + np.arange(16)/5.0
+    Z_pm = np.array(['m','m','m','m','m','m','p','p','p'])
+    ChemAge_m = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13])
+
+    fullage = np.array([1.0,3.0,5.0,7.0,9.0,11.0,13.5])
+    fullZ = np.array([-1.5, -1.0, -0.5, 0.0, 0.2])
+    
+    #Matching parameters to the nearest acceptable value (for Age, Z, x1, and x2)
+    #if Z not in Z_m:
+    #    Zmin = np.argmin(np.abs(Z_m - Z))
+    #    Z = Z_m[Zmin]
+    #if Age not in Age_m:
+    #    Agemin = np.argmin(np.abs(Age_m - Age))
+    #    Age = Age_m[Agemin]
+
+    mixage = False
+    mixZ = False
+    agep = 0
+    agem = 0
+    zp = 0
+    zm = 0
+    if Age not in fullage:
+        mixage = True
+        ageminsort = np.argsort(np.abs(fullage - Age))
+        if ageminsort[0] > ageminsort[1]:
+            agep = ageminsort[0]
+            agem = ageminsort[1]
+        else:
+            agep = ageminsort[1]
+            agem = ageminsort[0]
+    if Z not in fullZ:
+        mixZ = True
+        zminsort = np.argsort(np.abs(fullZ - Z))
+        if zminsort[0] > zminsort[1]:
+            zp = zminsort[0]
+            zm = zminsort[1]
+        else:
+            zp = zminsort[1]
+            zm = zminsort[0]
+
+    #whAge = np.where(Age_m == Age)[0][0]
+    #whZ = np.where(Z_m == Z)[0][0]        
+
+    if mixage and mixZ:
+        fl1 = "%.1f_%.1f" % (fullage[agem],fullZ[zm])
+        fl2 = "%.1f_%.1f" % (fullage[agep],fullZ[zm])
+        fl3 = "%.1f_%.1f" % (fullage[agem],fullZ[zp])
+        fl4 = "%.1f_%.1f" % (fullage[agep],fullZ[zp])
+    elif mixage:
+        fl1 = "%.1f_%.1f" % (fullage[agem],Z)
+        fl2 = "%.1f_%.1f" % (fullage[agep],Z)
+        fl3 = ''
+        fl4 = ''
+    elif mixZ:
+        fl1 = "%.1f_%.1f" % (Age,fullZ[zm])
+        fl2 = "%.1f_%.1f" % (Age,fullZ[zp])
+        fl3 = ''
+        fl4 = ''
+    else:
+        fl1 = "%.1f_%.1f" % (Age,Z)
+        fl2 = ''
+        fl3 = ''
+        fl4 = ''
+
+    return fl1, fl2, fl3, fl4, agem, agep, zm, zp, mixage, mixZ
+
+def model_spec(inputs, gal, paramnames, vcjset = False, timing = False):
     '''Core function which takes the input model parameters, finds the appropriate models,
     and adjusts them for the input abundance ratios. Returns a broadened model spectrum 
     to be matched with a data spectrum.'''
@@ -403,7 +485,8 @@ def model_spec(inputs, gal, paramnames, fitmode = False, vcjset = False, timing 
 
     #Finding the appropriate base model files.
     #fl1, cfl1, fl2, cfl2, mixage, mixZ = select_model_file(Z, Age, fitmode)
-    fl1, fl2, mixage, mixZ = select_model_file_new(Z, Age)
+    #fl1, fl2, fl3, fl4, whAge, whZ, mixage, mixZ = select_model_file_new_2(Z, Age)
+    fl1, fl2, fl3, fl4, agem, agep, zm, zp, mixage, mixZ = select_model_file_new_2(Z, Age)
 
     if timing:
         t2 = time.time()
@@ -412,15 +495,86 @@ def model_spec(inputs, gal, paramnames, fitmode = False, vcjset = False, timing 
     # If the Age of Z is inbetween models then this will average the respective models to produce 
     # one that is closer to what is expected.
     # NOTE THAT THIS IS AN ASSUMPTION AND THE CHANGE IN THE MODELS IS NOT NECESSARILY LINEAR
-    if mixage or mixZ:
+    fullage = np.array([1.0,3.0,5.0,7.0,9.0,11.0,13.5])
+    fullZ = np.array([-1.5, -1.0, -0.5, 0.0, 0.2])
+    if mixage and mixZ:
         # Reading models. This step was vastly improved by pre-loading the models prior to running the mcmc
-        #fm1 = vcj[fl1]
-        #fm2 = vcj[fl2]
-
-        #fc1 = vcj[cfl1]
-        #fc2 = vcj[cfl2]
         fm1 = vcj[fl1][0]
         fm2 = vcj[fl2][0]
+        fm3 = vcj[fl3][0]
+        fm4 = vcj[fl4][0]
+
+        fc1 = vcj[fl1][1]
+        fc2 = vcj[fl2][1]
+        fc3 = vcj[fl3][1]
+        fc4 = vcj[fl4][1]
+
+        wlc1 = vcj["WL"]
+
+        #Finding the relevant section of the models to reduce the computational complexity
+        rel = np.where((wlc1 > 6500) & (wlc1 < 16000))[0]
+
+        fc1 = fc1[rel,:]
+        fc2 = fc2[rel,:]
+        fc3 = fc3[rel,:]
+        fc4 = fc4[rel,:]
+
+        fm1 = fm1[rel, :]
+        fm2 = fm2[rel, :]
+        fm3 = fm3[rel, :]
+        fm4 = fm4[rel, :]
+
+        wl = wlc1[rel]
+
+        #m = np.zeros(fm1.shape)
+        c = np.zeros(fc1.shape)
+
+        #For the x1x2 model
+        interp1 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
+                np.stack((fm1[:,imfsdict[(x1,x2)]],fm2[:,imfsdict[(x1,x2)]])), kind = 'linear')
+        interp2 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
+                np.stack((fm3[:,imfsdict[(x1,x2)]],fm4[:,imfsdict[(x1,x2)]])), kind = 'linear')
+        age1 = interp1(wl,Age)
+        age2 = interp2(wl,Age)
+
+        interp3 = spi.interp2d(wl, [fullZ[zm],fullZ[zp]], np.stack((age1,age2)), kind = 'linear')
+        mimf = interp3(wl,Z)
+
+        #For the basemodel
+        interp1 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
+                np.stack((fm1[:,73],fm2[:,73])), kind = 'linear')
+        interp2 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
+                np.stack((fm3[:,73],fm4[:,73])), kind = 'linear')
+        age1 = interp1(wl,Age)
+        age2 = interp2(wl,Age)
+
+        interp3 = spi.interp2d(wl, [fullZ[zm],fullZ[zp]], np.stack((age1,age2)), kind = 'linear')
+        basemodel = interp3(wl,Z)
+
+        #Taking the average of the models (could be improved?)
+        #mimf = (fm1[rel,imfsdict[(x1,x2)]] + fm2[rel,imfsdict[(x1,x2)]])/2.0
+        #basemodel = (fm1[rel,73] + fm2[rel,73])/2.0
+
+        for i in range(len(fc1[0,:])):
+            interp1 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
+                    np.stack((fc1[:,i],fc2[:,i])), kind = 'linear')
+            interp2 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
+                    np.stack((fc3[:,i],fc4[:,i])), kind = 'linear')
+            age1 = interp1(wl,Age)
+            age2 = interp2(wl,Age)
+
+            interp3 = spi.interp2d(wl, [fullZ[zm],fullZ[zp]], np.stack((age1,age2)), kind = 'linear')
+            c[:,i] = interp3(wl,Z)
+
+        #c = (fc1 + fc2)/2.0
+
+        # Setting the models to the proper length
+        #c = c[rel,:]
+        #mimf = m[rel,imfsdict[(x1,x2)]]
+    elif mixage:
+        fm1 = vcj[fl1][0]
+        fm2 = vcj[fl2][0]
+
         fc1 = vcj[fl1][1]
         fc2 = vcj[fl2][1]
 
@@ -432,22 +586,73 @@ def model_spec(inputs, gal, paramnames, fitmode = False, vcjset = False, timing 
         fc1 = fc1[rel,:]
         fc2 = fc2[rel,:]
 
+        fm1 = fm1[rel, :]
+        fm2 = fm2[rel, :]
+
+        wl = wlc1[rel]
+
         #m = np.zeros(fm1.shape)
         c = np.zeros(fc1.shape)
 
-        #Taking the average of the models (could be improved?)
-        mimf = (fm1[rel,imfsdict[(x1,x2)]] + fm2[rel,imfsdict[(x1,x2)]])/2.0
-        basemodel = (fm1[rel,73] + fm2[rel,73])/2.0
-        c = (fc1 + fc2)/2.0
-        #for i in range(fm1.shape[1]):
-        #    m[:,i] = (fm1[:,i] + fm2[:,i]) / 2.0
-        #for i in range(fc1.shape[1]):
-        #    c[:,i] = (fc1[:,i] + fc2[:,i]) / 2.0
+        #For the x1x2 model
+        interp1 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
+                np.stack((fm1[:,imfsdict[(x1,x2)]],fm2[:,imfsdict[(x1,x2)]])), kind = 'linear')
+        mimf = interp1(wl,Age)
 
-        # Setting the models to the proper length
-        #c = c[rel,:]
-        #mimf = m[rel,imfsdict[(x1,x2)]]
+        #For the basemodel
+        interp1 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
+                np.stack((fm1[:,73],fm2[:,73])), kind = 'linear')
+        basemodel = interp1(wl,Age)
+
+        #Taking the average of the models (could be improved?)
+        #mimf = (fm1[rel,imfsdict[(x1,x2)]] + fm2[rel,imfsdict[(x1,x2)]])/2.0
+        #basemodel = (fm1[rel,73] + fm2[rel,73])/2.0
+
+        for i in range(len(fc1[0,:])):
+            interp1 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
+                    np.stack((fc1[:,i],fc2[:,i])), kind = 'linear')
+            c[:,i] = interp1(wl,Age)
+    elif mixZ:
+        fm1 = vcj[fl1][0]
+        fm2 = vcj[fl2][0]
+
+        fc1 = vcj[fl1][1]
+        fc2 = vcj[fl2][1]
+
+        wlc1 = vcj["WL"]
+
+        #Finding the relevant section of the models to reduce the computational complexity
+        rel = np.where((wlc1 > 6500) & (wlc1 < 16000))[0]
+
+        fc1 = fc1[rel,:]
+        fc2 = fc2[rel,:]
+
+        fm1 = fm1[rel, :]
+        fm2 = fm2[rel, :]
+
         wl = wlc1[rel]
+
+        #m = np.zeros(fm1.shape)
+        c = np.zeros(fc1.shape)
+
+        #For the x1x2 model
+        interp1 = spi.interp2d(wl, [fullZ[zm],fullZ[zp]], \
+                np.stack((fm1[:,imfsdict[(x1,x2)]],fm2[:,imfsdict[(x1,x2)]])), kind = 'linear')
+        mimf = interp1(wl,Z)
+
+        #For the basemodel
+        interp1 = spi.interp2d(wl, [fullZ[zm],fullZ[zp]], \
+                np.stack((fm1[:,73],fm2[:,73])), kind = 'linear')
+        basemodel = interp1(wl,Z)
+
+        #Taking the average of the models (could be improved?)
+        #mimf = (fm1[rel,imfsdict[(x1,x2)]] + fm2[rel,imfsdict[(x1,x2)]])/2.0
+        #basemodel = (fm1[rel,73] + fm2[rel,73])/2.0
+
+        for i in range(len(fc1[0,:])):
+            interp1 = spi.interp2d(wl, [fullZ[zm],fullZ[zp]], \
+                    np.stack((fc1[:,i],fc2[:,i])), kind = 'linear')
+            c[:,i] = interp1(wl,Z)
     else:
         #If theres no need to mix models then just read them in and set the length
         m = vcj[fl1][0]
@@ -530,7 +735,7 @@ def model_spec(inputs, gal, paramnames, fitmode = False, vcjset = False, timing 
 
     return wl, newm
 
-def chisq(params, wl, data, err, gal, fitmode, paramnames, plot=False, timing = False):
+def chisq(params, wl, data, err, gal, paramnames, plot=False, timing = False):
     ''' Important function that produces the value that essentially
     represents the likelihood of the mcmc equation. Produces the model
     spectrum then returns a normal chisq value.'''
@@ -539,17 +744,19 @@ def chisq(params, wl, data, err, gal, fitmode, paramnames, plot=False, timing = 
         t1 = time.time()
 
     #Creating model spectrum then interpolating it so that it can be easily matched with the data.
-    wlm, newm = model_spec(params, gal, paramnames, fitmode = fitmode, timing=timing)
+    wlm, newm = model_spec(params, gal, paramnames, timing=timing)
 
     # Convolve model to previously determined velocity dispersion (we don't fit dispersion in this code).
-    if fitmode in ['NoAgeVelDisp', 'LimitedVelDisp']:
-        wlc, mconv = convolvemodels(wlm, newm, params[-1])
+    if 'VelDisp' in paramnames:
+        whsig = np.where(paramnames == 'VelDisp')[0]
+        wlc, mconv = convolvemodels(wlm, newm, params[whsig])
     else:
         if gal == 'M85':
             #wlc, mconv = convolvemodels(wl, newm, 176.)
             wlc, mconv = convolvemodels(wlm, newm, 170.)
         elif gal == 'M87':
-            wlc, mconv = convolvemodels(wlm, newm, 308.)
+            #wlc, mconv = convolvemodels(wlm, newm, 308.)
+            wlc, mconv = convolvemodels(wlm, newm, 370.)
     
     if timing:
         t2 = time.time()
@@ -570,15 +777,16 @@ def chisq(params, wl, data, err, gal, fitmode, paramnames, plot=False, timing = 
 
         #Getting a slice of the model
         wli = wl[i]
-        if i in [3,4]:
-            wli = np.array(wli)
-            wli -= 2.0
-        #elif i == 5:
-        #    wli = np.array(wli)
-        #    wli += 1.0
-        #elif i == 1:
-        #    wli = np.array(wli)
-        #    wli += 1.0
+        if (gal == 'M85') and linefit:
+            if i in [3,4]:
+                wli = np.array(wli)
+                wli -= 2.0
+            #elif i == 5:
+            #    wli = np.array(wli)
+            #    wli += 1.0
+            #elif i == 1:
+            #    wli = np.array(wli)
+            #    wli += 1.0
 
         modelslice = mconvinterp(wli)
 
@@ -627,7 +835,7 @@ def chisq(params, wl, data, err, gal, fitmode, paramnames, plot=False, timing = 
 
     return -0.5*chisq
 
-def lnprior(theta, fitmode, paramnames):
+def lnprior(theta, paramnames):
     '''Setting the priors for the mcmc. Returns 0.0 if fine and -inf if otherwise.'''
 
     goodpriors = True
@@ -636,7 +844,9 @@ def lnprior(theta, fitmode, paramnames):
             if not (1.0 <= theta[j] <= 13.5):
                 goodpriors = False
         elif paramnames[j] == 'Z':
-            if not (-1.5 <= theta[j] <= 0.2):
+            #if not (-1.5 <= theta[j] <= 0.2):
+            #    goodpriors = False
+            if not (-0.25 <= theta[j] <= 0.2):
                 goodpriors = False
         elif paramnames[j] in ['x1', 'x2']:
             if not (0.5 <= theta[j] <= 3.5):
@@ -695,41 +905,42 @@ def lnprior(theta, fitmode, paramnames):
     #        return 0.0
     #return -np.inf
 
-def lnprob(theta, wl, data, err, gal, fitmode, paramnames):
+def lnprob(theta, wl, data, err, gal, paramnames):
     '''Primary function of the mcmc. Checks priors and returns the likelihood'''
 
-    lp = lnprior(theta, fitmode, paramnames)
+    lp = lnprior(theta, paramnames)
     if not np.isfinite(lp):
         return -np.inf
 
-    chisqv = chisq(theta, wl, data, err, gal, fitmode, paramnames)
+    chisqv = chisq(theta, wl, data, err, gal, paramnames)
     return lp + chisqv
 
-def do_mcmc(gal, nwalkers, n_iter, fitmode = False, threads = 6, restart=False):
+def do_mcmc(gal, nwalkers, n_iter, paramnames, threads = 6, restart=False, scale=False):
     '''Main program. Runs the mcmc'''
 
     wl, data, err = preparespec(gal)
-    if gal == 'M87':
-        wl, data, err = splitspec(wl, data, err = err, lines=linefit, scale = 0.15)
+    if scale:
+        wl, data, err = splitspec(wl, data, err = err, lines=linefit, scale = scale)
+        #wl, data, err = splitspec(wl, data, err = err, lines=linefit)
     else:
         wl, data, err = splitspec(wl, data, err = err, lines=linefit)
 
-    if fitmode == True:
-        paramnames = ['Age', 'x1', 'x2', 'Na', 'K', 'Ca', 'Fe']
-    elif fitmode == 'limited':
-        paramnames = ['Z', 'Age', 'x1', 'x2']
-    elif fitmode == 'LimitedVelDisp':
-        paramnames = ['Z', 'Age', 'x1', 'x2', 'VelDisp']
-    elif fitmode == False:
-        paramnames = ['Z','Age', 'x1', 'x2', 'Na', 'K', 'Mg','Fe','Ca']
-    elif fitmode == 'NoAge':
-        paramnames = ['x1', 'x2', 'Na', 'K', 'Ca', 'Fe']
-    elif fitmode == 'NoAgeVelDisp':
-        paramnames = ['x1', 'x2', 'Na', 'K', 'Ca', 'Fe', 'VelDisp']
-    elif fitmode == 'NoAgeLimited':
-        paramnames = ['Z', 'x1', 'x2', 'Na']
-    elif fitmode == 'VeryBase':
-        paramnames = ['Z', 'x1', 'x2']
+    #if fitmode == True:
+    #    paramnames = ['Age', 'x1', 'x2', 'Na', 'K', 'Ca', 'Fe']
+    #elif fitmode == 'limited':
+    #    paramnames = ['Z', 'Age', 'x1', 'x2']
+    #elif fitmode == 'LimitedVelDisp':
+    #    paramnames = ['Z', 'Age', 'x1', 'x2', 'VelDisp']
+    #elif fitmode == False:
+    #    paramnames = ['Z','Age', 'x1', 'x2', 'Na', 'K', 'Mg','Fe','Ca']
+    #elif fitmode == 'NoAge':
+    #    paramnames = ['x1', 'x2', 'Na', 'K', 'Ca', 'Fe']
+    #elif fitmode == 'NoAgeVelDisp':
+    #    paramnames = ['x1', 'x2', 'Na', 'K', 'Ca', 'Fe', 'VelDisp']
+    #elif fitmode == 'NoAgeLimited':
+    #    paramnames = ['Z', 'x1', 'x2', 'Na']
+    #elif fitmode == 'VeryBase':
+    #    paramnames = ['Z', 'x1', 'x2']
 
     ndim = len(paramnames)
 
@@ -739,9 +950,11 @@ def do_mcmc(gal, nwalkers, n_iter, fitmode = False, threads = 6, restart=False):
             newinit = []
             for j in range(len(paramnames)):
                 if paramnames[j] == 'Age':
-                    newinit.append(np.random.choice(Age_m))
+                    #newinit.append(np.random.choice(Age_m))
+                    newinit.append(np.random.random()*12.5 + 1.0)
                 elif paramnames[j] == 'Z':
-                    newinit.append(np.random.choice(Z_m))
+                    #newinit.append(np.random.choice(Z_m))
+                    newinit.append(np.random.random()*0.45 - 0.25)
                 elif paramnames[j] in ['x1', 'x2']:
                     newinit.append(np.random.choice(x1_m))
                 elif paramnames[j] == 'Na':
@@ -759,11 +972,11 @@ def do_mcmc(gal, nwalkers, n_iter, fitmode = False, threads = 6, restart=False):
     f = open(savefl, "w")
     strparams = '\t'.join(paramnames)
     f.write("#NWalk\tNStep\tGal\tFit\n")
-    f.write("#%d\t%d\t%s\t%s\n" % (nwalkers, n_iter,gal,str(fitmode)))
+    f.write("#%d\t%d\t%s\n" % (nwalkers, n_iter,gal))
     f.write("#%s\n" % (strparams))
     f.close()
 
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = (wl, data, err, gal, fitmode, paramnames), threads=threads)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = (wl, data, err, gal, paramnames), threads=threads)
     print "Starting MCMC..."
 
     t1 = time.time() 
@@ -1019,7 +1232,7 @@ def convolvemodels(wlfull, datafull, veldisp):
     f = m_center + m_sigma
     v = c * ((f/m_center) - 1)
     
-    sigma_gal = np.abs((m_center * (veldisp/c + 1.)) - m_center)
+    sigma_gal = np.abs((m_center / (veldisp/c + 1.)) - m_center)
     sigma_conv = np.sqrt(sigma_gal**2. - m_sigma**2.)
 
     convolvex = np.arange(-5*sigma_conv,5*sigma_conv, 2.0)
@@ -1072,8 +1285,10 @@ if __name__ == '__main__':
     #test_chisq('limited',trials = 25)
     #test_chisq('NoAge',trials = 2)
 
-    sampler = do_mcmc('M85', 512, 40000, fitmode = True, threads = 18)
-    sampler = do_mcmc('M87', 512, 40000, fitmode = 'limited', threads = 18)
+    #sampler = do_mcmc('M85', 512, 40000, fitmode = True, threads = 18)
+    #sampler = do_mcmc('M87', 512, 25000, ['Age','Z','x1','x2','Na'], threads = 18, scale = 0.15)
+    #sampler = do_mcmc('M87', 512, 25000, ['Age','x1','x2','Fe','Na'], threads = 18)
+    sampler = do_mcmc('M87', 512, 25000, ['Age','Z','x1','x2'], threads = 18)
     #sampler = do_mcmc('M87', 512, 20000, fitmode = '', threads = 18)
     #compare_bestfit('20180807T031027_M85_fullfit.dat')
     #compare_bestfit('20180727T104340_M87_fullfit.dat')
