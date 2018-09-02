@@ -59,7 +59,7 @@ def plot_corner(fl, burnin):
             zip(*np.percentile(samples, [16, 50, 84], axis=0)))
                                          
     figure = corner.corner(samples, labels = names)
-    figure.suptitle(dataall[2][2] + ' ' + flspl + ' ' + mcmctype + ' ' + str(datatype))
+    #figure.suptitle(dataall[2][2] + ' ' + flspl + ' ' + mcmctype + ' ' + str(datatype))
 
     # Extract the axes
     axes = np.array(figure.axes).reshape((len(names), len(names)))

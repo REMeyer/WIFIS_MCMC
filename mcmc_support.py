@@ -215,16 +215,12 @@ def bestfitPrepare(fl, burnin):
 
     dataall = load_mcmc_file(fl)
     data = dataall[0]
-    fitmode = dataall[2][3]
     names = dataall[2][4]
+    high = dataall[2][5]
+    low = dataall[2][6]
+    legacy = dataall[2][8]
     gal = dataall[2][2]
-
-    if gal == 'M85':
-        #galveldisp = 145.
-        galveldisp = 161.
-    elif gal == 'M87':
-        #galveldisp = 370.
-        galveldisp = 307.
+    paramnames = dataall[2][7]
 
     flsplname = fl.split('/')[-1]
     flspl = flsplname.split('_')[0]
@@ -235,36 +231,34 @@ def bestfitPrepare(fl, burnin):
         datatype = "Spectra"
     #infol = [nworkers, niter, gal, fitmode, names]
 
-    if fitmode == 'limited':
-        mcmctype = 'Base Params'
-    elif fitmode == 'True':
-        mcmctype = 'Abundance Fit'
-        fitmode = True
-    elif fitmode == 'False':
-        mcmctype = 'Full Fit'
-        fitmode = False
-    elif fitmode == 'NoAge':
-        mcmctype = 'NoAge'
-
     samples = data[burnin:,:,:].reshape((-1,len(names)))
     fitvalues = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),\
             zip(*np.percentile(samples, [16, 50, 84], axis=0)))
     fitvalues = np.array(fitvalues)
     truevalues = fitvalues[:,0]
 
-    return [data, fitmode, names, gal, datatype, mcmctype, fitvalues, truevalues, galveldisp]
+    return [data, names, gal, datatype, fitvalues, truevalues, paramnames]
 
 def compare_bestfit(fl, burnin=-1000, onesigma = False, addshift = False, vcjset = False):
 
-    data, fitmode, names, gal, datatype, mcmctype, fitvalues, truevalues, galveldisp\
+    #Load the necessary information
+    data, names, gal, datatype, fitvalues, truevalues,paramnames\
             = bestfitPrepare(fl, burnin)
+
+    if gal == 'M85':
+        #galveldisp = 145.
+        #galveldisp = 161.
+        galveldisp = 170
+    elif gal == 'M87':
+        galveldisp = 370.
+        #galveldisp = 307.
 
     wl, data, err = mcfs.preparespec(gal)
     wl, data, err = mcfs.splitspec(wl, data, err = err, lines=linefit)
 
-    wlg, newm = mcfs.model_spec(truevalues, gal, fitmode = fitmode, vcjset = vcjset)
+    wlg, newm = mcfs.model_spec(truevalues, gal, paramnames, vcjset = vcjset)
 
-    convr = np.arange(120.,395.,25.)
+    #convr = np.arange(120.,395.,25.)
     plot = True
     if plot: 
         fig, axes = mpl.subplots(2,4,figsize = (16,6.5))
@@ -285,22 +279,9 @@ def compare_bestfit(fl, burnin=-1000, onesigma = False, addshift = False, vcjset
         wli = wl[i]
 
         if addshift:
-            if i == 3:
+            if i in [3,4]:
                 wli = np.array(wli)
-                wli += -2.8
-            elif i == 4:
-                wli = np.array(wli)
-                wli += -1.1
-            #wli += shifts[i]
-            #if i in [3,4]:
-            #    wli = np.array(wli)
-            #    wli -= 2.0
-            #elif i == 5:
-            #    wli = np.array(wli)
-            #    wli += 1.0
-            #elif i == 1:
-            #    wli = np.array(wli)
-            #    wli += 1.0
+                wli -= 2.0
 
         modelslice = mconvinterp(wli)
         
@@ -578,8 +559,8 @@ def testVelDisp(fl, burnin = -1000, vcjset = False, plot = False):
     return shfit
 
 if __name__ == '__main__':
-    #vcj = mcfs.preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
-    #compare_bestfit('20180807T090719_M85_fullfit.dat', burnin=-1000, onesigma = False, addshift = True, vcjset = False)
+    vcj = mcfs.preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
+    compare_bestfit('20180822T121721_M85_fullfit.dat', burnin=-1000, onesigma = False, addshift = True, vcjset = vcj)
 
     #shfit = deriveShifts('20180807T090719_M85_fullfit.dat', vcjset = vcj, plot = False)
-    deriveVelDisp('M85')
+    #deriveVelDisp('M85')

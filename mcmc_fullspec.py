@@ -497,6 +497,7 @@ def model_spec(inputs, gal, paramnames, vcjset = False, timing = False):
     # NOTE THAT THIS IS AN ASSUMPTION AND THE CHANGE IN THE MODELS IS NOT NECESSARILY LINEAR
     fullage = np.array([1.0,3.0,5.0,7.0,9.0,11.0,13.5])
     fullZ = np.array([-1.5, -1.0, -0.5, 0.0, 0.2])
+    abundi = [0,1,2,-2,-1,29,16,15,6,5,4,3]
     if mixage and mixZ:
         # Reading models. This step was vastly improved by pre-loading the models prior to running the mcmc
         fm1 = vcj[fl1][0]
@@ -512,7 +513,7 @@ def model_spec(inputs, gal, paramnames, vcjset = False, timing = False):
         wlc1 = vcj["WL"]
 
         #Finding the relevant section of the models to reduce the computational complexity
-        rel = np.where((wlc1 > 6500) & (wlc1 < 16000))[0]
+        rel = np.where((wlc1 > 8500) & (wlc1 < 14500))[0]
 
         fc1 = fc1[rel,:]
         fc2 = fc2[rel,:]
@@ -528,12 +529,13 @@ def model_spec(inputs, gal, paramnames, vcjset = False, timing = False):
 
         #m = np.zeros(fm1.shape)
         c = np.zeros(fc1.shape)
+        imf_i = imfsdict[(x1,x2)]
 
         #For the x1x2 model
         interp1 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
-                np.stack((fm1[:,imfsdict[(x1,x2)]],fm2[:,imfsdict[(x1,x2)]])), kind = 'linear')
+                np.stack((fm1[:,imf_i],fm2[:,imf_i])), kind = 'linear')
         interp2 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
-                np.stack((fm3[:,imfsdict[(x1,x2)]],fm4[:,imfsdict[(x1,x2)]])), kind = 'linear')
+                np.stack((fm3[:,imf_i],fm4[:,imf_i])), kind = 'linear')
         age1 = interp1(wl,Age)
         age2 = interp2(wl,Age)
 
@@ -554,8 +556,7 @@ def model_spec(inputs, gal, paramnames, vcjset = False, timing = False):
         #Taking the average of the models (could be improved?)
         #mimf = (fm1[rel,imfsdict[(x1,x2)]] + fm2[rel,imfsdict[(x1,x2)]])/2.0
         #basemodel = (fm1[rel,73] + fm2[rel,73])/2.0
-
-        for i in range(len(fc1[0,:])):
+        for i in abundi:
             interp1 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
                     np.stack((fc1[:,i],fc2[:,i])), kind = 'linear')
             interp2 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
@@ -608,7 +609,7 @@ def model_spec(inputs, gal, paramnames, vcjset = False, timing = False):
         #mimf = (fm1[rel,imfsdict[(x1,x2)]] + fm2[rel,imfsdict[(x1,x2)]])/2.0
         #basemodel = (fm1[rel,73] + fm2[rel,73])/2.0
 
-        for i in range(len(fc1[0,:])):
+        for i in abundi:
             interp1 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
                     np.stack((fc1[:,i],fc2[:,i])), kind = 'linear')
             c[:,i] = interp1(wl,Age)
@@ -649,7 +650,7 @@ def model_spec(inputs, gal, paramnames, vcjset = False, timing = False):
         #mimf = (fm1[rel,imfsdict[(x1,x2)]] + fm2[rel,imfsdict[(x1,x2)]])/2.0
         #basemodel = (fm1[rel,73] + fm2[rel,73])/2.0
 
-        for i in range(len(fc1[0,:])):
+        for i in abundi:
             interp1 = spi.interp2d(wl, [fullZ[zm],fullZ[zp]], \
                     np.stack((fc1[:,i],fc2[:,i])), kind = 'linear')
             c[:,i] = interp1(wl,Z)
@@ -682,10 +683,12 @@ def model_spec(inputs, gal, paramnames, vcjset = False, timing = False):
     # The interpolated value is then normalized by the solar metallicity model and then subtracted by 1 to 
     # retain the percentage
     #if fitmode in [True, False, 'NoAge', 'NoAgeVelDisp']:
+
         #Na adjustment
     ab_contribution = 0.0
     if 'Na' in paramnames:
-        interp = spi.interp2d(wl, [-0.3,0.0,0.3,0.6,0.9], np.stack((c[:,2],c[:,0],c[:,1],c[:,-2],c[:,-1])), kind = 'cubic')
+        Naextend = (c[:,2])*(-0.5/-0.3)*c[:,0]
+        interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.6,0.9], np.stack((Naextend,c[:,2],c[:,0],c[:,1],c[:,-2],c[:,-1])), kind = 'cubic')
         NaP = interp(wl,Na) / c[:,0] - 1.
         ab_contribution += NaP
 
@@ -773,6 +776,9 @@ def chisq(params, wl, data, err, gal, paramnames, plot=False, timing = False):
     for i in range(len(mlow)):
         if (gal == 'M87') and linefit:
             if line_name[i] == 'KI_1.25':
+                continue
+        if (gal == 'M85') and linefit and ('Na' not in paramnames):
+            if line_name[i] == 'NaI':
                 continue
 
         #Getting a slice of the model
@@ -1013,6 +1019,7 @@ def preparespec(galaxy, baseforce = False):
         contcorr = False
         flz = base+'data/20150602_obs60_merged_reduced.fits'
         flj = base+'data/20150605_obs52_merged_reduced.fits'
+
     if galaxy == 'M85':
         z = 0.002432
         ejf = base+'data/M85J_errors.fits'
@@ -1021,6 +1028,7 @@ def preparespec(galaxy, baseforce = False):
         contcorr = False
         flj = base+'data/20150508_obs36_merged_reduced.fits'
         flz = base+'data/20150527_obs44_merged_reduced.fits'
+        flNa = base+'data/20150527_obs44_merged_reduced_NAFIX.fits'
 
     fz = fits.open(flz)
     dataz = fz[0].data
@@ -1037,6 +1045,16 @@ def preparespec(galaxy, baseforce = False):
     dwz = wlz[50] - wlz[49]
     wlz, dataz = nm.skymask(wlz, dataz, galaxy, 'Z')
 
+    if galaxy == 'M85':
+        print "Replacing NA spectrum"
+        whna = np.where((wlz >= bluelow[2]) & (wlz <= redhigh[2]))[0]
+        #mpl.plot(wlz[whna], dataz[whna])
+        fna = fits.open(flNa)
+        datana = fna[0].data
+        dataz[whna] = datana 
+        #mpl.plot(wlz[whna], dataz[whna])
+        #mpl.show()
+
     #Opening and de-redshifting the J-band spectra
     fj = fits.open(flj)
     dataj = fj[0].data
@@ -1051,31 +1069,7 @@ def preparespec(galaxy, baseforce = False):
 
     wlj = wlj / (1 + z)
     dwj = wlj[50] - wlj[49]
-    fz = fits.open(flz)
-    dataz = fz[0].data
-    errz = fits.open(ezf)
-    errorsz = errz[0].data
-    wlz = nm.genwlarr(fz[0])
-    if galaxy == 'M87':
-        wlznew, dataz = nm.reduce_resolution(wlz, dataz)
-        wlzerrors, errorsz = nm.reduce_resolution(wlz, errorsz)
-        wlz = wlznew
-    wlz = wlz / (1 + z)
-    dwz = wlz[50] - wlz[49]
-    wlz, dataz = nm.skymask(wlz, dataz, galaxy, 'Z')
-
-    #Opening and de-redshifting the J-band spectra
-    fj = fits.open(flj)
-    dataj = fj[0].data
-    errj = fits.open(ejf)
-    errorsj = errj[0].data    
-    wlj = nm.genwlarr(fj[0])
-    if galaxy == 'M87':
-        wljnew, dataj = nm.reduce_resolution(wlj, dataj)
-        wljerrors, errorsj = nm.reduce_resolution(wlj, errorsj)
-        wlj = wljnew
-    wlj = wlj / (1 + z)
-    dwj = wlj[50] - wlj[49]
+    wlj, dataj = nm.skymask(wlj, dataj, galaxy, 'J')
 
     #Cropping the j-band spectrum so no bandpasses overlap between the two
     zendval = 11500
@@ -1089,7 +1083,6 @@ def preparespec(galaxy, baseforce = False):
     wlj = wlj[jstart:]
     dataj = dataj[jstart:]
     errorsj = errorsj[jstart:]
-    wlj, dataj = nm.skymask(wlj, dataj, galaxy, 'J')
 
     finalwl = np.concatenate((wlz,wlj))
     finaldata = np.concatenate((dataz,dataj))
@@ -1247,19 +1240,77 @@ def convolvemodels(wlfull, datafull, veldisp):
     #return wl, out[reg]
     return wlfull, out
 
-def test_chisq(fitmode, trials = 5):
+def test_chisq(paramnames, vcj, trials = 5, timing = True):
     d = preparespec('M85')
-    wl, data, err = splitspec(d[0], d[1], err = d[2], scale = 0.15, lines = linefit)
-    sys.exit()
-
-    if fitmode == 'limited':
-        mockdata = [uniform(-1.5,0.2),uniform(1.0,13.5),uniform(0.5,3.5), uniform(0.5,3.5)]
-    elif fitmode == 'NoAge':
-        mockdata = [uniform(0.5,3.5), uniform(0.5,3.5), uniform(-0.3,0.9),uniform(-0.3,0.3),\
-                uniform(-0.3,0.3),uniform(-0.3,0.3)]
+    wl, data, err = splitspec(d[0], d[1], err = d[2], scale = False, lines = linefit)
 
     for i in range(trials):
-        chisq(mockdata, wl, data, err, 'M85', fitmode, plot=False, timing = True)
+        newinit = []
+        for j in range(len(paramnames)):
+            if paramnames[j] == 'Age':
+                #newinit.append(np.random.choice(Age_m))
+                newinit.append(np.random.random()*12.5 + 1.0)
+            elif paramnames[j] == 'Z':
+                #newinit.append(np.random.choice(Z_m))
+                newinit.append(np.random.random()*0.45 - 0.25)
+            elif paramnames[j] in ['x1', 'x2']:
+                newinit.append(np.random.choice(x1_m))
+            elif paramnames[j] == 'Na':
+                newinit.append(np.random.random()*1.3 - 0.3)
+            elif paramnames[j] in ['K','Ca','Fe','Mg']:
+                newinit.append(np.random.random()*0.6 - 0.3)
+            elif paramnames[j] == 'VelDisp':
+                newinit.append(np.random.random()*240 + 120)
+
+        inputs = newinit
+
+        if timing:
+            print "Starting Model Spec Time"
+            t1 = time.time()
+
+        for j in range(len(paramnames)):
+            if paramnames[j] == 'Age':
+                Age = inputs[j]
+            elif paramnames[j] == 'Z':
+                Z = inputs[j]
+            elif paramnames[j] == 'x1':
+                x1 = inputs[j]
+            elif paramnames[j] == 'x2':
+                x2 = inputs[j]
+            elif paramnames[j] == 'Na':
+                Na = inputs[j]
+            elif paramnames[j] == 'K':
+                K = inputs[j]
+            elif paramnames[j] == 'Fe':
+                Fe = inputs[j]
+            elif paramnames[j] == 'Ca':
+                Ca = inputs[j]
+            elif paramnames[j] == 'Mg':
+                Mg = inputs[j]
+            elif paramnames[j] == 'VelDisp':
+                veldisp = inputs[j]
+
+        if 'Age' not in paramnames:
+            if gal == 'M85':
+                Age = 5.0
+            elif gal == 'M87':
+                Age = 13.5
+        if 'Z' not in paramnames:
+            Z = 0.0
+
+        if x1 not in x1_m:
+            x1min = np.argmin(np.abs(x1_m - x1))
+            x1 = x1_m[x1min]
+        if x2 not in x2_m:
+            x2min = np.argmin(np.abs(x2_m - x2))
+            x2 = x2_m[x2min]
+
+        #Finding the appropriate base model files.
+        #fl1, cfl1, fl2, cfl2, mixage, mixZ = select_model_file(Z, Age, fitmode)
+        #fl1, fl2, fl3, fl4, whAge, whZ, mixage, mixZ = select_model_file_new_2(Z, Age)
+        fl1, fl2, fl3, fl4, agem, agep, zm, zp, mixage, mixZ = select_model_file_new_2(Z, Age)
+        return fl1,fl2,fl3,fl4,agem,agep,zm,zp,mixage,mixZ, Age, Z
+            #chisq(mockdata, wl, data, err, 'M85', fitmode, plot=False, timing = True)
 
     return mockdata, wl, data, err, vcj
 
@@ -1282,13 +1333,13 @@ def removeLineSlope(wlc, mconv,i):
 
 if __name__ == '__main__':
     vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
-    #test_chisq('limited',trials = 25)
+    #ret = test_chisq(['Age','Z','x1','x2'],vcj, trials = 1)
     #test_chisq('NoAge',trials = 2)
 
-    #sampler = do_mcmc('M85', 512, 40000, fitmode = True, threads = 18)
+    sampler = do_mcmc('M85', 512, 25000, ['Age','x1','x2','Fe','Ca','K'], threads = 18)
     #sampler = do_mcmc('M87', 512, 25000, ['Age','Z','x1','x2','Na'], threads = 18, scale = 0.15)
     #sampler = do_mcmc('M87', 512, 25000, ['Age','x1','x2','Fe','Na'], threads = 18)
-    sampler = do_mcmc('M87', 512, 25000, ['Age','Z','x1','x2'], threads = 18)
+    #sampler = do_mcmc('M87', 512, 25000, ['Age','Z','x1','x2'], threads = 18)
     #sampler = do_mcmc('M87', 512, 20000, fitmode = '', threads = 18)
     #compare_bestfit('20180807T031027_M85_fullfit.dat')
     #compare_bestfit('20180727T104340_M87_fullfit.dat')

@@ -176,7 +176,7 @@ def model_width(inputs, gal, masklines = False, smallfit = False):
     else:
         Z, Age, x1, x2, Na, K, Mg, Fe, Ca = inputs
 
-    Z_m = np.array([-1.5,-1.0, -0.5, -0.25, 0.0, 0.1, 0.2])
+    Z_m = np.array([-1.5,-1.25, -1.0, -0.75, -0.5, -0.25, 0.0, 0.1, 0.2])
     Age_m = np.array([1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.25,13.5])
     x1_m = 0.5 + np.arange(16)/5.0
     x2_m = 0.5 + np.arange(16)/5.0
@@ -184,7 +184,7 @@ def model_width(inputs, gal, masklines = False, smallfit = False):
     ChemAge_m = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13])
 
     fullage = np.array([1.0,3.0,5.0,7.0,9.0,11.0,13.5])
-    fullZ = np.array([-1.5, -0.5, 0.0, 0.2])
+    fullZ = np.array([-1.5,-1.0, -0.5, 0.0, 0.2])
     
     if Z not in Z_m:
         Zmin = np.argmin(np.abs(Z_m - Z))
@@ -314,7 +314,6 @@ def lnprior(theta, smallfit):
         if (1.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
                 (0.5 <= x2 <= 3.5) and (-0.4 <= Na <= 1.0) and (-0.4 <= K <= 0.4) and (-0.4 <= Ca <= 0.4) and\
                 (-0.4 <= Fe <= 0.4):
-            return 0.0
 
     elif smallfit == 'limited':
         Z, Age, x1, x2 = theta 
@@ -426,5 +425,6 @@ def load_mcmc_file(fl):
 
 if __name__ == '__main__':
     sampler = do_mcmc('M85', 512, 15000, smallfit = 'limited', threads = 12)
+    sampler = do_mcmc('M87', 
 
 
