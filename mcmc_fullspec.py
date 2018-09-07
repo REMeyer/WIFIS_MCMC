@@ -30,6 +30,8 @@ base = os.path.dirname(os.path.realpath(sys.argv[0])) + '/'
 # Age: depends on galaxy, steps of 1 Gyr?
 # IMF: x1 and x2 full range
 # [Na/H]: -0.4 <-> +1.3
+linefit = False
+lineexclude = False
 
 #Setting some of the mcmc priors
 Z_m = np.array([-1.5,-1.0, -0.5, -0.25, 0.0, 0.1, 0.2])
@@ -56,7 +58,6 @@ chem_names = ['Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-', 'a/
                     'V+', 'Cu+', 'Na+0.6', 'Na+0.9']
 
 #Definitions for the fitting bandpasses
-linefit = True
 if linefit:
     mlow = [9855,10300,11340,11667,11710,12460,13090]
     mhigh = [9970,10390,11447,11750,11810,12590,13175]
@@ -64,9 +65,10 @@ if linefit:
     #mhigh = [9935,10360,11415,11705,11793,12545,13165]
     morder = [1,1,1,1,1,1,1]
 else:
-    mlow = [9700,10550,11340,11550,12350]
-    mhigh = [10450,10993,11447,12200,13180]
-    morder = [8,9,1,7,8]
+    mlow = [9700,10550,11340,11550,12350,12665]
+    mhigh = [10450,10965,11447,12200,12590,13180]
+    morder = [8,4,1,7,2,5]
+
 
 #Dictionary to help easily access the IMF index
 imfsdict = {}
@@ -130,208 +132,6 @@ def preload_vcj(overwrite_base = False):
     print "FINISHED LOADING MODELS"
 
     return vcj
-
-def select_model_file(Z, Age, fitmode):
-    '''Selects the model file for a given Age and [Z/H]. If the requested values
-    are between two models it returns two filenames for each model set.'''
-
-    #Acceptable parameters...also global variables but restated here...
-    Z_m = np.array([-1.5,-1.25, -1.0, -0.75, -0.5, -0.25, 0.0, 0.1, 0.2])
-    Age_m = np.array([1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.25,13.5])
-    x1_m = 0.5 + np.arange(16)/5.0
-    x2_m = 0.5 + np.arange(16)/5.0
-    Z_pm = np.array(['m','m','m','m','m','m','p','p','p'])
-    ChemAge_m = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13])
-
-    fullage = np.array([1.0,3.0,5.0,7.0,9.0,11.0,13.5])
-    fullZ = np.array([-1.5, -1.0, -0.5, 0.0, 0.2])
-    
-    #Matching parameters to the nearest acceptable value (for Age, Z, x1, and x2)
-    if Z not in Z_m:
-        Zmin = np.argmin(np.abs(Z_m - Z))
-        Z = Z_m[Zmin]
-    if Age not in Age_m:
-        Agemin = np.argmin(np.abs(Age_m - Age))
-        Age = Age_m[Agemin]
-
-    mixage = False
-    mixZ = False
-    if Age not in fullage:
-        mixage = True
-    if Z not in fullZ:
-        mixZ = True
-
-    if fitmode in [False, 'limited', 'LimitedVelDisp', 'NoAgeLimited']:
-        noZ = False
-    else:
-        noZ = True
-
-    #Long set of if-elif to determine the proper model file...unoptimized.
-    if noZ:
-        if mixage:
-            whAge = np.where(Age_m == Age)[0][0]
-            whZ = np.where(Z_m == Z)[0][0]        
-            #fl1 = "%.1f_%.1f" % (Age_m[whAge-1],0.0)
-            #fl2 = "%.1f_%.1f" % (Age_m[whAge+1],0.0)
-
-            if Age < 9.0:
-                fl1 = 'VCJ_v8_mcut0.08_t0%.1f_Zp0.0.ssp.imf_varydoublex.s100' % (Age_m[whAge-1])
-                fl2 = 'VCJ_v8_mcut0.08_t0%.1f_Zp0.0.ssp.imf_varydoublex.s100' % (Age_m[whAge+1])       
-                cfl1 = 'atlas_ssp_t0%1i_Zp0.0.abund.krpa.s100' % (ChemAge_m[whAge-1])
-                cfl2 = 'atlas_ssp_t0%1i_Zp0.0.abund.krpa.s100' % (ChemAge_m[whAge+1])            
-            elif Age == 10.0:
-                fl1 = 'VCJ_v8_mcut0.08_t0%.1f_Zp0.0.ssp.imf_varydoublex.s100' % (Age_m[whAge-1])
-                fl2 = 'VCJ_v8_mcut0.08_t%.1f_Zp0.0.ssp.imf_varydoublex.s100' % (Age_m[whAge+1])
-                cfl1 = 'atlas_ssp_t0%1i_Zp0.0.abund.krpa.s100' % (ChemAge_m[whAge-1])
-                cfl2 = 'atlas_ssp_t%1i_Zp0.0.abund.krpa.s100' % (ChemAge_m[whAge+1])
-            else:
-                fl1 = 'VCJ_v8_mcut0.08_t%.1f_Zp0.0.ssp.imf_varydoublex.s100' % (Age_m[whAge-1])
-                fl2 = 'VCJ_v8_mcut0.08_t%.1f_Zp0.0.ssp.imf_varydoublex.s100' % (Age_m[whAge+1])
-                cfl1 = 'atlas_ssp_t%1i_Zp0.0.abund.krpa.s100' % (ChemAge_m[whAge-1])
-                cfl2 = 'atlas_ssp_t%1i_Zp0.0.abund.krpa.s100' % (ChemAge_m[whAge+1]) 
-        else:
-            whAge = np.where(Age_m == Age)[0][0]
-            whZ = np.where(Z_m == Z)[0][0]        
-            if Age < 10:
-                agemod = '0'
-            else:
-                agemod = ''        
-            fl1 = 'VCJ_v8_mcut0.08_t%s%.1f_Zp0.0.ssp.imf_varydoublex.s100' % (agemod, Age,)
-            cfl1 = 'atlas_ssp_t%s_Zp0.0.abund.krpa.s100' % (agemod + str(ChemAge_m[whAge]))
-            fl2 = ''
-            cfl2 = ''
-    else:
-        if mixage and mixZ:
-            whAge = np.where(Age_m == Age)[0][0]
-            whZ = np.where(Z_m == Z)[0][0]
-            
-            if Age < 9.0:
-                fl1 = 'VCJ_v8_mcut0.08_t0%.1f_Z%s%.1f.ssp.imf_varydoublex.s100' % (Age_m[whAge-1], \
-                        str(Z_pm[whZ-1]), abs(Z_m[whZ-1]))
-                fl2 = 'VCJ_v8_mcut0.08_t0%.1f_Z%s%.1f.ssp.imf_varydoublex.s100' % (Age_m[whAge+1], \
-                        str(Z_pm[whZ+1]), abs(Z_m[whZ+1])) 
-                cfl1 = 'atlas_ssp_t0%1i_Z%s%.1f.abund.krpa.s100' % (ChemAge_m[whAge-1], str(Z_pm[whZ-1]), abs(Z_m[whZ-1]))
-                cfl2 = 'atlas_ssp_t0%1i_Z%s%.1f.abund.krpa.s100' % (ChemAge_m[whAge+1], str(Z_pm[whZ+1]), abs(Z_m[whZ+1]))          
-            elif Age == 10.0:
-                fl1 = 'VCJ_v8_mcut0.08_t0%.1f_Z%s%.1f.ssp.imf_varydoublex.s100' % (Age_m[whAge-1], \
-                        str(Z_pm[whZ-1]), abs(Z_m[whZ-1]))
-                fl2 = 'VCJ_v8_mcut0.08_t%.1f_Z%s%.1f.ssp.imf_varydoublex.s100' % (Age_m[whAge+1], \
-                        str(Z_pm[whZ+1]),  abs(Z_m[whZ+1]))
-                cfl1 = 'atlas_ssp_t0%1i_Z%s%.1f.abund.krpa.s100' % (ChemAge_m[whAge-1], str(Z_pm[whZ-1]), abs(Z_m[whZ-1]))
-                cfl2 = 'atlas_ssp_t%1i_Z%s%.1f.abund.krpa.s100' % (ChemAge_m[whAge+1], str(Z_pm[whZ+1]), abs(Z_m[whZ+1]))          
-            else:
-                fl1 = 'VCJ_v8_mcut0.08_t%.1f_Z%s%.1f.ssp.imf_varydoublex.s100' % (Age_m[whAge-1], \
-                        str(Z_pm[whZ-1]), abs(Z_m[whZ-1]))
-                fl2 = 'VCJ_v8_mcut0.08_t%.1f_Z%s%.1f.ssp.imf_varydoublex.s100' % (Age_m[whAge+1], \
-                        str(Z_pm[whZ+1]), abs(Z_m[whZ+1]))
-                cfl1 = 'atlas_ssp_t%1i_Z%s%.1f.abund.krpa.s100' % (ChemAge_m[whAge-1], str(Z_pm[whZ-1]), abs(Z_m[whZ-1]))
-                cfl2 = 'atlas_ssp_t%1i_Z%s%.1f.abund.krpa.s100' % (ChemAge_m[whAge+1], str(Z_pm[whZ+1]), abs(Z_m[whZ+1]))           
-        elif mixage and not mixZ:
-            whAge = np.where(Age_m == Age)[0][0]
-            whZ = np.where(Z_m == Z)[0][0]        
-
-            if Age < 9.0:
-                fl1 = 'VCJ_v8_mcut0.08_t0%.1f_Z%s%.1f.ssp.imf_varydoublex.s100' % (Age_m[whAge-1], str(Z_pm[whZ]), abs(Z))
-                fl2 = 'VCJ_v8_mcut0.08_t0%.1f_Z%s%.1f.ssp.imf_varydoublex.s100' % (Age_m[whAge+1], str(Z_pm[whZ]), abs(Z))       
-                cfl1 = 'atlas_ssp_t0%1i_Z%s%.1f.abund.krpa.s100' % (ChemAge_m[whAge-1], str(Z_pm[whZ]), abs(Z))
-                cfl2 = 'atlas_ssp_t0%1i_Z%s%.1f.abund.krpa.s100' % (ChemAge_m[whAge+1], str(Z_pm[whZ]), abs(Z))            
-            elif Age == 10.0:
-                fl1 = 'VCJ_v8_mcut0.08_t0%.1f_Z%s%.1f.ssp.imf_varydoublex.s100' % (Age_m[whAge-1], str(Z_pm[whZ]), abs(Z))
-                fl2 = 'VCJ_v8_mcut0.08_t%.1f_Z%s%.1f.ssp.imf_varydoublex.s100' % (Age_m[whAge+1], str(Z_pm[whZ]), abs(Z))
-                cfl1 = 'atlas_ssp_t0%1i_Z%s%.1f.abund.krpa.s100' % (ChemAge_m[whAge-1], str(Z_pm[whZ]), abs(Z))
-                cfl2 = 'atlas_ssp_t%1i_Z%s%.1f.abund.krpa.s100' % (ChemAge_m[whAge+1], str(Z_pm[whZ]), abs(Z))
-            else:
-                fl1 = 'VCJ_v8_mcut0.08_t%.1f_Z%s%.1f.ssp.imf_varydoublex.s100' % (Age_m[whAge-1], str(Z_pm[whZ]), abs(Z))
-                fl2 = 'VCJ_v8_mcut0.08_t%.1f_Z%s%.1f.ssp.imf_varydoublex.s100' % (Age_m[whAge+1], str(Z_pm[whZ]), abs(Z))
-                cfl1 = 'atlas_ssp_t%1i_Z%s%.1f.abund.krpa.s100' % (ChemAge_m[whAge-1], str(Z_pm[whZ]), abs(Z))
-                cfl2 = 'atlas_ssp_t%1i_Z%s%.1f.abund.krpa.s100' % (ChemAge_m[whAge+1], str(Z_pm[whZ]), abs(Z)) 
-
-        elif not mixage and mixZ:
-            whAge = np.where(Age_m == Age)[0][0]
-            whZ = np.where(Z_m == Z)[0][0]
-            if Age < 10:
-                agemod = '0'
-            else:
-                agemod = ''
-            fl1 = 'VCJ_v8_mcut0.08_t%s%.1f_Z%s%.1f.ssp.imf_varydoublex.s100' % (agemod,Age, str(Z_pm[whZ-1]), abs(Z_m[whZ-1]))
-            fl2 = 'VCJ_v8_mcut0.08_t%s%.1f_Z%s%.1f.ssp.imf_varydoublex.s100' % (agemod,Age, str(Z_pm[whZ+1]), abs(Z_m[whZ+1]))      
-            cfl1 = 'atlas_ssp_t%s_Z%s%.1f.abund.krpa.s100' % (agemod+str(ChemAge_m[whAge]), str(Z_pm[whZ-1]), abs(Z_m[whZ-1]))
-            cfl2 = 'atlas_ssp_t%s_Z%s%.1f.abund.krpa.s100' % (agemod+str(ChemAge_m[whAge]), str(Z_pm[whZ+1]), abs(Z_m[whZ+1]))
-        else:
-            whAge = np.where(Age_m == Age)[0][0]
-            whZ = np.where(Z_m == Z)[0][0]        
-            if Age < 10:
-                agemod = '0'
-            else:
-                agemod = ''        
-            fl1 = 'VCJ_v8_mcut0.08_t%s%.1f_Z%s%.1f.ssp.imf_varydoublex.s100' % (agemod, Age, str(Z_pm[whZ]), abs(Z))
-            cfl1 = 'atlas_ssp_t%s_Z%s%.1f.abund.krpa.s100' % (agemod + str(ChemAge_m[whAge]), str(Z_pm[whZ]), abs(Z))
-            fl2 = ''
-            cfl2 = ''
-
-    return fl1, cfl1, fl2, cfl2, mixage, mixZ
-
-def select_model_file_new(Z, Age):
-    '''Selects the model file for a given Age and [Z/H]. If the requested values
-    are between two models it returns two filenames for each model set.'''
-
-    #Acceptable parameters...also global variables but restated here...
-    Z_m = np.array([-1.5,-1.25, -1.0, -0.75, -0.5, -0.25, 0.0, 0.1, 0.2])
-    Age_m = np.array([1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.25,13.5])
-    x1_m = 0.5 + np.arange(16)/5.0
-    x2_m = 0.5 + np.arange(16)/5.0
-    Z_pm = np.array(['m','m','m','m','m','m','p','p','p'])
-    ChemAge_m = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13])
-
-    fullage = np.array([1.0,3.0,5.0,7.0,9.0,11.0,13.5])
-    fullZ = np.array([-1.5, -1.0, -0.5, 0.0, 0.2])
-    
-    #Matching parameters to the nearest acceptable value (for Age, Z, x1, and x2)
-    if Z not in Z_m:
-        Zmin = np.argmin(np.abs(Z_m - Z))
-        Z = Z_m[Zmin]
-    if Age not in Age_m:
-        Agemin = np.argmin(np.abs(Age_m - Age))
-        Age = Age_m[Agemin]
-
-    mixage = False
-    mixZ = False
-    if Age not in fullage:
-        mixage = True
-    if Z not in fullZ:
-        mixZ = True
-
-    #if fitmode in [False, 'limited', 'LimitedVelDisp', 'NoAgeLimited']:
-    #    noZ = False
-    #else:
-    #    noZ = True
-    #    Z = 0.0
-
-    whAge = np.where(Age_m == Age)[0][0]
-    whZ = np.where(Z_m == Z)[0][0]        
-
-    if mixage and mixZ:
-        fl1 = "%.1f_%.1f" % (Age_m[whAge-1],Z_m[whZ-1])
-        fl2 = "%.1f_%.1f" % (Age_m[whAge+1],Z_m[whZ-1])
-        fl3 = "%.1f_%.1f" % (Age_m[whAge-1],Z_m[whZ+1])
-        fl4 = "%.1f_%.1f" % (Age_m[whAge+1],Z_m[whZ+1])
-    elif mixage:
-        fl1 = "%.1f_%.1f" % (Age_m[whAge-1],Z)
-        fl2 = "%.1f_%.1f" % (Age_m[whAge+1],Z)
-        fl3 = ''
-        fl4 = ''
-    elif mixZ:
-        fl1 = "%.1f_%.1f" % (Age,Z_m[whZ-1])
-        fl2 = "%.1f_%.1f" % (Age,Z_m[whZ+1])
-        fl3 = ''
-        fl4 = ''
-    else:
-        fl1 = "%.1f_%.1f" % (Age,Z)
-        fl2 = ''
-        fl3 = ''
-        fl4 = ''
-
-    return fl1, fl2, fl3, fl4, whAge, whZ, mixage, mixZ
 
 def select_model_file_new_2(Z, Age):
     '''Selects the model file for a given Age and [Z/H]. If the requested values
@@ -450,31 +250,6 @@ def model_spec(inputs, gal, paramnames, vcjset = False, timing = False):
             Age = 13.5
     if 'Z' not in paramnames:
         Z = 0.0
-
-    #Determining the fitting parameters from the fitmode variable
-    #if fitmode == True:
-    #    Age, x1, x2, Na, K, Ca, Fe = inputs
-    #    Z = 0.0
-    #elif fitmode == 'limited':
-    #    Z, Age, x1, x2 = inputs
-    #elif fitmode == 'LimitedVelDisp':
-    #    Z, Age, x1, x2,veldisp = inputs
-    #elif fitmode == 'NoAge':
-    #    x1, x2, Na, K, Ca, Fe = inputs
-    #    Z = 0.0
-    #    if gal == 'M85':
-    #        Age = 5.0
-    #    elif gal == 'M87':
-    #        Age = 13.5
-    #elif fitmode == 'NoAgeVelDisp':
-    #    x1, x2, Na, K, Ca, Fe, veldisp = inputs
-    #    Z = 0.0
-    #    if gal == 'M85':
-    #        Age = 5.0
-    #    elif gal == 'M87':
-    #        Age = 13.5
-    #else:
-    #    Z, Age, x1, x2, Na, K, Mg, Fe, Ca = inputs
 
     if x1 not in x1_m:
         x1min = np.argmin(np.abs(x1_m - x1))
@@ -687,7 +462,7 @@ def model_spec(inputs, gal, paramnames, vcjset = False, timing = False):
         #Na adjustment
     ab_contribution = 0.0
     if 'Na' in paramnames:
-        Naextend = (c[:,2])*(-0.5/-0.3)*c[:,0]
+        Naextend = (c[:,2]-c[:,0])*(-0.5/-0.3) + c[:,0]
         interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.6,0.9], np.stack((Naextend,c[:,2],c[:,0],c[:,1],c[:,-2],c[:,-1])), kind = 'cubic')
         NaP = interp(wl,Na) / c[:,0] - 1.
         ab_contribution += NaP
@@ -695,7 +470,9 @@ def model_spec(inputs, gal, paramnames, vcjset = False, timing = False):
         #K adjustment (assume symmetrical K adjustment)
     if 'K' in paramnames:
         Kminus = (2. - (c[:,29] / c[:,0]))*c[:,0]
-        interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack((Kminus,c[:,0],c[:,29])), kind = 'linear')
+        Kmextend = (Kminus - c[:,0])*(-0.5/-0.3) + c[:,0]
+        Kpextend = (c[:,29] - c[:,0]) * (0.5/0.3) + c[:,0]
+        interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], np.stack((Kmextend,Kminus,c[:,0],c[:,29],Kpextend)), kind = 'linear')
         KP = interp(wl,K) / c[:,0] - 1.
         ab_contribution += KP
 
@@ -708,13 +485,17 @@ def model_spec(inputs, gal, paramnames, vcjset = False, timing = False):
 
     if 'Fe' in paramnames:
         #Fe Adjustment
-        interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack((c[:,6], c[:,0],c[:,5])), kind = 'linear')
+        Femextend = (c[:,6] - c[:,0])*(-0.5/-0.3) + c[:,0]
+        Fepextend = (c[:,5] - c[:,0])*(0.5/0.3) + c[:,0]
+        interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], np.stack((Femextend,c[:,6], c[:,0],c[:,5],Fepextend)), kind = 'linear')
         FeP = interp(wl,Fe) / c[:,0] - 1.
         ab_contribution += FeP
 
     if 'Ca' in paramnames:
         #Ca Adjustment
-        interp = spi.interp2d(wl, [-0.3,0.0,0.3], np.stack((c[:,4], c[:,0],c[:,3])), kind = 'linear')
+        Cmextend = (c[:,4] - c[:,0])*(-0.5/-0.3) + c[:,0]
+        Cpextend = (c[:,3] - c[:,0])*(0.5/0.3) + c[:,0]
+        interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], np.stack((Cmextend,c[:,4], c[:,0],c[:,3],Cpextend)), kind = 'linear')
         CaP = interp(wl,Ca) / c[:,0] - 1.
         ab_contribution += CaP
 
@@ -777,9 +558,22 @@ def chisq(params, wl, data, err, gal, paramnames, plot=False, timing = False):
         if (gal == 'M87') and linefit:
             if line_name[i] == 'KI_1.25':
                 continue
-        if (gal == 'M85') and linefit and ('Na' not in paramnames):
-            if line_name[i] == 'NaI':
-                continue
+        
+        #line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI']
+        if lineexclude:
+            if (gal == 'M85') and linefit and ('Na' not in paramnames):
+                if line_name[i] == 'NaI':
+                    continue
+            if (gal == 'M85') and linefit and ('Ca' not in paramnames):
+                if line_name[i] == 'CaI':
+                    continue
+            if (gal == 'M85') and linefit and ('Fe' not in paramnames):
+                if line_name[i] == 'FeH':
+                    continue
+            if (gal == 'M85') and linefit and ('K' not in paramnames):
+                if line_name[i] in ['KI_a','KI_b','KI_1.25']:
+                    continue
+
 
         #Getting a slice of the model
         wli = wl[i]
@@ -813,9 +607,27 @@ def chisq(params, wl, data, err, gal, paramnames, plot=False, timing = False):
             polyfit = np.poly1d(pf)
             cont = polyfit(wli)
         else:
-            pf = np.polyfit(wli, modelslice, morder[i])
-            polyfit = np.poly1d(pf)
-            cont = polyfit(wli)
+            if i == 2:
+                if 'Na' not in paramnames:
+                    continue
+                #Define the bandpasses for each line 
+                bluepass = np.where((wlc >= bluelow[i]) & (wlc <= bluehigh[i]))[0]
+                redpass = np.where((wlc >= redlow[i]) & (wlc <= redhigh[i]))[0]
+
+                #Cacluating center value of the blue and red bandpasses
+                blueavg = np.mean([bluelow[i],bluehigh[i]])
+                redavg = np.mean([redlow[i],redhigh[i]])
+
+                blueval = np.mean(mconv[bluepass])
+                redval = np.mean(mconv[redpass])
+
+                pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
+                polyfit = np.poly1d(pf)
+                cont = polyfit(wli)
+            else:
+                pf = np.polyfit(wli, modelslice, morder[i])
+                polyfit = np.poly1d(pf)
+                cont = polyfit(wli)
 
         #Normalizing the model
         modelslice = modelslice / cont
@@ -858,10 +670,10 @@ def lnprior(theta, paramnames):
             if not (0.5 <= theta[j] <= 3.5):
                 goodpriors = False
         elif paramnames[j] == 'Na':
-            if not (-0.3 <= theta[j] <= 0.9):
+            if not (-0.5 <= theta[j] <= 0.9):
                 goodpriors = False
         elif paramnames[j] in ['K','Ca','Fe','Mg']:
-            if not (-0.3 <= theta[j] <= 0.3):
+            if not (-0.5 <= theta[j] <= 0.5):
                 goodpriors = False
         elif paramnames[j] == 'VelDisp':
             if not (120 <= theta[j] <= 390):
@@ -1336,10 +1148,14 @@ if __name__ == '__main__':
     #ret = test_chisq(['Age','Z','x1','x2'],vcj, trials = 1)
     #test_chisq('NoAge',trials = 2)
 
-    sampler = do_mcmc('M85', 512, 25000, ['Age','x1','x2','Fe','Ca','K'], threads = 18)
-    #sampler = do_mcmc('M87', 512, 25000, ['Age','Z','x1','x2','Na'], threads = 18, scale = 0.15)
+    sampler = do_mcmc('M85', 512, 15000, ['Age','Z','x1','x2','Fe','Ca','K'], threads = 18)
+    sampler = do_mcmc('M87', 512, 15000, ['Age','Z','x1','x2'], threads = 18)
     #sampler = do_mcmc('M87', 512, 25000, ['Age','x1','x2','Fe','Na'], threads = 18)
-    #sampler = do_mcmc('M87', 512, 25000, ['Age','Z','x1','x2'], threads = 18)
+
+    #sampler = do_mcmc('M85', 512, 3000, ['Age','Z','x1','x2','Na','Ca','K'], threads = 18)
+    #sampler = do_mcmc('M85', 512, 3000, ['Age','Z','x1','x2','Na','Fe','K'], threads = 18)
+    #sampler = do_mcmc('M85', 512, 3000, ['Age','Z','x1','x2','Na','Fe','Ca'], threads = 18)
+
     #sampler = do_mcmc('M87', 512, 20000, fitmode = '', threads = 18)
     #compare_bestfit('20180807T031027_M85_fullfit.dat')
     #compare_bestfit('20180727T104340_M87_fullfit.dat')

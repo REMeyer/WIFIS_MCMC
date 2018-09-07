@@ -8,7 +8,6 @@ import scipy.interpolate as spi
 import sys
 import pandas as pd
 
-linefit = True
 #Line definitions & other definitions
 linelow = [9905,10337,11372,11680,11765,12505,13115]
 linehigh = [9935,10360,11415,11705,11793,12545,13165]
@@ -25,7 +24,7 @@ chem_names = ['Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-', 'a/
 line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI']
 
 #Definitions for the fitting bandpasses
-linefit = True
+linefit = False
 if linefit:
     mlow = [9855,10300,11340,11667,11710,12460,13090]
     mhigh = [9970,10390,11447,11750,11810,12590,13175]
@@ -33,9 +32,9 @@ if linefit:
     #mhigh = [9935,10360,11415,11705,11793,12545,13165]
     morder = [1,1,1,1,1,1,1]
 else:
-    mlow = [9700,10550,11550,12350]
-    mhigh = [10450,11450,12200,13180]
-    morder = [8,9,7,8]
+    mlow = [9700,10550,11340,11550,12350,12665]
+    mhigh = [10450,10965,11447,12200,12590,13180]
+    morder = [8,4,1,7,2,5]
 
 def gaussian(xs, a, sigma, x0):
     second = ((xs - x0)/sigma)**2.0
@@ -156,11 +155,11 @@ def load_mcmc_file(fl):
             elif paramnames[j] == 'Na':
                 names.append('[%s/H]' % (paramnames[j]))
                 high.append(0.9)
-                low.append(-0.3)
+                low.append(-0.5)
             elif paramnames[j] in ['K','Ca','Fe','Mg']:
                 names.append('[%s/H]' % (paramnames[j]))
-                high.append(0.3)
-                low.append(-0.3)
+                high.append(0.5)
+                low.append(-0.5)
             elif paramnames[j] == 'VelDisp':
                 names.append('$\sigma$')
                 high.append(390)
@@ -329,9 +328,25 @@ def compare_bestfit(fl, burnin=-1000, onesigma = False, addshift = False, vcjset
             cont = polyfit(wli)
 
         else:
-            pf = np.polyfit(wl[i], modelslice, morder[i])
-            polyfit = np.poly1d(pf)
-            cont = polyfit(wl[i])
+            if i == 2:
+                #Define the bandpasses for each line 
+                bluepass = np.where((wlc >= bluelow[i]) & (wlc <= bluehigh[i]))[0]
+                redpass = np.where((wlc >= redlow[i]) & (wlc <= redhigh[i]))[0]
+
+                #Cacluating center value of the blue and red bandpasses
+                blueavg = np.mean([bluelow[i],bluehigh[i]])
+                redavg = np.mean([redlow[i],redhigh[i]])
+
+                blueval = np.mean(mconv[bluepass])
+                redval = np.mean(mconv[redpass])
+
+                pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
+                polyfit = np.poly1d(pf)
+                cont = polyfit(wli)
+            else:
+                pf = np.polyfit(wli, modelslice, morder[i])
+                polyfit = np.poly1d(pf)
+                cont = polyfit(wli)
 
         modelslice = modelslice / cont
         
@@ -560,7 +575,7 @@ def testVelDisp(fl, burnin = -1000, vcjset = False, plot = False):
 
 if __name__ == '__main__':
     vcj = mcfs.preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
-    compare_bestfit('20180822T121721_M85_fullfit.dat', burnin=-1000, onesigma = False, addshift = True, vcjset = vcj)
+    compare_bestfit('20180907T001647_M85_fullfit.png', burnin=-300, onesigma = False, addshift = True, vcjset = vcj)
 
     #shfit = deriveShifts('20180807T090719_M85_fullfit.dat', vcjset = vcj, plot = False)
     #deriveVelDisp('M85')
