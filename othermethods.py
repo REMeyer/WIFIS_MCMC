@@ -6,7 +6,6 @@ from glob import glob
 import scipy.interpolate as spi
 import sys
 import mcmc_support as mcsp
-from mcmc_support import load_mcmc_file
 
 line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI']
 mlow = [9855,10300,11340,11667,11710,12460,13090]
@@ -14,10 +13,32 @@ mhigh = [9970,10390,11447,11750,11810,12590,13175]
 morder = [1,1,1,1,1,1,1]
 linefit = True
 
+def get_hist(fl, burnin=-300):
+    mpl.close('all')
+    dataall = mcsp.load_mcmc_file(fl)
+    data = dataall[0]
+    smallfit = dataall[2][3]
+    names = dataall[2][4]
+    high = dataall[2][5]
+    low = dataall[2][6]
+    legacy = dataall[2][8]
+    flsplname = fl.split('/')[-1]
+    flspl = flsplname.split('_')[0]
+    samples = data[burnin:,:,:].reshape((-1,len(names)))
+    
+    x1 = samples[:,2]
+    x2 = samples[:,3]
+    x_m = 0.4 + np.arange(17)/5.0
+    histprint = mpl.hist2d(x1,x2, bins = x_m)
+    print histprint
+    mpl.show()
+
+    return histprint
+
 def plot_corner(fl, burnin, burnintest = False):
 
     mpl.close('all')
-    dataall = load_mcmc_file(fl)
+    dataall = mcsp.load_mcmc_file(fl)
     data = dataall[0]
     smallfit = dataall[2][3]
     names = dataall[2][4]
@@ -75,7 +96,7 @@ def plot_corner(fl, burnin, burnintest = False):
                 ax.axvline(truevalues[i][0] - truevalues[i][2], color="g")
                 ax.set_title(names[i]+"=$%s_{-%s}^{+%s}$" % (np.round(truevalues[i][0],3), \
                         np.round(truevalues[i][2],3), np.round(truevalues[i][1],3)))
-                ax.set_xlim((low[i],high[i]))
+                #ax.set_xlim((low[i],high[i]))
 
             # Loop over the histograms
             for yi in range(len(names)):
@@ -88,8 +109,8 @@ def plot_corner(fl, burnin, burnintest = False):
                     ax.axvline(truevalues[xi][0] - truevalues[xi][2], color="g")
                     ax.axhline(truevalues[yi][0] + truevalues[yi][1], color="g")
                     ax.axhline(truevalues[yi][0] - truevalues[yi][2], color="g")
-                    ax.set_ylim((low[yi], high[yi]))
-                    ax.set_xlim((low[xi], high[xi]))
+                    #ax.set_ylim((low[yi], high[yi]))
+                    #ax.set_xlim((low[xi], high[xi]))
 
             figure.savefig(fl[:-4]+'_%s.png' % (str(j)))
             mpl.close('all')
@@ -263,6 +284,9 @@ def measureveldisp(gal):
     print c * (m_sigma/m_center)
 
 if __name__=='__main__':
+    #get_hist('20180902T235307_M85_fullfit.dat')
+    h = get_hist('20180821T100923_M87_fullfit.dat')
+
     #multiplot(glob('/home/elliot/mcmcgemini/mcmcresults/201807*.dat'))
-    measureveldisp('M87')
+    #measureveldisp('M87')
 

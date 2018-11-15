@@ -238,7 +238,7 @@ def bestfitPrepare(fl, burnin):
 
     return [data, names, gal, datatype, fitvalues, truevalues, paramnames]
 
-def compare_bestfit(fl, burnin=-1000, onesigma = False, addshift = False, vcjset = False):
+def compare_bestfit(fl, instrument = 'nifs', burnin=-1000, onesigma = False, addshift = False, vcjset = False):
 
     #Load the necessary information
     data, names, gal, datatype, fitvalues, truevalues,paramnames\
@@ -252,7 +252,11 @@ def compare_bestfit(fl, burnin=-1000, onesigma = False, addshift = False, vcjset
         galveldisp = 370.
         #galveldisp = 307.
 
-    wl, data, err = mcfs.preparespec(gal)
+    if instrument == 'nifs':
+        wl, data, err = mcfs.preparespec(gal)
+    else:
+        wl, data, err = mcfs.preparespecwifis(gal)
+
     wl, data, err = mcfs.splitspec(wl, data, err = err, lines=linefit)
 
     wlg, newm = mcfs.model_spec(truevalues, gal, paramnames, vcjset = vcjset)
@@ -277,7 +281,7 @@ def compare_bestfit(fl, burnin=-1000, onesigma = False, addshift = False, vcjset
         #Getting a slice of the model
         wli = wl[i]
 
-        if addshift:
+        if addshift and (instrument == 'nifs'):
             if i in [3,4]:
                 wli = np.array(wli)
                 wli -= 2.0
@@ -573,9 +577,84 @@ def testVelDisp(fl, burnin = -1000, vcjset = False, plot = False):
 
     return shfit
 
+def calculate_MLR(fl, instrument = 'nifs', burnin = -300, vcjset = None):
+
+    #Load the necessary information
+    data, names, gal, datatype, fitvalues, truevalues,paramnames\
+            = bestfitPrepare(fl, burnin)
+
+    x_m = 0.5 + np.arange(16)/5.0
+    paramnames = np.array(paramnames)
+    ix1 = np.where(paramnames == 'x1')[0][0]
+    ix2 = np.where(paramnames == 'x2')[0][0]
+    
+    MLR = np.zeros((len(x_m),len(x_m)))
+    MWvalues = np.array(truevalues)
+    MWvalues[ix1] = 1.3
+    MWvalues[ix2] = 2.3
+    wlgMW, newmMW = mcfs.model_spec(MWvalues, gal, paramnames, vcjset = vcjset, full = True)
+    
+    whK = np.where((wlgMW >= 20300) & (wlgMW <= 23700))[0] 
+
+    MLR_MW = np.sum(newmMW[whK])
+
+    for i in range(len(x_m)):
+        for j in range(len(x_m)):
+            x1 = x_m[i]
+            x2 = x_m[j]
+            tempvalues = np.array(truevalues)
+            tempvalues[ix1] = x1
+            tempvalues[ix2] = x2
+            print tempvalues
+            wlg, newm = mcfs.model_spec(tempvalues, gal, paramnames, vcjset = vcjset, full = True)
+            MLR_IMF = np.sum(newm[whK])
+            MLR[i,j] = MLR_MW / MLR_IMF
+
+    mpl.close('all')
+    samples = data[burnin:,:,:].reshape((-1,len(names)))
+    
+    x1 = samples[:,ix1]
+    x2 = samples[:,ix2]
+
+    x_mbins = 0.4 + np.arange(17)/5.0
+    histprint = mpl.hist2d(x1,x2, bins = x_mbins)
+
+    fullMLR = []
+    for i in range(len(x_m)):
+        for j in range(len(x_m)):
+            n_val = int(histprint[0][i,j])
+            addlist = [float(MLR[i,j])] * n_val
+            fullMLR.extend(addlist)
+
+    mpl.close('all')
+
+    return MLR, paramnames, truevalues, histprint, fullMLR
+
+def plotMLRhist(M87, M85):
+
+    fig, ax = mpl.subplots(figsize = (7,6))
+    h1 = ax.hist(M87[-1], bins = 30, alpha = 0.7, label = 'M87')
+    h2 = ax.hist(M85[-1],bins = h1[1], alpha = 0.7, label = 'M85')
+    ax.axvline(np.mean(M87[-1]), linestyle = '--', color = 'b', linewidth=2)
+    ax.axvline(np.mean(M85[-1]), linestyle = '-.', color = 'g',linewidth=2)
+    ax.axvline(1.0, color = 'k')
+    ax.text(0.95, ax.get_ylim()[1]/2.0,'MW-Like', rotation = 'vertical')
+    ax.axvline(1.581, color = 'k')
+    ax.text(1.586, ax.get_ylim()[1]/2.0,'Salpeter', rotation = 'vertical')
+    ax.set_xlabel('$(M/L)_{K}/(M/L)_{K,MW}$')
+    ax.set_yticklabels([])
+    ax.set_xlim((0.75,2.7))
+    mpl.legend()
+    mpl.show()
+
 if __name__ == '__main__':
-    vcj = mcfs.preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
-    compare_bestfit('20180907T001647_M85_fullfit.png', burnin=-300, onesigma = False, addshift = True, vcjset = vcj)
+    vcj = mcfs.preload_vcj(overwrite_base='/home/elliot/mcmcgemini/') #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
+    M87 = calculate_MLR('mcmcresults/20180821T100923_M87_fullfit.dat', vcjset = vcj)
+    M851= calculate_MLR('mcmcresults/20180902T235307_M85_fullfit.dat', vcjset = vcj)
+    M852= calculate_MLR('mcmcresults/20180903T191219_M85_fullfit.dat', vcjset = vcj)
+    plotMLRhist(M87, M852)
+    #MLR = calculate_MLR('20180821T100923_M87_fullfit.dat', vcjset = vcj)
+    #compare_bestfit('20181001T021925_M85_fullfit.dat', instrument = 'wifis',burnin=-300, onesigma = False, addshift = True, vcjset = vcj)
 
     #shfit = deriveShifts('20180807T090719_M85_fullfit.dat', vcjset = vcj, plot = False)
     #deriveVelDisp('M85')
