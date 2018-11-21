@@ -30,10 +30,10 @@ base = os.path.dirname(os.path.realpath(sys.argv[0])) + '/'
 # Age: depends on galaxy, steps of 1 Gyr?
 # IMF: x1 and x2 full range
 # [Na/H]: -0.4 <-> +1.3
-linefit = False
-lineexclude = False
+linefit = True
+lineexclude = True
 ratiofit = False
-instrument = 'wifis'
+instrument = 'nifs'
 
 #Setting some of the mcmc priors
 Z_m = np.array([-1.5,-1.0, -0.5, -0.25, 0.0, 0.1, 0.2])
@@ -597,8 +597,8 @@ def chisq(params, wl, data, err, gal, paramnames, plot=False, timing = False):
             if line_name[i] == 'KI_1.25':
                 continue
 
-        if line_name[i] == 'AlI':
-            continue
+        #if line_name[i] == 'AlI':
+        #    continue
         
         #line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI']
         if lineexclude:
@@ -647,6 +647,7 @@ def chisq(params, wl, data, err, gal, paramnames, plot=False, timing = False):
             pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
             polyfit = np.poly1d(pf)
             cont = polyfit(wli)
+
         else:
             if i == 2:
                 if (gal == 'M85') and ('Na' not in paramnames):
@@ -736,45 +737,6 @@ def lnprior(theta, paramnames):
         return 0.0
     else:
         return -np.inf
-
-    #if fitmode == True:
-    #    Age, x1, x2, Na, K, Ca, Fe = theta 
-    #    if (1.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
-    #            (0.5 <= x2 <= 3.5) and (-0.3 <= Na <= 0.9) and (-0.3 <= K <= 0.3) and (-0.3 <= Ca <= 0.3) and\
-    #            (-0.3 <= Fe <= 0.3):
-    #        return 0.0
-
-    #elif fitmode == 'limited':
-    #    Z, Age, x1, x2 = theta 
-    #    if (-1.5 <= Z <= 0.2) and (1.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
-    #            (0.5 <= x2 <= 3.5):
-    #        return 0.0
-
-    #elif fitmode == 'LimitedVelDisp':
-    #    Z, Age, x1, x2, veldisp = theta 
-    #    if (-1.5 <= Z <= 0.2) and (1.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
-    #            (0.5 <= x2 <= 3.5) and (120 <= veldisp <= 390):
-    #        return 0.0
-
-    #elif fitmode == 'NoAge':
-    #    x1, x2, Na, K, Ca, Fe = theta 
-    #    if (0.5 <= x1 <= 3.5) and (0.5 <= x2 <= 3.5) and (-0.3 <= Na <= 0.9) and (-0.3 <= K <= 0.3)\
-    #            and (-0.3 <= Ca <= 0.3) and (-0.3 <= Fe <= 0.3):
-    #        return 0.0
-
-    #elif fitmode == 'NoAgeVelDisp':
-    #    x1, x2, Na, K, Ca, Fe, veldisp = theta 
-    #    if (0.5 <= x1 <= 3.5) and (0.5 <= x2 <= 3.5) and (-0.3 <= Na <= 0.9) and (-0.3 <= K <= 0.3)\
-    #            and (-0.3 <= Ca <= 0.3) and (-0.3 <= Fe <= 0.3) and (120 <= veldisp <= 390):
-    #        return 0.0
-
-    #else:
-    #    Z, Age, x1, x2, Na, K, Mg, Fe, Ca = theta 
-    #    if (-1.5 <= Z <= 0.2) and (1.0 <= Age <= 13.5) and (0.5 <= x1 <= 3.5) and\
-    #            (0.5 <= x2 <= 3.5) and (-0.3 <= Na <= 0.9) and (-0.3 <= K <= 0.3) and (-0.3 <= Mg <= 0.3) and\
-    #            (-0.3 <= Fe <= 0.3) and (-0.3 <= Ca <= 0.3):
-    #        return 0.0
-    #return -np.inf
 
 def lnprob(theta, wl, data, err, gal, paramnames):
     '''Primary function of the mcmc. Checks priors and returns the likelihood'''
@@ -1007,14 +969,27 @@ def splitspec(wl, data, err=False, lines = False, scale = False):
             polyfit = np.poly1d(pf)
             cont = polyfit(wlslice)
 
-            if scale:
-                data[fullpass] -= scale*polyfit(wl[fullpass])
+            
+            if i in [3,4]:
+                mpl.plot(wlslice, data[fullpass])
+                mpl.plot(wlslice, cont)
+                mpl.show()
 
-                blueval = np.mean(data[bluepass])
-                redval = np.mean(data[redpass])
+            if scale:
+                newdata = np.array(data)
+                newdata[fullpass] -= scale*polyfit(wl[fullpass])
+
+                blueval = np.mean(newdata[bluepass])
+                redval = np.mean(newdata[redpass])
+
                 pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
                 polyfit = np.poly1d(pf)
                 cont = polyfit(wlslice)
+
+                if i in [3,4]:
+                    mpl.plot(wlslice, newdata[fullpass])
+                    mpl.plot(wlslice, cont)
+                    mpl.show()
 
         else:
             if i == 2:
@@ -1170,8 +1145,11 @@ if __name__ == '__main__':
     #ret = test_chisq(['Age','Z','x1','x2'],vcj, trials = 1)
     #test_chisq('NoAge',trials = 2)
 
-    sampler = do_mcmc('M85', 512, 10000, ['Age','Z','x1','x2','Na','Fe','Ca','K'], 'nifs', threads = 18)
-    sampler = do_mcmc('M87', 512, 10000, ['Age','Z','x1','x2'], 'nifs', threads = 18)
+    sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2','Fe','Ca','K'], 'nifs', threads = 18)
+    sampler = do_mcmc('M85', 512, 4000, ['Z','x1','x2','Na','Fe','Ca','K'], 'nifs', threads = 18)
+    sampler = do_mcmc('M85', 512, 4000, ['Age','x1','x2','Na','Fe','Ca','K'], 'nifs', threads = 18)
+    sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2','Na','Ca','K'], 'nifs', threads = 18)
+    #sampler = do_mcmc('M87', 512, 10000, ['Age','Z','x1','x2'], 'nifs', threads = 18, scale = 0.15)
     #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2','Na','Fe','Ca','K'], 'nifs', threads = 18)
     #sampler = do_mcmc('M87', 512, 4000, ['Age','Z','x1','x2'], 'nifs', threads = 18)
     #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2','Na','Fe','Ca','K'], 'nifs', threads = 18)
