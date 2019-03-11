@@ -1,5 +1,6 @@
 widths/*.txt
 mcmcresults/*.dat
+mcmcresults/*.pdf
 *.pyc
 *.swp
 *.swo
