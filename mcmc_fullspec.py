@@ -3,6 +3,7 @@
 #   Based off of emcee 
 #   Author: Elliot Meyer, Dept Astronomy & Astrophysics University of Toronto
 ###################
+
 import numpy as np
 from astropy.io import fits
 from sys import exit
@@ -35,7 +36,7 @@ base = os.path.dirname(os.path.realpath(sys.argv[0])) + '/'
 linefit = True
 lineexclude = False
 ratiofit = False
-instrument = 'nifs'
+#instrument = 'nifs'
 
 #Setting some of the mcmc priors
 Z_m = np.array([-1.5,-1.0, -0.5, -0.25, 0.0, 0.1, 0.2])
@@ -49,39 +50,6 @@ ChemAge_m = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13])
 chem_names = ['Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-', 'a/Fe+', 'N+', 'N-', 'as/Fe+', 'Ti+', 'Ti-',\
                     'Mg+', 'Mg-', 'Si+', 'Si-', 'T+', 'T-', 'Cr+', 'Mn+', 'Ba+', 'Ba-', 'Ni+', 'Co+', 'Eu+', 'Sr+', 'K+',\
                     'V+', 'Cu+', 'Na+0.6', 'Na+0.9']
-
-#Line definitions & other definitions
-if instrument == 'nifs' and linefit:
-    linelow = [9905,10337,11372,11680,11765,12505,13115, 12810, 12670]
-    linehigh = [9935,10360,11415,11705,11793,12545,13165, 12840, 12690]
-
-    bluelow = [9855,10300,11340,11667,11710,12460,13090, 12780, 12648]
-    bluehigh = [9880,10320,11370,11680,11750,12495,13113, 12800, 12660]
-
-    redlow = [9940,10365,11417,11710,11793,12555,13165, 12855, 12700]
-    redhigh = [9970,10390,11447,11750,11810,12590,13175, 12880, 12720]
-
-    line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI', 'PaB', 'NaI127']
-
-    mlow = [9855,10300,11340,11667,11710,12460,13090,12780, 12648]
-    mhigh = [9970,10390,11447,11750,11810,12590,13175, 12880, 12720]
-    morder = [1,1,1,1,1,1,1,1]
-
-#elif instrument == 'wifis' and linefit:
-#    linelow = [9905,10337,11372,11680,11765,12505]
-#    linehigh = [9935,10360,11415,11705,11793,12545]
-#
-#    bluelow = [9855,10300,11340,11667,11710,12460]
-#    bluehigh = [9880,10320,11370,11680,11750,12495]
-#
-#    redlow = [9940,10365,11417,11710,11793,12555]
-#    redhigh = [9970,10390,11447,11750,11810,12590]
-#
-#    line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25']
-#
-#    mlow = [9855,10300,11340,11667,11710,12460]
-#    mhigh = [9970,10390,11447,11750,11810,12590]
-#    morder = [1,1,1,1,1,1]
 
 #elif not linefit:
 #    linelow = [9905,10337,11372,11680,11765,12505,13115]
@@ -110,11 +78,13 @@ vcj = {}
 def preload_vcj(overwrite_base = False):
     '''Loads the SSP models into memory so the mcmc model creation takes a
     shorter time. Returns a dict with the filenames as the keys'''
-    global vcj
-    global base
+    #global vcj
+    #global base
 
     if overwrite_base:
         base = overwrite_base
+    else:
+        base = os.path.dirname(os.path.realpath(sys.argv[0])) + '/'
 
     chem_names = ['WL', 'Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-',\
             'a/Fe+', 'N+', 'N-', 'as/Fe+', 'Ti+', 'Ti-',\
@@ -123,9 +93,10 @@ def preload_vcj(overwrite_base = False):
 
     print "PRELOADING SSP MODELS INTO MEMORY"
     fls = glob(base+'spec/vcj_ssp/*')    
-    #vcj = {}
+
+    vcj = {}
     for fl in fls:
-        print fl
+        #print fl
         flspl = fl.split('/')[-1]
         mnamespl = flspl.split('_')
         age = float(mnamespl[3][1:])
@@ -140,7 +111,7 @@ def preload_vcj(overwrite_base = False):
     print "PRELOADING ABUNDANCE MODELS INTO MEMORY"
     fls = glob(base+'spec/atlas/*')    
     for fl in fls:
-        print fl
+        #print fl
         flspl = fl.split('/')[-1]
 
         mnamespl = flspl.split('_')
@@ -162,7 +133,7 @@ def preload_vcj(overwrite_base = False):
 
     return vcj
 
-def select_model_file_new_2(Z, Age):
+def select_model_file(Z, Age):
     '''Selects the model file for a given Age and [Z/H]. If the requested values
     are between two models it returns two filenames for each model set.'''
 
@@ -243,8 +214,6 @@ def model_spec(inputs, gal, paramnames, vcjset = False, timing = False, full = F
 
     if vcjset:
         vcj = vcjset
-    else:
-        global vcj
 
     if timing:
         print "Starting Model Spec Time"
@@ -294,9 +263,7 @@ def model_spec(inputs, gal, paramnames, vcjset = False, timing = False, full = F
 
 
     #Finding the appropriate base model files.
-    #fl1, cfl1, fl2, cfl2, mixage, mixZ = select_model_file(Z, Age, fitmode)
-    #fl1, fl2, fl3, fl4, whAge, whZ, mixage, mixZ = select_model_file_new_2(Z, Age)
-    fl1, fl2, fl3, fl4, agem, agep, zm, zp, mixage, mixZ = select_model_file_new_2(Z, Age)
+    fl1, fl2, fl3, fl4, agem, agep, zm, zp, mixage, mixZ = select_model_file(Z, Age)
 
     if timing:
         t2 = time.time()
@@ -567,10 +534,12 @@ def model_spec(inputs, gal, paramnames, vcjset = False, timing = False, full = F
 
     return wl, newm
 
-def chisq(params, wl, data, err, gal, paramnames, lineinclude, plot=False, timing = False):
+def calc_chisq(params, wl, data, err, gal, paramnames, lineinclude, linedefs, plot=False, timing = False):
     ''' Important function that produces the value that essentially
     represents the likelihood of the mcmc equation. Produces the model
     spectrum then returns a normal chisq value.'''
+
+    linelow, linehigh, bluelow, bluehigh, redlow, redhigh, line_name, mlow, mhigh, morder = linedefs
     
     if timing:
         t1 = time.time()
@@ -585,10 +554,15 @@ def chisq(params, wl, data, err, gal, paramnames, lineinclude, plot=False, timin
     else:
         if gal == 'M85':
             #wlc, mconv = convolvemodels(wl, newm, 176.)
-            wlc, mconv = convolvemodels(wlm, newm, 170.)
+            #wlc, mconv = convolvemodels(wlm, newm, 170.)
+            wlc, mconv = convolvemodels(wlm, newm, 140.)
         elif gal == 'M87':
             #wlc, mconv = convolvemodels(wlm, newm, 308.)
             wlc, mconv = convolvemodels(wlm, newm, 370.)
+
+    if 'f' in paramnames:
+        whf = np.where(np.array(paramnames) == 'f')[0][0]
+        f = params[whf]
     
     if timing:
         t2 = time.time()
@@ -692,17 +666,24 @@ def chisq(params, wl, data, err, gal, paramnames, lineinclude, plot=False, timin
         else:
             modelslice = modelslice / cont
 
+        if 'f' in paramnames:
+            errterm = (err[i] ** 2.0) + (data[i]**2.0 * np.exp(2*f))
+            addterm = np.log(2.0 * np.pi * errterm)
+        else:
+            errterm = err[i] ** 2.0
+            addterm = err[i] * 0.0
+
         #Performing the chisq calculation
         if linefit and (line_name[i] == 'FeH'):
             whbad = (wl[i] > 9894) & (wl[i] < 9908)
             wg = np.logical_not(whbad)
-            chisq += np.sum((modelslice[wg] - data[i][wg])**2.0 / (err[i][wg]**2.0))
+            chisq += np.sum(((modelslice[wg] - data[i][wg])**2.0 / errterm[wg]) + addterm[wg])
         elif not linefit and (i==2):
             chisq += np.sum((modelslice - data[i])**2.0 / (err[i]**2.0))
         elif not linefit:
             chisq += np.sum(((modelslice/cont) - (data[i]/cont))**2.0 / (err[i]**2.0))
         else:
-            chisq += np.sum((modelslice - data[i])**2.0 / (err[i]**2.0))
+            chisq += np.sum(((modelslice - data[i])**2.0 / errterm) + addterm)
 
         if plot:
             mpl.plot(wl[i], modelslice, 'r')
@@ -742,25 +723,63 @@ def lnprior(theta, paramnames):
         elif paramnames[j] == 'VelDisp':
             if not (120 <= theta[j] <= 390):
                 goodpriors = False
+        elif paramnames[j] == 'f':
+            if not (-10. <= np.log(theta[j]) <= 1.):
+                goodpriors = False
 
     if goodpriors == True:
         return 0.0
     else:
         return -np.inf
 
-def lnprob(theta, wl, data, err, gal, paramnames, lineinclude):
+def lnprob(theta, wl, data, err, gal, paramnames, lineinclude, linedefs):
     '''Primary function of the mcmc. Checks priors and returns the likelihood'''
 
     lp = lnprior(theta, paramnames)
     if not np.isfinite(lp):
         return -np.inf
 
-    chisqv = chisq(theta, wl, data, err, gal, paramnames, lineinclude)
+    chisqv = calc_chisq(theta, wl, data, err, gal, paramnames, lineinclude, linedefs)
     return lp + chisqv
 
 def do_mcmc(gal, nwalkers, n_iter, paramnames, instrument, lineinclude, threads = 6, restart=False, scale=False,\
         fl=None):
     '''Main program. Runs the mcmc'''
+
+    #Line definitions & other definitions
+    if instrument == 'nifs' and linefit:
+        linelow = [9905,10337,11372,11680,11765,12505,13115, 12810, 12670]
+        linehigh = [9935,10360,11415,11705,11793,12545,13165, 12840, 12690]
+
+        bluelow = [9855,10300,11340,11667,11710,12460,13090, 12780, 12648]
+        bluehigh = [9880,10320,11370,11680,11750,12495,13113, 12800, 12660]
+
+        redlow = [9940,10365,11417,11710,11793,12555,13165, 12855, 12700]
+        redhigh = [9970,10390,11447,11750,11810,12590,13175, 12880, 12720]
+
+        line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI', 'PaB', 'NaI127']
+
+        mlow = [9855,10300,11340,11667,11710,12460,13090,12780, 12648]
+        mhigh = [9970,10390,11447,11750,11810,12590,13175, 12880, 12720]
+        morder = [1,1,1,1,1,1,1,1]
+        linedefs = [linelow, linehigh, bluelow, bluehigh, redlow, redhigh, line_name, mlow, mhigh, morder]
+
+    elif instrument == 'wifis' and linefit:
+        linelow = [9905,10337,11372,11680,11765,12505,13115, 12810, 12670, 12309]
+        linehigh = [9935,10360,11415,11705,11793,12545,13165, 12840, 12690, 12333]
+
+        bluelow = [9855,10300,11340,11667,11710,12460,13090, 12780, 12648, 12240]
+        bluehigh = [9880,10320,11370,11680,11750,12495,13113, 12800, 12660, 12260]
+
+        redlow = [9940,10365,11417,11710,11793,12555,13165, 12860, 12700, 12360]
+        redhigh = [9970,10390,11447,11750,11810,12590,13175, 12870, 12720, 12390]
+
+        line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI', 'PaB', 'NaI127', 'NaI123']
+
+        mlow = [9855,10300,11340,11667,11710,12460,13090,12780, 12648, 12240]
+        mhigh = [9970,10390,11447,11750,11810,12590,13175, 12880, 12720, 12390]
+        morder = [1,1,1,1,1,1,1,1,1]
+        linedefs = [linelow, linehigh, bluelow, bluehigh, redlow, redhigh, line_name, mlow, mhigh, morder]
 
     if instrument == 'nifs':
         wl, data, err = preparespec(gal)
@@ -770,17 +789,10 @@ def do_mcmc(gal, nwalkers, n_iter, paramnames, instrument, lineinclude, threads 
             return
         wl, data, err = preparespecwifis(gal, fl)
 
-    #nonzero = np.where((wl > 9600) & (wl < 13500))[0]
-    #print np.mean(data[nonzero]/err[nonzero])
-    #mpl.plot(wl[nonzero], data[nonzero]/err[nonzero])
-    #mpl.show()
-
-    #return
-
     if scale:
-        wl, data, err = splitspec(wl, data, err = err, lines=linefit, scale = scale)
+        wl, data, err = splitspec(wl, data, linedefs, err = err, scale = scale)
     else:
-        wl, data, err = splitspec(wl, data, err = err, lines=linefit)
+        wl, data, err = splitspec(wl, data, linedefs, err = err)
 
     ndim = len(paramnames)
 
@@ -804,6 +816,8 @@ def do_mcmc(gal, nwalkers, n_iter, paramnames, instrument, lineinclude, threads 
                     newinit.append(np.random.random()*0.6 - 0.3)
                 elif paramnames[j] == 'VelDisp':
                     newinit.append(np.random.random()*240 + 120)
+                elif paramnames[j] == 'f':
+                    newinit.append(np.random.random())
             pos.append(np.array(newinit))
     else:
        realdata, postprob, infol, lastdata = mcsp.load_mcmc_file(restart)
@@ -819,7 +833,8 @@ def do_mcmc(gal, nwalkers, n_iter, paramnames, instrument, lineinclude, threads 
     f.write("#%s\n" % (strlines))
     f.close()
 
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = (wl, data, err, gal, paramnames, lineinclude), threads=threads)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = (wl, data, err, gal, paramnames, \
+            lineinclude, linedefs), threads=threads)
     print "Starting MCMC..."
 
     t1 = time.time() 
@@ -839,8 +854,6 @@ def do_mcmc(gal, nwalkers, n_iter, paramnames, instrument, lineinclude, threads 
             print ((ct / (pfinished/100.)) - ct) / 3600., "Hours left"
             print 
 
-    #plcr.plot_corner(savefl, -1000)
-    
     return sampler
 
 def preparespec(galaxy, baseforce = False):
@@ -848,7 +861,8 @@ def preparespec(galaxy, baseforce = False):
     if baseforce:
         base = baseforce
     else:
-        global base
+        pass
+        #global base
 
     if galaxy == 'M87':
         z = 0.004283
@@ -931,21 +945,21 @@ def preparespec(galaxy, baseforce = False):
 
 def preparespecwifis(galaxy, fl, baseforce = False):
 
-
     if baseforce:
         base = baseforce
     else:
-        global base
+        pass
+        #global base
 
     if galaxy == 'M85':
-        z = 0.00244#32
+        z = 0.002432
         datafl = fl
         scale = 1.0
         contcorr = False
 
     if galaxy == 'M87':
-        return
-        z = 0.004283
+        z = 0.005#0.004283
+        datafl = fl
         scale = 1.0
         contcorr = False
 
@@ -969,7 +983,10 @@ def preparespecwifis(galaxy, fl, baseforce = False):
 
     return wl, data, errors
 
-def splitspec(wl, data, err=False, lines = False, scale = False):
+def splitspec(wl, data, linedefs, err=False, scale = False):
+
+    linelow, linehigh, bluelow, bluehigh, redlow, redhigh, line_name, mlow, mhigh, morder = linedefs
+    lines = linefit
 
     databands = []
     wlbands = []
@@ -1083,7 +1100,7 @@ def convolvemodels(wlfull, datafull, veldisp):
 
     return wlfull, out
 
-def test_chisq(paramnames, vcj, trials = 5, timing = True):
+def test_chisq(paramnames, lineinclude, vcj, trials = 5, timing = True):
     d = preparespec('M85')
     wl, data, err = splitspec(d[0], d[1], err = d[2], scale = False, lines = linefit)
 
@@ -1102,55 +1119,13 @@ def test_chisq(paramnames, vcj, trials = 5, timing = True):
                 newinit.append(np.random.random()*0.6 - 0.3)
             elif paramnames[j] == 'VelDisp':
                 newinit.append(np.random.random()*240 + 120)
+            elif paramnames[j] == 'f':
+                newinit.append(np.random.random()*11 - 10)
 
-        inputs = newinit
+        chisquared = chisq(newinit, wl, data, err, 'M85', paramnames, lineinclude)
+        print(chisquared)
 
-        if timing:
-            print "Starting Model Spec Time"
-            t1 = time.time()
-
-        for j in range(len(paramnames)):
-            if paramnames[j] == 'Age':
-                Age = inputs[j]
-            elif paramnames[j] == 'Z':
-                Z = inputs[j]
-            elif paramnames[j] == 'x1':
-                x1 = inputs[j]
-            elif paramnames[j] == 'x2':
-                x2 = inputs[j]
-            elif paramnames[j] == 'Na':
-                Na = inputs[j]
-            elif paramnames[j] == 'K':
-                K = inputs[j]
-            elif paramnames[j] == 'Fe':
-                Fe = inputs[j]
-            elif paramnames[j] == 'Ca':
-                Ca = inputs[j]
-            elif paramnames[j] == 'Mg':
-                Mg = inputs[j]
-            elif paramnames[j] == 'VelDisp':
-                veldisp = inputs[j]
-
-        if 'Age' not in paramnames:
-            if gal == 'M85':
-                Age = 5.0
-            elif gal == 'M87':
-                Age = 13.5
-        if 'Z' not in paramnames:
-            Z = 0.0
-
-        if x1 not in x1_m:
-            x1min = np.argmin(np.abs(x1_m - x1))
-            x1 = x1_m[x1min]
-        if x2 not in x2_m:
-            x2min = np.argmin(np.abs(x2_m - x2))
-            x2 = x2_m[x2min]
-
-        #Finding the appropriate base model files.
-        fl1, fl2, fl3, fl4, agem, agep, zm, zp, mixage, mixZ = select_model_file_new_2(Z, Age)
-        return fl1,fl2,fl3,fl4,agem,agep,zm,zp,mixage,mixZ, Age, Z
-
-    return mockdata, wl, data, err, vcj
+    return
 
 def removeLineSlope(wlc, mconv,i):
     #Define the bandpasses for each line 
@@ -1170,129 +1145,26 @@ def removeLineSlope(wlc, mconv,i):
     return polyfit
 
 if __name__ == '__main__':
+    global vcj
     vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
 
-    lineinclude = ['FeH','CaI', 'NaI', 'KI_a','KI_b','PaB', 'NaI127']
-    sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2','Na','Fe','Ca','K'], 'wifis', lineinclude, \
+    lineinclude =   ['FeH','NaI', 'KI_a','KI_b','KI_1.25','PaB', 'NaI123']
+    params =        ['Age','Z','x1','x2','Na','Fe','K']
+    sampler = do_mcmc('M85', 512, 4000, params, 'wifis', lineinclude, \
             threads = 16, fl = '/home/elliot/M85_combined_cube_1_extracted_r1.fits')
 
-    lineinclude = ['FeH','CaI', 'NaI', 'KI_a','KI_b','PaB', 'NaI127']
-    sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2','Na','Fe','Ca','K'], 'wifis', lineinclude, \
+    lineinclude =   ['FeH','NaI', 'KI_a','KI_b','KI_1.25','PaB', 'NaI123']
+    params =        ['Age','Z','x1','x2','Na','Fe','K']
+    sampler = do_mcmc('M85', 512, 4000, params, 'wifis', lineinclude, \
             threads = 16, fl = '/home/elliot/M85_combined_cube_1_extracted_r2.fits')
 
-    #M85 base fit, all 7 lines
-    #lineinclude = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI']#, 'PaB']#, 'NaI127']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2'],'nifs', lineinclude, threads = 14)
+    lineinclude =   ['FeH','CaI', 'NaI', 'KI_a','KI_b','PaB', 'NaI127']
+    params =        ['Age','Z','x1','x2','Na','Fe','Ca','K']
+    #sampler = do_mcmc('M87', 512, 4000, params, 'wifis', lineinclude, \
+    #        threads = 16, fl = '/home/elliot/M87_combined_cube_1_extracted_r1.fits')
 
-    #M85 Base fit, No Na line
-    #lineinclude = ['FeH', 'CaI', 'KI_a', 'KI_b', 'KI_1.25', 'AlI']#, 'PaB']#, 'NaI127']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2'], 'nifs', lineinclude, threads = 14)
+    lineinclude =   ['FeH','CaI', 'NaI', 'KI_a','KI_b','PaB', 'NaI127']
+    params =        ['Age','Z','x1','x2','Na','Fe','Ca','K']
+    #sampler = do_mcmc('M87', 512, 4000, params, 'wifis', lineinclude, \
+    #        threads = 16, fl = '/home/elliot/M87_combined_cube_1_extracted_r2.fits')
 
-    #M85 base fit, Na line, Na abundance
-    #lineinclude = ['FeH', 'CaI', 'NaI', 'KI_a', 'KI_b', 'KI_1.25', 'AlI']#, 'PaB']#, 'NaI127']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2', 'Na'], 'nifs', lineinclude, threads = 14)
-
-    #M85 base fit, New Na line, Na abundance
-    #lineinclude = ['FeH', 'CaI', 'KI_a', 'KI_b', 'KI_1.25', 'AlI', 'NaI127'] #, 'PaB']#, 'NaI127']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2', 'Na'], 'nifs', lineinclude, threads = 14)
-
-    #M87 Base fit, all 6 lines
-    #lineinclude = ['FeH', 'CaI', 'NaI', 'KI_a', 'KI_b', 'AlI']#, 'PaB']#, 'NaI127']
-    #sampler = do_mcmc('M87', 512, 4000, ['Age','Z','x1','x2'], 'nifs', lineinclude, threads = 14)
-
-    #M87 Base fit, no Na line
-    #lineinclude = ['FeH', 'CaI', 'KI_a', 'KI_b', 'AlI']#, 'PaB']#, 'NaI127']
-    #sampler = do_mcmc('M87', 512, 4000, ['Age','Z','x1','x2'], 'nifs', lineinclude, threads = 14)
-
-    #M87 base fit + Na fitting
-    #lineinclude = ['FeH', 'CaI', 'NaI', 'KI_a', 'KI_b', 'AlI']#, 'PaB']#, 'NaI127']
-    #sampler = do_mcmc('M87', 512, 4000, ['Age','Z','x1','x2','Na'], 'nifs', lineinclude, threads = 14)
-
-    #M87 extended fit
-    #lineinclude = ['FeH', 'CaI', 'NaI', 'KI_a', 'KI_b', 'AlI']#, 'PaB']#, 'NaI127']
-    #sampler = do_mcmc('M87', 512, 4000, ['Age','Z','x1','x2','Na','Fe','Ca','K'], 'nifs', lineinclude, threads = 14)
-
-    #All params
-    #lineinclude = ['FeH', 'CaI', 'NaI', 'KI_a', 'KI_b', 'KI_1.25', 'AlI']#, 'PaB']#, 'NaI127']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2','Na','Fe','Ca','K'], 'nifs', lineinclude, threads = 14)
-
-    #No [Na/H]
-    #lineinclude = ['FeH', 'CaI', 'NaI', 'KI_a', 'KI_b', 'KI_1.25', 'AlI', 'NaI127']#, 'PaB']#, 'NaI127']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2','Fe','Ca','K'], 'nifs', lineinclude, threads = 14)
-
-    #No [Na/H] no NaI
-    #lineinclude = ['FeH', 'CaI', 'KI_a', 'KI_b', 'KI_1.25', 'AlI']#, 'PaB']#, 'NaI127']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2','Fe','Ca','K'], 'nifs', lineinclude, threads = 14)
-
-    #No NaI but [Na/H] and new Na line
-    #lineinclude = ['FeH', 'CaI', 'KI_a', 'KI_b', 'KI_1.25', 'AlI', 'NaI127']#, 'PaB']#, 'NaI127']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2','Na','Fe','Ca','K'], 'nifs', lineinclude, threads = 14)
-
-    #No NaI but [Na/H] and new Na line, and PaB
-    #lineinclude = ['FeH', 'CaI', 'KI_a', 'KI_b', 'KI_1.25', 'AlI', 'NaI127', 'PaB']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2','Na','Fe','Ca','K'], 'nifs', lineinclude, threads = 14)
-
-    #M87 six lines + NaI127 + Pa Beta, Extended
-    #lineinclude = ['FeH', 'CaI', 'NaI', 'KI_a', 'KI_b', 'KI_1.25', 'AlI', 'NaI127', 'PaB']
-    #sampler = do_mcmc('M87', 512, 4000, ['Age','Z','x1','x2','Na','Fe','Ca','K'], 'nifs', lineinclude, threads = 14)
-
-    #M85 base fit, all 7 lines
-    #lineinclude = ['CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI']#, 'PaB']#, 'NaI127']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2'], 'nifs', lineinclude, threads = 14)
-
-## Setting x1 = x2
-    #lineinclude = ['FeH','CaI', 'NaI','KI_a','KI_b', 'KI_1.25','AlI', 'PaB', 'NaI127']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','Na','Fe','Ca','K'], 'nifs', lineinclude, threads = 16)
-
-    #lineinclude = ['FeH','CaI', 'NaI','KI_a','KI_b', 'AlI','PaB', 'NaI127']
-    #sampler = do_mcmc('M87', 512, 4000, ['Age','Z','x1','Na','Fe','Ca','K'], 'nifs', lineinclude, threads = 16)
-
-    #lineinclude = ['FeH','CaI', 'NaI','KI_a','KI_b', 'KI_1.25', 'AlI']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','Na','Fe','Ca','K'], 'nifs', lineinclude, threads = 16)
-
-    #lineinclude = ['FeH','CaI', 'NaI','KI_a','KI_b', 'AlI']
-    #sampler = do_mcmc('M87', 512, 4000, ['Age','Z','x1', 'Na','Fe','Ca','K'], 'nifs', lineinclude, threads = 16)
-
-## Setting x2 = 2.3
-    #lineinclude = ['FeH','CaI', 'NaI','KI_a','KI_b', 'KI_1.25','AlI', 'PaB', 'NaI127']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','Na','Fe','Ca','K'], 'nifs', lineinclude, threads = 16)
-
-    #lineinclude = ['FeH','CaI', 'NaI','KI_a','KI_b', 'AlI','PaB', 'NaI127']
-    #sampler = do_mcmc('M87', 512, 4000, ['Age','Z','x1','Na','Fe','Ca','K'], 'nifs', lineinclude, threads = 16)
-
-## Normal IMF, various chemical changes
-    #lineinclude = ['CaI', 'NaI','KI_a','KI_b', 'KI_1.25','AlI']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2','Na','Ca','K'], 'nifs', lineinclude, threads = 16)
-
-    #lineinclude = ['FeH','CaI','KI_a','KI_b', 'KI_1.25','AlI']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2','Fe','Ca','K'], 'nifs', lineinclude, threads = 16)
-
-    #lineinclude = ['CaI','KI_a','KI_b', 'KI_1.25','AlI']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2','Ca','K'], 'nifs', lineinclude, threads = 16)
-
-    #lineinclude = ['FeH','CaI', 'NaI','KI_a','KI_b', 'KI_1.25','AlI']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2','Ca','K'], 'nifs', lineinclude, threads = 16)
-
-    #lineinclude = ['FeH','CaI', 'NaI','KI_a','KI_b', 'KI_1.25','AlI']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2','Na','Ca','K'], 'nifs', lineinclude, threads = 16)
-
-    #lineinclude = ['FeH','CaI', 'NaI','KI_a','KI_b', 'KI_1.25','AlI']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2','Fe','Ca','K'], 'nifs', lineinclude, threads = 16)
-
-    #lineinclude = ['FeH','CaI', 'NaI','KI_a','KI_b', 'KI_1.25','AlI', 'PaB', 'NaI127']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2','Fe','Ca','K'], 'nifs', lineinclude, threads = 16)
-
-    #lineinclude = ['FeH','CaI', 'NaI','KI_a','KI_b', 'KI_1.25','AlI', 'PaB', 'NaI127']
-    #sampler = do_mcmc('M85', 512, 4000, ['Age','Z','x1','x2','Na','Ca','K'], 'nifs', lineinclude, threads = 16)
-
-    #lineinclude = ['FeH','CaI', 'NaI','KI_a','KI_b','AlI', 'PaB', 'NaI127']
-    #sampler = do_mcmc('M87', 512, 4000, ['Age','Z','x1','x2','Fe','Ca','K'], 'nifs', lineinclude, threads = 16)
-
-    #lineinclude = ['FeH','CaI', 'NaI','KI_a','KI_b','AlI', 'PaB', 'NaI127']
-    #sampler = do_mcmc('M87', 512, 4000, ['Age','Z','x1','x2','Na','Ca','K'], 'nifs', lineinclude, threads = 16)
-
-    #lineinclude = ['CaI', 'NaI','KI_a','KI_b','AlI', 'PaB', 'NaI127']
-    #sampler = do_mcmc('M87', 512, 4000, ['Age','Z','x1','x2','Na','Ca','K'], 'nifs', lineinclude, threads = 16)
-
-    #lineinclude = ['FeH','CaI','KI_a','KI_b','AlI', 'PaB']
-    #sampler = do_mcmc('M87', 512, 4000, ['Age','Z','x1','x2','Fe','Ca','K'], 'nifs', lineinclude, threads = 16)

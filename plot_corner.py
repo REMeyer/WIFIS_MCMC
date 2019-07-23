@@ -35,26 +35,6 @@ def plot_corner(fl, burnin, burnintest = False):
     elif datatype == "fullfit":
         datatype = "Spectra"
 
-    #if legacy:
-    #    if smallfit == 'limited':
-    #        mcmctype = 'Base Params'
-    #    if smallfit == 'LimitedVelDisp':
-    #        mcmctype = 'Base + VelDisp'
-    #    elif smallfit == 'True':
-    #        mcmctype = 'Abundance Fit'
-    #    elif smallfit == 'False':
-    #        mcmctype = 'Full Fit'
-    #    elif smallfit == 'NoAge':
-    #        mcmctype = 'Abundance Fit (no Age)'
-    #    elif smallfit == 'NoAgeVelDisp':
-    #        mcmctype = 'No Age / VelDisp'
-    #    elif smallfit == 'NoAgeLimited':
-    #        mcmctype = 'Base - Age + [Na/H]'
-    #    elif smallfit == 'VeryBase':
-    #        mcmctype = 'Very Base Params'
-    #else:
-    #    mcmctype = ''
-                                         
     if burnintest:
         for j in range(int(dataall[2][1])/1000 - 1):
             print j*1000, (j+1)*1000
@@ -145,6 +125,19 @@ def plot_corner(fl, burnin, burnintest = False):
                 #ylab.set_fontsize(20
 
         figure.savefig(fl[:-4]+'.pdf')
+
+def print_bestfit(fl, burnin=-1000):
+    dataall = mcsp.load_mcmc_file(fl)
+
+    data = dataall[0]
+    names = dataall[2][3]
+
+    samples = data[burnin:,:,:].reshape((-1,len(names)))
+    truevalues = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),\
+            zip(*np.percentile(samples, [16, 50, 84], axis=0)))
+
+    for val in truevalues:
+        print(val)
 
 def get_hist(fl, burnin=-300):
     mpl.close('all')

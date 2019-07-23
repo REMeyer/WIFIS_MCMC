@@ -157,6 +157,10 @@ def load_mcmc_file(fl):
             names.append('$\sigma$')
             high.append(390)
             low.append(120)
+        elif paramnames[j] == 'f':
+            names.append('f')
+            high.append(1.0)
+            low.append(-1.0)
 
     names.insert(0,"Worker")
     names.insert(len(names), "ChiSq")
@@ -1171,8 +1175,8 @@ if __name__ == '__main__':
     #compare_bestfit('mcmcresults/20181201T142457_M87_fullfit.dat', instrument = 'nifs',burnin=-1000, onesigma = False, addshift = True, vcjset = vcj)
 
 ##
-    M85base = calculate_MLR('mcmcresults/20181130T161910_M85_fullfit.dat', vcjset = vcj)
-    M87base = calculate_MLR('mcmcresults/20181201T003101_M87_fullfit.dat', vcjset = vcj)
+    #M85base = calculate_MLR('mcmcresults/20181130T161910_M85_fullfit.dat', vcjset = vcj)
+    #M87base = calculate_MLR('mcmcresults/20181201T003101_M87_fullfit.dat', vcjset = vcj)
     #M85base = calculate_MLR('mcmcresults/20181129T093431_M85_fullfit.dat', vcjset = vcj)
     #M87base = calculate_MLR('mcmcresults/20181129T032004_M87_fullfit.dat', vcjset = vcj)
     #M85extended = calculate_MLR('mcmcresults/20181204T170523_M85_fullfit.dat', vcjset = vcj)
@@ -1180,13 +1184,12 @@ if __name__ == '__main__':
     #M85 = calculate_MLR('mcmcresults/20181204T211732_M85_fullfit.dat', vcjset = vcj)
     #M87 = calculate_MLR('mcmcresults/20181204T195631_M87_fullfit.dat', vcjset = vcj)
 ##
+    WIFISM851 = calculate_MLR('mcmcresults/20190319T233200_M85_fullfit.dat',vcjset = vcj)
+    WIFISM852 = calculate_MLR('mcmcresults/20190320T014215_M85_fullfit.dat',vcjset = vcj)
+    WIFISM871 = calculate_MLR('mcmcresults/20190321T025651_M87_fullfit.dat',vcjset = vcj)
+    WIFISM872 = calculate_MLR('mcmcresults/20190321T040458_M87_fullfit.dat',vcjset = vcj)
 
-    #M87 = calculate_MLR('mcmcresults/20181201T142457_M87_fullfit.dat', vcjset = vcj)
-    #M85 = calculate_MLR('mcmcresults/20181129T014719_M85_fullfit.dat', vcjset = vcj)
 
-    #M851= calculate_MLR('mcmcresults/20180902T235307_M85_fullfit.dat', vcjset = vcj)
-    #M852= calculate_MLR('mcmcresults/20180903T191219_M85_fullfit.dat', vcjset = vcj)
-    
     #plotMLRhist(M87, M85)
 
     #shfit = deriveShifts('20180807T090719_M85_fullfit.dat', vcjset = vcj, plot = False)
