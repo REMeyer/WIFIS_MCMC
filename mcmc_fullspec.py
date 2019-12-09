@@ -73,7 +73,7 @@ for i in range(16):
     for j in range(16):
         imfsdict[(x1_m[i],x1_m[j])] = i*16 + j
 
-vcj = {}
+#vcj = {}
 
 def preload_vcj(overwrite_base = False):
     '''Loads the SSP models into memory so the mcmc model creation takes a
@@ -293,7 +293,7 @@ def model_spec(inputs, gal, paramnames, vcjset = False, timing = False, full = F
         if not full:
             rel = np.where((wlc1 > 8500) & (wlc1 < 14500))[0]
         else:
-            rel = np.where((wlc1 > 8500) & (wlc1 < 24000))[0]
+            rel = np.where((wlc1 > 3000) & (wlc1 < 24000))[0]
 
         fc1 = fc1[rel,:]
         fc2 = fc2[rel,:]
@@ -534,7 +534,8 @@ def model_spec(inputs, gal, paramnames, vcjset = False, timing = False, full = F
 
     return wl, newm
 
-def calc_chisq(params, wl, data, err, gal, paramnames, lineinclude, linedefs, plot=False, timing = False):
+def calc_chisq(params, wl, data, err, gal, paramnames, lineinclude, \
+        linedefs, vcj, plot=False, timing = False):
     ''' Important function that produces the value that essentially
     represents the likelihood of the mcmc equation. Produces the model
     spectrum then returns a normal chisq value.'''
@@ -545,7 +546,7 @@ def calc_chisq(params, wl, data, err, gal, paramnames, lineinclude, linedefs, pl
         t1 = time.time()
 
     #Creating model spectrum then interpolating it so that it can be easily matched with the data.
-    wlm, newm = model_spec(params, gal, paramnames, timing=timing)
+    wlm, newm = model_spec(params, gal, paramnames, vcjset = vcj, timing=timing)
 
     # Convolve model to previously determined velocity dispersion (we don't fit dispersion in this code).
     if 'VelDisp' in paramnames:
@@ -695,6 +696,7 @@ def calc_chisq(params, wl, data, err, gal, paramnames, lineinclude, linedefs, pl
     if timing:
         t4 = time.time()
         print "CHISQ T3: ", t4 - t3
+    print(chisq)
 
     return -0.5*chisq
 
@@ -732,18 +734,19 @@ def lnprior(theta, paramnames):
     else:
         return -np.inf
 
-def lnprob(theta, wl, data, err, gal, paramnames, lineinclude, linedefs):
+def lnprob(theta, wl, data, err, gal, paramnames, lineinclude, linedefs, vcj):
     '''Primary function of the mcmc. Checks priors and returns the likelihood'''
 
     lp = lnprior(theta, paramnames)
     if not np.isfinite(lp):
         return -np.inf
 
-    chisqv = calc_chisq(theta, wl, data, err, gal, paramnames, lineinclude, linedefs)
+    chisqv = calc_chisq(theta, wl, data, err, gal, \
+            paramnames, lineinclude, linedefs, vcj, timing=True)
     return lp + chisqv
 
-def do_mcmc(gal, nwalkers, n_iter, paramnames, instrument, lineinclude, threads = 6, restart=False, scale=False,\
-        fl=None):
+def do_mcmc(gal, nwalkers, n_iter, paramnames, instrument, lineinclude, vcj,\
+        threads = 6, restart=False, scale=False,fl=None):
     '''Main program. Runs the mcmc'''
 
     #Line definitions & other definitions
@@ -833,8 +836,9 @@ def do_mcmc(gal, nwalkers, n_iter, paramnames, instrument, lineinclude, threads 
     f.write("#%s\n" % (strlines))
     f.close()
 
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = (wl, data, err, gal, paramnames, \
-            lineinclude, linedefs), threads=threads)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = \
+            (wl, data, err, gal, paramnames, lineinclude, linedefs, vcj), \
+            threads=threads)
     print "Starting MCMC..."
 
     t1 = time.time() 
@@ -1075,9 +1079,14 @@ def splitspec(wl, data, linedefs, err=False, scale = False):
     
     return wlbands, databands, errorbands
 
-def convolvemodels(wlfull, datafull, veldisp):
+def convolvemodels(wlfull, datafull, veldisp, reglims = False):
 
-    reg = (wlfull >= 9500) & (wlfull <= 13500)
+    if reglims:
+        reg = (wlfull >= reglims[0]) & (wlfull <= reglims[1])
+        #print("Reglims")
+    else:
+        reg = (wlfull >= 9500) & (wlfull <= 13500)
+        #print("Not Reglims")
     
     wl = wlfull[reg]
     data = datafull[reg]
@@ -1145,26 +1154,44 @@ def removeLineSlope(wlc, mconv,i):
     return polyfit
 
 if __name__ == '__main__':
-    global vcj
+    #global vcj
     vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
-
-    lineinclude =   ['FeH','NaI', 'KI_a','KI_b','KI_1.25','PaB', 'NaI123']
+    
+    lineinclude =   ['FeH', 'NaI', 'KI_a','KI_b','KI_1.25','PaB', 'NaI123']
     params =        ['Age','Z','x1','x2','Na','Fe','K']
-    sampler = do_mcmc('M85', 512, 4000, params, 'wifis', lineinclude, \
-            threads = 16, fl = '/home/elliot/M85_combined_cube_1_extracted_r1.fits')
+    sampler = do_mcmc('M85', 512, 4000, params, 'wifis', lineinclude, vcj,\
+            threads = 8, \
+            fl = '/home/elliot/M85_combined_cube_1_telluricreduced_r1.fits')
 
-    lineinclude =   ['FeH','NaI', 'KI_a','KI_b','KI_1.25','PaB', 'NaI123']
+    lineinclude =   ['FeH', 'NaI', 'KI_a','KI_b','KI_1.25','PaB', 'NaI123']
     params =        ['Age','Z','x1','x2','Na','Fe','K']
-    sampler = do_mcmc('M85', 512, 4000, params, 'wifis', lineinclude, \
-            threads = 16, fl = '/home/elliot/M85_combined_cube_1_extracted_r2.fits')
+    sampler = do_mcmc('M85', 512, 4000, params, 'wifis', lineinclude, vcj,\
+            threads = 16, \
+            fl = '/home/elliot/M85_combined_cube_1_telluricreduced_r2.fits')
 
-    lineinclude =   ['FeH','CaI', 'NaI', 'KI_a','KI_b','PaB', 'NaI127']
-    params =        ['Age','Z','x1','x2','Na','Fe','Ca','K']
+    lineinclude =   ['FeH', 'NaI', 'KI_a','KI_b','KI_1.25','PaB', 'NaI123']
+    params =        ['Age','Z','x1','x2','Na','Fe','K']
+    sampler = do_mcmc('M85', 512, 4000, params, 'wifis', lineinclude, vcj,\
+            threads = 16, \
+            fl = '/home/elliot/M85_combined_cube_1_telluricreduced_r3.fits')
+
+    #lineinclude =   ['FeH','NaI', 'KI_a','KI_b','KI_1.25','PaB', 'NaI123']
+    #params =        ['Age','Z','x1','x2','Na','Fe','K']
+    #sampler = do_mcmc('M85', 512, 4000, params, 'wifis', lineinclude, \
+    #        threads = 16, fl = '/home/elliot/M85_combined_cube_1_extracted_r1.fits')
+
+    #lineinclude =   ['FeH','NaI', 'KI_a','KI_b','KI_1.25','PaB', 'NaI123']
+    #params =        ['Age','Z','x1','x2','Na','Fe','K']
+    #sampler = do_mcmc('M85', 512, 4000, params, 'wifis', lineinclude, \
+    #        threads = 16, fl = '/home/elliot/M85_combined_cube_1_extracted_r2.fits')
+
+    #lineinclude =   ['FeH','CaI', 'NaI', 'KI_a','KI_b','PaB', 'NaI127']
+    #params =        ['Age','Z','x1','x2','Na','Fe','Ca','K']
     #sampler = do_mcmc('M87', 512, 4000, params, 'wifis', lineinclude, \
     #        threads = 16, fl = '/home/elliot/M87_combined_cube_1_extracted_r1.fits')
 
-    lineinclude =   ['FeH','CaI', 'NaI', 'KI_a','KI_b','PaB', 'NaI127']
-    params =        ['Age','Z','x1','x2','Na','Fe','Ca','K']
+    #lineinclude =   ['FeH','CaI', 'NaI', 'KI_a','KI_b','PaB', 'NaI127']
+    #params =        ['Age','Z','x1','x2','Na','Fe','Ca','K']
     #sampler = do_mcmc('M87', 512, 4000, params, 'wifis', lineinclude, \
     #        threads = 16, fl = '/home/elliot/M87_combined_cube_1_extracted_r2.fits')
 

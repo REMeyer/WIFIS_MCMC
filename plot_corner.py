@@ -11,7 +11,7 @@ from matplotlib import rc
 rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 rc('text', usetex=True)
 
-def plot_corner(fl, burnin, burnintest = False):
+def plot_corner(fl, burnin, burnintest = False, variables=[]):
 
     mpl.close('all')
     dataall = mcsp.load_mcmc_file(fl)
@@ -77,6 +77,24 @@ def plot_corner(fl, burnin, burnintest = False):
 
     else:
         samples = data[burnin:,:,:].reshape((-1,len(names)))
+
+        if len(variables) > 0:
+            var_i = []
+            var_names = []
+            for j, var in enumerate(paramnames):
+                if var in variables:
+                    var_i.append(j)
+                    var_names.append(names[j])
+            var_i = np.array(var_i)
+            print names
+            print variables
+            print var_i
+
+            names = var_names
+            samples = samples[:,var_i]
+            low = np.array(low)[var_i]
+            high = np.array(high)[var_i]
+
         truevalues = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),\
                 zip(*np.percentile(samples, [16, 50, 84], axis=0)))
 
@@ -105,6 +123,7 @@ def plot_corner(fl, burnin, burnintest = False):
             #ylab = ax.get_yticklabels()
             #xlab.set_fontsize(20)
             #ylab.set_fontsize(20
+            ax.tick_params(axis='both', which='major', labelsize=20)
 
         # Loop over the histograms
         for yi in range(len(names)):
@@ -119,6 +138,7 @@ def plot_corner(fl, burnin, burnintest = False):
                 ax.axhline(truevalues[yi][0] - truevalues[yi][2], color="g")
                 ax.set_ylim((low[yi], high[yi]))
                 ax.set_xlim((low[xi], high[xi]))
+                ax.tick_params(axis='both', which='major', labelsize=20)
                 #xlab = ax.get_xticklabels()
                 #ylab = ax.get_yticklabels()
                 #xlab.set_fontsize(20)

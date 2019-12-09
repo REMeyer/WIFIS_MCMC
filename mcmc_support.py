@@ -258,25 +258,26 @@ def compare_bestfit(fl, instrument = 'nifs', burnin=-1000, onesigma = False, add
         galveldisp = 370.
         #galveldisp = 307.
 
-    if instrument == 'nifs':
-        wl, data, err = mcfs.preparespec(gal)
-    else:
-        wl, data, err = mcfs.preparespecwifis(gal)
+    #if instrument == 'nifs':
+    #    wl, data, err = mcfs.preparespec(gal, baseforce='/home/elliot/mcmcgemini/')
+    #else:
+    #    wl, data, err = mcfs.preparespecwifis(gal, baseforce='/home/elliot/mcmcgemini/')
 
-    wl, data, err = mcfs.splitspec(wl, data, err = err, lines=linefit)
+    #wl, data, err = mcfs.splitspec(wl, data, err = err, lines=linefit)
 
-    wlg, newm = mcfs.model_spec(truevalues, gal, paramnames, vcjset = vcjset)
+    wlg, newm = mcfs.model_spec(truevalues, gal, paramnames, vcjset = vcjset, full=True)
 
     #convr = np.arange(120.,395.,25.)
-    fig, axes = mpl.subplots(2,5,figsize = (16,6.5))
-    axes = axes.flatten()
+    ##fig, axes = mpl.subplots(2,5,figsize = (16,6.5))
+    ##axes = axes.flatten()
 
-    fig2, axes2 = mpl.subplots(2,5,figsize = (16,6.5))
-    axes2 = axes2.flatten()
+    ##fig2, axes2 = mpl.subplots(2,5,figsize = (16,6.5))
+    ##axes2 = axes2.flatten()
     #fig.delaxes(axes[-1])
 
     # Convolve model to previously determined velocity dispersion (we don't fit dispersion in this code).
-    wlc, mconv = mcfs.convolvemodels(wlg, newm, galveldisp)
+    wlc, mconv = mcfs.convolvemodels(wlg, newm, galveldisp, reglims=[4000,13500])
+    return wlc, mconv
 
     mconvinterp = spi.interp1d(wlc, mconv, kind='cubic', bounds_error=False)
 
@@ -1151,11 +1152,11 @@ def compareModels(paramslist,pdescrip, gal, vcjset, runvalues = False):
 if __name__ == '__main__':
 
     vcj = mcfs.preload_vcj(overwrite_base='/home/elliot/mcmcgemini/') #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
+    wl, gal = compare_bestfit('mcmcresults/20181204T211732_M85_fullfit.dat', vcjset = vcj, addshift = True)
     #compare_bestfit('20190103T035753_M85_fullfit.dat', vcjset = vcj, addshift = True)
     #compare_bestfit('20190103T052837_M85_fullfit.dat', vcjset = vcj, addshift = True)
     #compare_bestfit('20181204T211732_M85_fullfit.dat', vcjset = vcj, addshift = True)
     #compare_bestfit('20181204T195631_M87_fullfit.dat', vcjset = vcj, addshift = True)
-    
     #calculate_MLR_test()
     #sys.exit()
     #widths = plotAgeZcontours()
@@ -1184,10 +1185,10 @@ if __name__ == '__main__':
     #M85 = calculate_MLR('mcmcresults/20181204T211732_M85_fullfit.dat', vcjset = vcj)
     #M87 = calculate_MLR('mcmcresults/20181204T195631_M87_fullfit.dat', vcjset = vcj)
 ##
-    WIFISM851 = calculate_MLR('mcmcresults/20190319T233200_M85_fullfit.dat',vcjset = vcj)
-    WIFISM852 = calculate_MLR('mcmcresults/20190320T014215_M85_fullfit.dat',vcjset = vcj)
-    WIFISM871 = calculate_MLR('mcmcresults/20190321T025651_M87_fullfit.dat',vcjset = vcj)
-    WIFISM872 = calculate_MLR('mcmcresults/20190321T040458_M87_fullfit.dat',vcjset = vcj)
+    #WIFISM851 = calculate_MLR('mcmcresults/20190319T233200_M85_fullfit.dat',vcjset = vcj)
+    #WIFISM852 = calculate_MLR('mcmcresults/20190320T014215_M85_fullfit.dat',vcjset = vcj)
+    #WIFISM871 = calculate_MLR('mcmcresults/20190321T025651_M87_fullfit.dat',vcjset = vcj)
+    #WIFISM872 = calculate_MLR('mcmcresults/20190321T040458_M87_fullfit.dat',vcjset = vcj)
 
 
     #plotMLRhist(M87, M85)
