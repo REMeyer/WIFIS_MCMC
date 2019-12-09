@@ -8,6 +8,7 @@ import pandas as pd
 import mcmc_support as mcsp
 
 from matplotlib import rc
+
 rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 rc('text', usetex=True)
 
