@@ -63,6 +63,9 @@ chem_names = ['Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-', 'a/
 
 #    line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI']
 
+#    mlow = [9700,10550,11340,11550,12350,12665]
+#    mhigh = [10450,10965,11447,12200,12590,13180]
+#    morder = [8,4,1,7,2,5]
 
 #Dictionary to help easily access the IMF index
 imfsdict = {}
@@ -539,8 +542,7 @@ def calc_chisq(params, wl, data, err, gal, paramnames, lineinclude, \
     represents the likelihood of the mcmc equation. Produces the model
     spectrum then returns a normal chisq value.'''
 
-    linelow, linehigh, bluelow, bluehigh, redlow, redhigh, line_name, \
-            index_name, mlow, mhigh, morder = linedefs
+    linelow, linehigh, bluelow, bluehigh, redlow, redhigh, line_name, mlow, mhigh, morder = linedefs
     
     if timing:
         t1 = time.time()
@@ -578,21 +580,53 @@ def calc_chisq(params, wl, data, err, gal, paramnames, lineinclude, \
     #Measuring the chisq
     chisq = 0
     for i in range(len(mlow)):
+        if (gal == 'M87') and linefit:
+            if line_name[i] == 'KI_1.25':
+                continue
+
+        if line_name[i] not in lineinclude:
+            #print line_name[i]
+            continue
+
+        #line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI']
+        if lineexclude:
+            if (gal == 'M85') and linefit and ('Na' not in paramnames):
+                if line_name[i] == 'NaI':
+                    continue
+            if (gal == 'M85') and linefit and ('Ca' not in paramnames):
+                if line_name[i] == 'CaI':
+                    continue
+            if (gal == 'M85') and linefit and ('Fe' not in paramnames):
+                if line_name[i] == 'FeH':
+                    continue
+            if (gal == 'M85') and linefit and ('K' not in paramnames):
+                if line_name[i] in ['KI_a','KI_b','KI_1.25']:
+                    continue
+
         #Getting a slice of the model
         wli = wl[i]
-        dataslice = data[i]
-        errslice = err[i]
+        #if (gal == 'M85') and linefit:
+        #    if i in [3,4]:
+        #        wli = np.array(wli)
+        #        wli -= 2.0
+            #elif i == 5:
+            #    wli = np.array(wli)
+            #    wli += 1.0
+            #elif i == 1:
+            #    wli = np.array(wli)
+            #    wli += 1.0
 
         modelslice = mconvinterp(wli)
 
-        if morder[i] == 1:
-            k = np.where(index_name == line_name[i])[0][0]
-            bluepass = np.where((wlc >= bluelow[k]) & (wlc <= bluehigh[k]))[0]
-            redpass = np.where((wlc >= redlow[k]) & (wlc <= redhigh[k]))[0]
+        #Removing a high-order polynomial from the slice
+        if linefit:
+            #Define the bandpasses for each line 
+            bluepass = np.where((wlc >= bluelow[i]) & (wlc <= bluehigh[i]))[0]
+            redpass = np.where((wlc >= redlow[i]) & (wlc <= redhigh[i]))[0]
 
             #Cacluating center value of the blue and red bandpasses
-            blueavg = np.mean([bluelow[k],bluehigh[k]])
-            redavg = np.mean([redlow[k],redhigh[k]])
+            blueavg = np.mean([bluelow[i],bluehigh[i]])
+            redavg = np.mean([redlow[i],redhigh[i]])
 
             blueval = np.mean(mconv[bluepass])
             redval = np.mean(mconv[redpass])
@@ -600,16 +634,43 @@ def calc_chisq(params, wl, data, err, gal, paramnames, lineinclude, \
             pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
             polyfit = np.poly1d(pf)
             cont = polyfit(wli)
+
         else:
-            mdratio = modelslice / dataslice
+            if i == 2:
+                if (gal == 'M85') and ('Na' not in paramnames):
+                    continue
+                #Define the bandpasses for each line 
+                bluepass = np.where((wlc >= bluelow[i]) & (wlc <= bluehigh[i]))[0]
+                redpass = np.where((wlc >= redlow[i]) & (wlc <= redhigh[i]))[0]
+
+                #Cacluating center value of the blue and red bandpasses
+                blueavg = np.mean([bluelow[i],bluehigh[i]])
+                redavg = np.mean([redlow[i],redhigh[i]])
+
+                blueval = np.mean(mconv[bluepass])
+                redval = np.mean(mconv[redpass])
+
+                pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
+                polyfit = np.poly1d(pf)
+                cont = polyfit(wli)
+            else:
+                pf = np.polyfit(wli, modelslice, morder[i])
+                polyfit = np.poly1d(pf)
+                cont = polyfit(wli)
+
+        #Normalizing the model
+        if not linefit:
+            mdratio = data[i] / modelslice
             pf = np.polyfit(wli, mdratio, morder[i])
             polyfit = np.poly1d(pf)
             cont = polyfit(wli)
-
-        modelslice = modelslice / cont
+        elif not linefit and (i == 2):
+            modelslice = modelslice / cont
+        else:
+            modelslice = modelslice / cont
 
         if 'f' in paramnames:
-            errterm = (errslice ** 2.0) + (dataslice**2.0 * np.exp(2*f))
+            errterm = (err[i] ** 2.0) + (data[i]**2.0 * np.exp(2*f))
             addterm = np.log(2.0 * np.pi * errterm)
         else:
             errterm = err[i] ** 2.0
@@ -690,24 +751,39 @@ def do_mcmc(gal, nwalkers, n_iter, paramnames, instrument, lineinclude,\
     '''Main program. Runs the mcmc'''
 
     #Line definitions & other definitions
-    mlow = [9700,10550,11340,11550,12350,12665]
-    mhigh = [10450,10965,11447,12200,12590,13180]
-    morder = [8,4,1,7,2,5]
+    if instrument == 'nifs' and linefit:
+        linelow = [9905,10337,11372,11680,11765,12505,13115, 12810, 12670]
+        linehigh = [9935,10360,11415,11705,11793,12545,13165, 12840, 12690]
 
-    linelow = [9905,10337,11372,11680,11765,12505,13115, 12810, 12670, 12309]
-    linehigh = [9935,10360,11415,11705,11793,12545,13165, 12840, 12690, 12333]
+        bluelow = [9855,10300,11340,11667,11710,12460,13090, 12780, 12648]
+        bluehigh = [9880,10320,11370,11680,11750,12495,13113, 12800, 12660]
 
-    bluelow = [9855,10300,11340,11667,11710,12460,13090, 12780, 12648, 12240]
-    bluehigh = [9880,10320,11370,11680,11750,12495,13113, 12800, 12660, 12260]
+        redlow = [9940,10365,11417,11710,11793,12555,13165, 12855, 12700]
+        redhigh = [9970,10390,11447,11750,11810,12590,13175, 12880, 12720]
 
-    redlow = [9940,10365,11417,11710,11793,12555,13165, 12860, 12700, 12360]
-    redhigh = [9970,10390,11447,11750,11810,12590,13175, 12870, 12720, 12390]
+        line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI', 'PaB', 'NaI127']
 
-    line_name = ['Band1','Band2','NaI','Band3','Band4','Band5']
-    index_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI', 'PaB', 'NaI127', 'NaI123']
+        mlow = [9855,10300,11340,11667,11710,12460,13090,12780, 12648]
+        mhigh = [9970,10390,11447,11750,11810,12590,13175, 12880, 12720]
+        morder = [1,1,1,1,1,1,1,1]
+        linedefs = [linelow, linehigh, bluelow, bluehigh, redlow, redhigh, line_name, mlow, mhigh, morder]
 
-    linedefs = [linelow, linehigh, bluelow, bluehigh, redlow, redhigh,\
-            line_name, index_name, mlow, mhigh, morder]
+    elif instrument == 'wifis' and linefit:
+        linelow = [9905,10337,11372,11680,11765,12505,13115, 12810, 12670, 12309]
+        linehigh = [9935,10360,11415,11705,11793,12545,13165, 12840, 12690, 12333]
+
+        bluelow = [9855,10300,11340,11667,11710,12460,13090, 12780, 12648, 12240]
+        bluehigh = [9880,10320,11370,11680,11750,12495,13113, 12800, 12660, 12260]
+
+        redlow = [9940,10365,11417,11710,11793,12555,13165, 12860, 12700, 12360]
+        redhigh = [9970,10390,11447,11750,11810,12590,13175, 12870, 12720, 12390]
+
+        line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI', 'PaB', 'NaI127', 'NaI123']
+
+        mlow = [9855,10300,11340,11667,11710,12460,13090,12780, 12648, 12240]
+        mhigh = [9970,10390,11447,11750,11810,12590,13175, 12880, 12720, 12390]
+        morder = [1,1,1,1,1,1,1,1,1]
+        linedefs = [linelow, linehigh, bluelow, bluehigh, redlow, redhigh, line_name, mlow, mhigh, morder]
 
     if instrument == 'nifs':
         wl, data, err = preparespec(gal)
@@ -914,9 +990,9 @@ def preparespecwifis(galaxy, fl, baseforce = False):
 
 def splitspec(wl, data, linedefs, err=False, scale = False):
 
-    linelow, linehigh, bluelow, bluehigh, redlow, redhigh, \
-            line_name, index_name, mlow, mhigh, morder = linedefs
+    linelow, linehigh, bluelow, bluehigh, redlow, redhigh, line_name, mlow, mhigh, morder = linedefs
     lines = linefit
+
     databands = []
     wlbands = []
     errorbands = []
@@ -927,16 +1003,15 @@ def splitspec(wl, data, linedefs, err=False, scale = False):
         wlslice = wl[wh]
         wlbands.append(wlslice)
 
-        if morder[i] == 1:
+        if lines:
             #Define the bandpasses for each line 
-            k = np.where(index_name == line_name[i])[0][0]
-            bluepass = np.where((wl >= bluelow[k]) & (wl <= bluehigh[k]))[0]
-            redpass = np.where((wl >= redlow[k]) & (wl <= redhigh[k]))[0]
-            fullpass = np.where((wl >= bluelow[k]) & (wl <= redhigh[k]))[0]
+            bluepass = np.where((wl >= bluelow[i]) & (wl <= bluehigh[i]))[0]
+            redpass = np.where((wl >= redlow[i]) & (wl <= redhigh[i]))[0]
+            fullpass = np.where((wl >= bluelow[i]) & (wl <= redhigh[i]))[0]
 
             #Cacluating center value of the blue and red bandpasses
-            blueavg = np.mean([bluelow[k],bluehigh[k]])
-            redavg = np.mean([redlow[k],redhigh[k]])
+            blueavg = np.mean([bluelow[i],bluehigh[i]])
+            redavg = np.mean([redlow[i],redhigh[i]])
 
             blueval = np.mean(data[bluepass])
             redval = np.mean(data[redpass])
@@ -944,6 +1019,12 @@ def splitspec(wl, data, linedefs, err=False, scale = False):
             pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
             polyfit = np.poly1d(pf)
             cont = polyfit(wlslice)
+
+            
+            #if i in [3,4]:
+            #    mpl.plot(wlslice, data[fullpass])
+            #    mpl.plot(wlslice, cont)
+            #    mpl.show()
 
             if scale:
                 newdata = np.array(data)
@@ -956,22 +1037,46 @@ def splitspec(wl, data, linedefs, err=False, scale = False):
                 polyfit = np.poly1d(pf)
                 cont = polyfit(wlslice)
 
-            databands.append(data[wh] / cont)
-
-            if type(err) != bool:
-                errslice = err[wh]
-                errorbands.append(errslice / cont)
+                #if i in [3,4]:
+                #    mpl.plot(wlslice, newdata[fullpass])
+                #    mpl.plot(wlslice, cont)
+                #    mpl.show()
 
         else:
-            pf = np.polyfit(wlslice, dataslice, morder[i])
-            polyfit = np.poly1d(pf)
-            cont = polyfit(wlslice)
+            if i == 2:
+                #Define the bandpasses for each line 
+                bluepass = np.where((wl >= bluelow[2]) & (wl <= bluehigh[2]))[0]
+                redpass = np.where((wl >= redlow[2]) & (wl <= redhigh[2]))[0]
 
-            databands.append(data[wh])
+                #Cacluating center value of the blue and red bandpasses
+                blueavg = np.mean([bluelow[2],bluehigh[2]])
+                redavg = np.mean([redlow[2],redhigh[2]])
 
-            if type(err) != bool:
-                errslice = err[wh]
-                errorbands.append(errslice)
+                blueval = np.mean(data[bluepass])
+                redval = np.mean(data[redpass])
+
+                pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
+                polyfit = np.poly1d(pf)
+                cont = polyfit(wlslice)
+
+                if scale:
+                    data[fullpass] -= scale*polyfit(wl[fullpass])
+
+                    blueval = np.mean(data[bluepass])
+                    redval = np.mean(data[redpass])
+                    pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
+                    polyfit = np.poly1d(pf)
+                    cont = polyfit(wlslice)
+            else:
+                pf = np.polyfit(wlslice, dataslice, morder[i])
+                polyfit = np.poly1d(pf)
+                cont = polyfit(wlslice)
+
+        databands.append(data[wh] / cont)
+
+        if type(err) != bool:
+            errslice = err[wh]
+            errorbands.append(errslice / cont)
     
     return wlbands, databands, errorbands
 
