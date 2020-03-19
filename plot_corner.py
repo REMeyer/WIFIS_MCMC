@@ -25,7 +25,11 @@ def plot_corner(fl, burnin, burnintest = False, variables=[]):
     low = dataall[2][5]
     paramnames = dataall[2][6]
     linenames = dataall[2][7]
-    legacy = dataall[2][8]
+    lines = dataall[2][8]
+
+    print(paramnames)
+    print(linenames)
+    print(lines)
 
     flsplname = fl.split('/')[-1]
     flspl = flsplname.split('_')[0]
@@ -120,6 +124,7 @@ def plot_corner(fl, burnin, burnintest = False, variables=[]):
             #        np.round(truevalues[i][2],3), np.round(truevalues[i][1],3)))
             ax.set_title(names[i], fontsize = 20)
             ax.set_xlim((low[i],high[i]))
+
             #xlab = ax.get_xticklabels()
             #ylab = ax.get_yticklabels()
             #xlab.set_fontsize(20)
