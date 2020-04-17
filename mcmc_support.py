@@ -13,31 +13,6 @@ from matplotlib import rc
 rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 rc('text', usetex=True)
 
-#Line definitions & other definitions
-#linelow = [9905,10337,11372,11680,11765,12505,13115]
-#linehigh = [9935,10360,11415,11705,11793,12545,13165]
-
-#bluelow = [9855,10300,11340,11667,11710,12460,13090]
-#bluehigh = [9880,10320,11370,11680,11750,12495,13113]
-
-#redlow = [9940,10365,11417,11710,11793,12555,13165]
-#redhigh = [9970,10390,11447,11750,11810,12590,13175]
-
-#line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI']
-
-#Definitions for the fitting bandpasses
-linefit = True
-#if linefit:
-#    mlow = [9855,10300,11340,11667,11710,12460,13090]
-#    mhigh = [9970,10390,11447,11750,11810,12590,13175]
-    #mlow = [9905,10337,11372,11680,11765,12505,13115]
-    #mhigh = [9935,10360,11415,11705,11793,12545,13165]
-#    morder = [1,1,1,1,1,1,1]
-#else:
-#    mlow = [9700,10550,11340,11550,12350,12665]
-#    mhigh = [10450,10965,11447,12200,12590,13180]
-#    morder = [8,4,1,7,2,5]
-
 def gaussian(xs, a, sigma, x0):
     second = ((xs - x0)/sigma)**2.0
     full = a*np.exp((-1.0/2.0) * second)
@@ -66,8 +41,12 @@ def gauss_nat(xs, p0):
     return  (1 / (2.*np.pi*p0[0]**2.))* np.exp((-1.0/2.0) * ((xs - p0[1])/p0[0])**2.0)
 
 def load_mcmc_file(fl):
-    '''Loads the chain file (fl) as output by the do_mcmc program. Returns
-    the walker data, the probability data, and the run info.'''
+    '''Loads the mcmc chain ouput. Returns
+    the full walker data, the calculated statistcal data, 
+    and the run info.
+    
+    Inputs:
+        fl -- The mcmc chain data file.'''
 
     f = open(fl,'r')
     f.readline()

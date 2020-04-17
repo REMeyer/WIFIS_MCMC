@@ -27,8 +27,6 @@ from random import uniform
 warnings.simplefilter('ignore', np.RankWarning)
 
 # DEFINES THE BASE PATH -- NEEDS UPDATING FOR ALL SYSTEMS
-#base = '/home/elliot/mcmcgemini/'
-#base = '/Users/relliotmeyer/mcmcgemini/'
 base = os.path.dirname(os.path.realpath(sys.argv[0])) + '/'
 
 # MCMC Parameters

@@ -17,6 +17,7 @@ import scipy.interpolate as spi
 import warnings
 import sys, os
 import mcmc_support as mcsp
+import prepare_spectra as preps
 import plot_corner as plcr
 from random import uniform
 from multiprocessing import Pool
@@ -551,16 +552,9 @@ def calc_chisq(params, wl, data, err, z, veldisp, gal, paramnames, lineinclude, 
     # Convolve model to previously determined velocity dispersion (we don't fit dispersion in this code).
     if 'VelDisp' in paramnames:
         whsig = np.where(paramnames == 'VelDisp')[0]
-        wlc, mconv = convolvemodels(wlm, newm, params[whsig])
+        wlc, mconv = mcsp.convolvemodels(wlm, newm, params[whsig])
     else:
-        wlc, mconv = convolvemodels(wlm, newm, veldisp)
-        #if gal == 'M85':
-            #wlc, mconv = convolvemodels(wl, newm, 176.)
-            #wlc, mconv = convolvemodels(wlm, newm, 170.)
-            #wlc, mconv = convolvemodels(wlm, newm, 140.)
-        #elif gal == 'M87':
-            #wlc, mconv = convolvemodels(wlm, newm, 308.)
-            #wlc, mconv = convolvemodels(wlm, newm, 370.)
+        wlc, mconv = mcsp.convolvemodels(wlm, newm, veldisp)
 
     if 'f' in paramnames:
         whf = np.where(np.array(paramnames) == 'f')[0][0]
@@ -785,17 +779,17 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramnames, instrument, lineinclu
         linedefs = [linelow, linehigh, bluelow, bluehigh, redlow, redhigh, line_name, mlow, mhigh, morder]
 
     if instrument == 'nifs':
-        wl, data, err = preparespec(gal)
+        wl, data, err = preps.preparespec(gal)
     elif instrument == 'wifis':
         if fl == None:
             print('Please input filename for WIFIS data')
             return
-        wl, data, err = preparespecwifis(gal, fl, z)
+        wl, data, err = preps.preparespecwifis(gal, fl, z)
 
     if scale:
-        wl, data, err = splitspec(wl, data, linedefs, err = err, scale = scale)
+        wl, data, err = preps.splitspec(wl, data, linedefs, err = err, scale = scale)
     else:
-        wl, data, err = splitspec(wl, data, linedefs, err = err)
+        wl, data, err = preps.splitspec(wl, data, linedefs, err = err)
 
     ndim = len(paramnames)
 
@@ -867,294 +861,21 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramnames, instrument, lineinclu
 
     return sampler
 
-def preparespec(galaxy, baseforce = False):
-
-    if baseforce:
-        base = baseforce
-    else:
-        pass
-        #global base
-
-    if galaxy == 'M87':
-        z = 0.004283
-        ejf = base+'data/M87J_errors.fits'
-        ezf = base+'data/M87Z_errors.fits'
-        scale = 1.0
-        contcorr = False
-        flz = base+'data/20150602_obs60_merged_reduced.fits'
-        flj = base+'data/20150605_obs52_merged_reduced.fits'
-
-    if galaxy == 'M85':
-        z = 0.002432
-        ejf = base+'data/M85J_errors.fits'
-        ezf = base+'data/M85Z0527_errors.fits'
-        scale = 1.0
-        contcorr = False
-        flj = base+'data/20150508_obs36_merged_reduced.fits'
-        flz = base+'data/20150527_obs44_merged_reduced.fits'
-        flNa = base+'data/20150527_obs44_merged_reduced_NAFIX.fits'
-
-    fz = fits.open(flz)
-    dataz = fz[0].data
-    errz = fits.open(ezf)
-    errorsz = errz[0].data
-    wlz = nm.genwlarr(fz[0])
-
-    if galaxy == 'M87':
-        wlznew, dataz = nm.reduce_resolution(wlz, dataz)
-        wlzerrors, errorsz = nm.reduce_resolution(wlz, errorsz)
-        wlz = wlznew
-        
-    wlz = wlz / (1 + z)
-    dwz = wlz[50] - wlz[49]
-    wlz, dataz = nm.skymask(wlz, dataz, galaxy, 'Z')
-
-    if galaxy == 'M85':
-        print "Replacing NA spectrum"
-        whna = np.where((wlz >= bluelow[2]) & (wlz <= redhigh[2]))[0]
-        #mpl.plot(wlz[whna], dataz[whna])
-        fna = fits.open(flNa)
-        datana = fna[0].data
-        dataz[whna] = datana 
-        #mpl.plot(wlz[whna], dataz[whna])
-        #mpl.show()
-
-    #Opening and de-redshifting the J-band spectra
-    fj = fits.open(flj)
-    dataj = fj[0].data
-    errj = fits.open(ejf)
-    errorsj = errj[0].data    
-    wlj = nm.genwlarr(fj[0])
-
-    if galaxy == 'M87':
-        wljnew, dataj = nm.reduce_resolution(wlj, dataj)
-        wljerrors, errorsj = nm.reduce_resolution(wlj, errorsj)
-        wlj = wljnew
-
-    wlj = wlj / (1 + z)
-    dwj = wlj[50] - wlj[49]
-    wlj, dataj = nm.skymask(wlj, dataj, galaxy, 'J')
-
-    #Cropping the j-band spectrum so no bandpasses overlap between the two
-    zendval = 11500
-    zend = np.where(wlz < zendval)[0][-1]
-    wlz = wlz[:zend]
-    dataz = dataz[:zend]
-    errorsz = errorsz[:zend]
-
-    jstartval = 11500
-    jstart = np.where(wlj > jstartval)[0][0]
-    wlj = wlj[jstart:]
-    dataj = dataj[jstart:]
-    errorsj = errorsj[jstart:]
-
-    finalwl = np.concatenate((wlz,wlj))
-    finaldata = np.concatenate((dataz,dataj))
-    finalerr = np.concatenate((errorsz,errorsj))
-
-    return finalwl, finaldata, finalerr
-
-def preparespecwifis(galaxy, fl, z, baseforce = False):
-
-    if baseforce:
-        base = baseforce
-    else:
-        pass
-        #global base
-
-    if galaxy == 'M85':
-        #z = 0.002432
-        datafl = fl
-        scale = 1.0
-        contcorr = False
-
-    if galaxy == 'M87':
-        #z = 0.005#0.004283
-        datafl = fl
-        scale = 1.0
-        contcorr = False
-
-    ff = fits.open(datafl)
-    data = ff[0].data
-    wl = ff[1].data 
-    errors = ff[2].data
-
-    wl = wl / (1 + z)
-    #wlz, dataz = nm.skymask(wlz, dataz, galaxy, 'Z')
-
-    gd = ~np.isnan(data)
-    data = data[gd]
-    wl = wl[gd]
-    errors = errors[gd]
-
-    gd2 = ~np.isnan(errors)
-    data = data[gd2]
-    wl = wl[gd2]
-    errors = errors[gd2]
-
-    return wl, data, errors
-
-def splitspec(wl, data, linedefs, err=False, scale = False):
-
-    linelow, linehigh, bluelow, bluehigh, redlow, redhigh, line_name, mlow, mhigh, morder = linedefs
-    lines = linefit
-
-    databands = []
-    wlbands = []
-    errorbands = []
-
-    for i in range(len(mlow)):
-        wh = np.where( (wl >= mlow[i]) & (wl <= mhigh[i]))[0]
-        dataslice = data[wh]
-        wlslice = wl[wh]
-        wlbands.append(wlslice)
-
-        if lines:
-            #Define the bandpasses for each line 
-            bluepass = np.where((wl >= bluelow[i]) & (wl <= bluehigh[i]))[0]
-            redpass = np.where((wl >= redlow[i]) & (wl <= redhigh[i]))[0]
-            fullpass = np.where((wl >= bluelow[i]) & (wl <= redhigh[i]))[0]
-
-            #Cacluating center value of the blue and red bandpasses
-            blueavg = np.mean([bluelow[i],bluehigh[i]])
-            redavg = np.mean([redlow[i],redhigh[i]])
-
-            blueval = np.nanmean(data[bluepass])
-            redval = np.nanmean(data[redpass])
-
-            pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
-            polyfit = np.poly1d(pf)
-            cont = polyfit(wlslice)
-
-            if scale:
-                newdata = np.array(data)
-                newdata[fullpass] -= scale*polyfit(wl[fullpass])
-
-                blueval = np.mean(newdata[bluepass])
-                redval = np.mean(newdata[redpass])
-
-                pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
-                polyfit = np.poly1d(pf)
-                cont = polyfit(wlslice)
-
-        else:
-            if i == 2:
-                #Define the bandpasses for each line 
-                bluepass = np.where((wl >= bluelow[2]) & (wl <= bluehigh[2]))[0]
-                redpass = np.where((wl >= redlow[2]) & (wl <= redhigh[2]))[0]
-
-                #Cacluating center value of the blue and red bandpasses
-                blueavg = np.mean([bluelow[2],bluehigh[2]])
-                redavg = np.mean([redlow[2],redhigh[2]])
-
-                blueval = np.mean(data[bluepass])
-                redval = np.mean(data[redpass])
-
-                pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
-                polyfit = np.poly1d(pf)
-                cont = polyfit(wlslice)
-
-                if scale:
-                    data[fullpass] -= scale*polyfit(wl[fullpass])
-
-                    blueval = np.mean(data[bluepass])
-                    redval = np.mean(data[redpass])
-                    pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
-                    polyfit = np.poly1d(pf)
-                    cont = polyfit(wlslice)
-            else:
-                pf = np.polyfit(wlslice, dataslice, morder[i])
-                polyfit = np.poly1d(pf)
-                cont = polyfit(wlslice)
-
-        databands.append(data[wh] / cont)
-
-        if type(err) != bool:
-            errslice = err[wh]
-            errorbands.append(errslice / cont)
-    
-    return wlbands, databands, errorbands
-
-def convolvemodels(wlfull, datafull, veldisp, reglims = False):
-
-    if reglims:
-        reg = (wlfull >= reglims[0]) & (wlfull <= reglims[1])
-        #print("Reglims")
-    else:
-        reg = (wlfull >= 9500) & (wlfull <= 13500)
-        #print("Not Reglims")
-    
-    wl = wlfull[reg]
-    data = datafull[reg]
-
-    c = 299792.458
-
-    #Sigma from description of models
-    m_center = 11500
-    m_sigma = np.abs((m_center / (1 + 100./c)) - m_center)
-    f = m_center + m_sigma
-    v = c * ((f/m_center) - 1)
-    
-    sigma_gal = np.abs((m_center / (veldisp/c + 1.)) - m_center)
-    sigma_conv = np.sqrt(sigma_gal**2. - m_sigma**2.)
-
-    convolvex = np.arange(-5*sigma_conv,5*sigma_conv, 2.0)
-    gaussplot = mcsp.gauss_nat(convolvex, [sigma_conv,0.])
-
-    out = np.convolve(datafull, gaussplot, mode='same')
-
-    return wlfull, out
-
-def test_chisq(paramnames, lineinclude, vcj, trials = 5, timing = True):
-    d = preparespec('M85')
-    wl, data, err = splitspec(d[0], d[1], err = d[2], scale = False, lines = linefit)
-
-    for i in range(trials):
-        newinit = []
-        for j in range(len(paramnames)):
-            if paramnames[j] == 'Age':
-                newinit.append(np.random.random()*12.5 + 1.0)
-            elif paramnames[j] == 'Z':
-                newinit.append(np.random.random()*0.45 - 0.25)
-            elif paramnames[j] in ['x1', 'x2']:
-                newinit.append(np.random.choice(x1_m))
-            elif paramnames[j] == 'Na':
-                newinit.append(np.random.random()*1.3 - 0.3)
-            elif paramnames[j] in ['K','Ca','Fe','Mg']:
-                newinit.append(np.random.random()*0.6 - 0.3)
-            elif paramnames[j] == 'VelDisp':
-                newinit.append(np.random.random()*240 + 120)
-            elif paramnames[j] == 'f':
-                newinit.append(np.random.random()*11 - 10)
-
-        chisquared = chisq(newinit, wl, data, err, 'M85', paramnames, lineinclude)
-        print(chisquared)
-
-    return
-
-def removeLineSlope(wlc, mconv,i):
-    #Define the bandpasses for each line 
-    bluepass = np.where((wlc >= bluelow[i]) & (wlc <= bluehigh[i]))[0]
-    redpass = np.where((wlc >= redlow[i]) & (wlc <= redhigh[i]))[0]
-
-    #Cacluating center value of the blue and red bandpasses
-    blueavg = np.mean([bluelow[i],bluehigh[i]])
-    redavg = np.mean([redlow[i],redhigh[i]])
-
-    blueval = np.mean(mconv[bluepass])
-    redval = np.mean(mconv[redpass])
-
-    pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
-    polyfit = np.poly1d(pf)
-
-    return polyfit
-
 if __name__ == '__main__':
     vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
     
     lineinclude =   ['FeH', 'CaI','NaI','KI_a','KI_b','KI_1.25','PaB', 'NaI123']
-    params =        ['Age','Z','x1','x2','Ca','Na','Fe','K']
-    sampler = do_mcmc('M85', 512, 4000, 0.00255, 155, params, 'wifis', lineinclude, threads = 16, \
-            fl = '/data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20200312_R2.fits')
+    params =        ['Age','Z','x1','x2','Na','Fe','Ca','K']
+    sampler = do_mcmc('M85', 512, 4000, 0.002497, 190, params, 'wifis', lineinclude, threads = 16, \
+            fl = '/data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20171229_R1.fits')
 
+    lineinclude =   ['FeH', 'CaI','NaI','KI_a','KI_b','KI_1.25','PaB', 'NaI123']
+    params =        ['Age','Z','x1','x2','Na','Fe','Ca','K']
+    sampler = do_mcmc('M85', 512, 4000, 0.0025765, 149, params, 'wifis', lineinclude, threads = 16, \
+            fl = '/data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20171229_R2.fits')
+
+    #lineinclude =   ['FeH', 'CaI','NaI','KI_a','KI_b','KI_1.25','PaB', 'NaI123']
+    #params =        ['Age','Z','x1','x2','Ca','Na','Fe','K']
+    #sampler = do_mcmc('M85', 512, 4000, 0.00258, 140, params, 'wifis', lineinclude, threads = 16, \
+    #        fl = '/data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_R2_Merged.fits')
 
