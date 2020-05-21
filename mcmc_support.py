@@ -38,7 +38,8 @@ def gaussian_fit_os(xdata,ydata,p0, gaussian=gaussian_os):
 
 def gauss_nat(xs, p0):
     '''Returns a gaussian function with inputs p0 over xs. p0 = [sigma, mean]'''
-    return  (1 / (2.*np.pi*p0[0]**2.))* np.exp((-1.0/2.0) * ((xs - p0[1])/p0[0])**2.0)
+    #return  (1 / (2.*np.pi*p0[0]**2.))* np.exp((-1.0/2.0) * ((xs - p0[1])/p0[0])**2.0)
+    return  (1 / (np.sqrt(2.*np.pi)*p0[0])) * np.exp( (-1.0/2.0) * ((xs - p0[1])/p0[0])**2.0 )
 
 def load_mcmc_file(fl):
     '''Loads the mcmc chain ouput. Returns
@@ -108,10 +109,14 @@ def load_mcmc_file(fl):
             names.append('[%s/H]' % (paramnames[j]))
             high.append(0.9)
             low.append(-0.5)
-        elif paramnames[j] in ['K','Ca','Fe','Mg','Si','Ti','C','Cr']:
+        elif paramnames[j] in ['K','Ca','Fe','Mg','Si','Ti','Cr']:
             names.append('[%s/H]' % (paramnames[j]))
             high.append(0.5)
             low.append(-0.5)
+        elif paramnames[j] == 'C':
+            names.append('[%s/H]' % (paramnames[j]))
+            high.append(0.3)
+            low.append(-0.3)
         elif paramnames[j] == 'VelDisp':
             names.append('$\sigma$')
             high.append(390)
@@ -188,20 +193,22 @@ def convolvemodels(wlfull, datafull, veldisp, reglims = False):
     #Sigma from description of models
     m_center = 11500
     m_sigma = np.abs((m_center / (1 + 100./c)) - m_center)
-    f = m_center + m_sigma
-    v = c * ((f/m_center) - 1)
+    #f = m_center + m_sigma
+    #v = c * ((f/m_center) - 1)
     
     sigma_gal = np.abs((m_center / (veldisp/c + 1.)) - m_center)
     sigma_conv = np.sqrt(sigma_gal**2. - m_sigma**2.)
 
     convolvex = np.arange(-5*sigma_conv,5*sigma_conv, 2.0)
-    gaussplot = mcsp.gauss_nat(convolvex, [sigma_conv,0.])
+    gaussplot = gauss_nat(convolvex, [sigma_conv,0.])
 
     out = np.convolve(datafull, gaussplot, mode='same')
 
     return wlfull, out
 
-def removeLineSlope(wlc, mconv,i):
+def removeLineSlope(wlc, mconv, linedefs, i):
+    bluelow,bluehigh,redlow,redhigh = linedefs
+
     #Define the bandpasses for each line 
     bluepass = np.where((wlc >= bluelow[i]) & (wlc <= bluehigh[i]))[0]
     redpass = np.where((wlc >= redlow[i]) & (wlc <= redhigh[i]))[0]
@@ -346,6 +353,60 @@ def measure_line(wl, spec, i, errors = False, contcorrect=False):
     else:
 		return eqw
 
+def preload_vcj(overwrite_base = False):
+    '''Loads the SSP models into memory so the mcmc model creation takes a
+    shorter time. Returns a dict with the filenames as the keys'''
+
+    if overwrite_base:
+        base = overwrite_base
+    else:
+        base = os.path.dirname(os.path.realpath(sys.argv[0])) + '/'
+
+    chem_names = ['WL', 'Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', \
+            'C+', 'C-', 'a/Fe+', 'N+', 'N-', 'as/Fe+', 'Ti+', 'Ti-',\
+            'Mg+', 'Mg-', 'Si+', 'Si-', 'T+', 'T-', 'Cr+', 'Mn+', 'Ba+', \
+            'Ba-', 'Ni+', 'Co+', 'Eu+', 'Sr+', 'K+','V+', 'Cu+', 'Na+0.6', 'Na+0.9']
+
+    print("PRELOADING SSP MODELS INTO MEMORY")
+    fls = glob(base+'spec/vcj_ssp/*')    
+
+    for fl in fls:
+        #print fl
+        flspl = fl.split('/')[-1]
+        mnamespl = flspl.split('_')
+        age = float(mnamespl[3][1:])
+        Zsign = mnamespl[4][1]
+        Zval = float(mnamespl[4][2:5])
+        if Zsign == "m":
+            Zval = -1.0 * Zval
+        x = pd.read_csv(fl, delim_whitespace = True, header=None)
+        x = np.array(x)
+        vcj["%.1f_%.1f" % (age, Zval)] = [x[:,1:]]
+
+    print("PRELOADING ABUNDANCE MODELS INTO MEMORY")
+    fls = glob(base+'spec/atlas/*')    
+    for fl in fls:
+        #print fl
+        flspl = fl.split('/')[-1]
+
+        mnamespl = flspl.split('_')
+        age = float(mnamespl[2][1:])
+        Zsign = mnamespl[3][1]
+        Zval = float(mnamespl[3][2:5])
+        if Zsign == "m":
+            Zval = -1.0 * Zval
+        if age == 13.0:
+            age = 13.5
+
+        x = pd.read_csv(fl, skiprows=2, names = chem_names, delim_whitespace = True, header=None)
+        x = np.array(x)
+        vcj["%.1f_%.1f" % (age, Zval)].append(x[:,1:])
+
+    vcj["WL"] = x[:,0]
+
+    print("FINISHED LOADING MODELS")
+
+    return vcj
 
 if __name__ == '__main__':
 

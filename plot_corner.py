@@ -39,119 +39,78 @@ def plot_corner(fl, burnin, variables=[]):
     elif datatype == "fullfit":
         datatype = "Spectra"
 
-    if burnintest:
-        for j in range(int(dataall[2][1])/1000 - 1):
-            print j*1000, (j+1)*1000
-            samples = data[j*1000:(j+1)*1000,:,:].reshape((-1,len(names)))
-            truevalues = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),\
-                    zip(*np.percentile(samples, [16, 50, 84], axis=0)))
+    samples = data[burnin:,:,:].reshape((-1,len(names)))
 
-            figure = corner.corner(samples, labels = names)
-            #figure.suptitle(dataall[2][2] + ' ' + flspl + ' ' + mcmctype + ' ' + str(datatype))
+    if len(variables) > 0:
+        var_i = []
+        var_names = []
+        for j, var in enumerate(paramnames):
+            if var in variables:
+                var_i.append(j)
+                var_names.append(names[j])
+        var_i = np.array(var_i)
+        print names
+        print variables
+        print var_i
 
-            # Extract the axes
-            axes = np.array(figure.axes).reshape((len(names), len(names)))
+        names = var_names
+        samples = samples[:,var_i]
+        low = np.array(low)[var_i]
+        high = np.array(high)[var_i]
 
-            # Loop over the diagonal
-            for i in range(len(names)):
-                ax = axes[i, i]
-                ax.axvline(truevalues[i][0], color="r")
-                ax.axvline(truevalues[i][0] + truevalues[i][1], color="g")
-                ax.axvline(truevalues[i][0] - truevalues[i][2], color="g")
-                #ax.set_title(names[i]+"=$%s_{-%s}^{+%s}$" % (np.round(truevalues[i][0],3), \
-                #        np.round(truevalues[i][2],3), np.round(truevalues[i][1],3)))
-                #ax.set_xlim((low[i],high[i]))
+    truevalues = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),\
+            zip(*np.percentile(samples, [16, 50, 84], axis=0)))
 
-            # Loop over the histograms
-            for yi in range(len(names)):
-                for xi in range(yi):
-                    ax = axes[yi, xi]
-                    ax.axvline(truevalues[xi][0], color="r")
-                    ax.axhline(truevalues[yi][0], color="r")
-                    ax.plot(truevalues[xi][0], truevalues[yi][0], "sr")
-                    ax.axvline(truevalues[xi][0] + truevalues[xi][1], color="g")
-                    ax.axvline(truevalues[xi][0] - truevalues[xi][2], color="g")
-                    ax.axhline(truevalues[yi][0] + truevalues[yi][1], color="g")
-                    ax.axhline(truevalues[yi][0] - truevalues[yi][2], color="g")
-                    #ax.set_ylim((low[yi], high[yi]))
-                    #ax.set_xlim((low[xi], high[xi]))
+    figure = corner.corner(samples, labels = names, label_kwargs={'fontsize': 20})
+    #figure.suptitle(dataall[2][2] + ' ' + flspl + ' ' + mcmctype + ' ' + str(datatype))
 
-            figure.savefig(fl[:-4]+'_%s.png' % (str(j)))
-            mpl.close('all')
+    # Extract the axes
+    axes = np.array(figure.axes).reshape((len(names), len(names)))
 
-    else:
-        samples = data[burnin:,:,:].reshape((-1,len(names)))
+    #mpl.rc('axes', labelsize=17)
+    #mpl.rc('axes', titlesize=17)
+    mpl.rc('xtick',labelsize=17)
+    mpl.rc('ytick',labelsize=17)
 
-        if len(variables) > 0:
-            var_i = []
-            var_names = []
-            for j, var in enumerate(paramnames):
-                if var in variables:
-                    var_i.append(j)
-                    var_names.append(names[j])
-            var_i = np.array(var_i)
-            print names
-            print variables
-            print var_i
+    # Loop over the diagonal
+    for i in range(len(names)):
+        ax = axes[i, i]
+        ax.axvline(truevalues[i][0], color="r")
+        ax.axvline(truevalues[i][0] + truevalues[i][1], color="g")
+        ax.axvline(truevalues[i][0] - truevalues[i][2], color="g")
+        #ax.set_title(names[i]+"=$%s_{-%s}^{+%s}$" % (np.round(truevalues[i][0],3), \
+        #        np.round(truevalues[i][2],3), np.round(truevalues[i][1],3)))
+        ax.set_title(names[i], fontsize = 20)
+        ax.set_xlim((low[i],high[i]))
 
-            names = var_names
-            samples = samples[:,var_i]
-            low = np.array(low)[var_i]
-            high = np.array(high)[var_i]
+        #xlab = ax.get_xticklabels()
+        #ylab = ax.get_yticklabels()
+        #xlab.set_fontsize(20)
+        #ylab.set_fontsize(20
+        ax.tick_params(axis='both', which='major', labelsize=20)
 
-        truevalues = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),\
-                zip(*np.percentile(samples, [16, 50, 84], axis=0)))
-
-        figure = corner.corner(samples, labels = names, label_kwargs={'fontsize': 20})
-        #figure.suptitle(dataall[2][2] + ' ' + flspl + ' ' + mcmctype + ' ' + str(datatype))
-
-        # Extract the axes
-        axes = np.array(figure.axes).reshape((len(names), len(names)))
-
-        #mpl.rc('axes', labelsize=17)
-        #mpl.rc('axes', titlesize=17)
-        mpl.rc('xtick',labelsize=17)
-        mpl.rc('ytick',labelsize=17)
-
-        # Loop over the diagonal
-        for i in range(len(names)):
-            ax = axes[i, i]
-            ax.axvline(truevalues[i][0], color="r")
-            ax.axvline(truevalues[i][0] + truevalues[i][1], color="g")
-            ax.axvline(truevalues[i][0] - truevalues[i][2], color="g")
-            #ax.set_title(names[i]+"=$%s_{-%s}^{+%s}$" % (np.round(truevalues[i][0],3), \
-            #        np.round(truevalues[i][2],3), np.round(truevalues[i][1],3)))
-            ax.set_title(names[i], fontsize = 20)
-            ax.set_xlim((low[i],high[i]))
-
+    # Loop over the histograms
+    for yi in range(len(names)):
+        for xi in range(yi):
+            ax = axes[yi, xi]
+            ax.axvline(truevalues[xi][0], color="r")
+            ax.axhline(truevalues[yi][0], color="r")
+            ax.plot(truevalues[xi][0], truevalues[yi][0], "sr")
+            ax.axvline(truevalues[xi][0] + truevalues[xi][1], color="g")
+            ax.axvline(truevalues[xi][0] - truevalues[xi][2], color="g")
+            ax.axhline(truevalues[yi][0] + truevalues[yi][1], color="g")
+            ax.axhline(truevalues[yi][0] - truevalues[yi][2], color="g")
+            ax.set_ylim((low[yi], high[yi]))
+            ax.set_xlim((low[xi], high[xi]))
+            ax.tick_params(axis='both', which='major', labelsize=20)
             #xlab = ax.get_xticklabels()
             #ylab = ax.get_yticklabels()
             #xlab.set_fontsize(20)
             #ylab.set_fontsize(20
-            ax.tick_params(axis='both', which='major', labelsize=20)
 
-        # Loop over the histograms
-        for yi in range(len(names)):
-            for xi in range(yi):
-                ax = axes[yi, xi]
-                ax.axvline(truevalues[xi][0], color="r")
-                ax.axhline(truevalues[yi][0], color="r")
-                ax.plot(truevalues[xi][0], truevalues[yi][0], "sr")
-                ax.axvline(truevalues[xi][0] + truevalues[xi][1], color="g")
-                ax.axvline(truevalues[xi][0] - truevalues[xi][2], color="g")
-                ax.axhline(truevalues[yi][0] + truevalues[yi][1], color="g")
-                ax.axhline(truevalues[yi][0] - truevalues[yi][2], color="g")
-                ax.set_ylim((low[yi], high[yi]))
-                ax.set_xlim((low[xi], high[xi]))
-                ax.tick_params(axis='both', which='major', labelsize=20)
-                #xlab = ax.get_xticklabels()
-                #ylab = ax.get_yticklabels()
-                #xlab.set_fontsize(20)
-                #ylab.set_fontsize(20
+    figure.savefig(fl[:-4]+'.pdf')
 
-        figure.savefig(fl[:-4]+'.pdf')
-
-def burnin_test(fl, burnin, variables=[]):
+def burnin_test(fl, burnin, step=1000, variables=[]):
 
     mpl.close('all')
     dataall = mcsp.load_mcmc_file(fl)
@@ -179,9 +138,9 @@ def burnin_test(fl, burnin, variables=[]):
     elif datatype == "fullfit":
         datatype = "Spectra"
 
-    for j in range(int(dataall[2][1])/1000 - 1):
-        print j*1000, (j+1)*1000
-        samples = data[j*1000:(j+1)*1000,:,:].reshape((-1,len(names)))
+    for j in range(int(dataall[2][1])/step - 1):
+        print j*step, (j+1)*step
+        samples = data[j*step:(j+1)*step,:,:].reshape((-1,len(names)))
         truevalues = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),\
                 zip(*np.percentile(samples, [16, 50, 84], axis=0)))
 
