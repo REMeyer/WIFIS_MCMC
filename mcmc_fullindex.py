@@ -192,7 +192,7 @@ def select_model_file(Z, Age):
 
     return fl1, fl2, fl3, fl4, agem, agep, zm, zp, mixage, mixZ
 
-def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False):
+def model_spec(inputs, paramnames, paramdict, saurononly = False, vcjset = False, timing = False, full = False):
     '''Core function which takes the input model parameters, finds the appropriate models,
     and adjusts them for the input abundance ratios. Returns a broadened model spectrum 
     to be matched with a data spectrum.'''
@@ -225,22 +225,42 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
             Fe = inputs[j]
         elif paramnames[j] == 'Ca':
             Ca = inputs[j]
-        elif paramnames[j] == 'Mg':
-            Mg = inputs[j]
-        elif paramnames[j] == 'VelDisp':
-            veldisp = inputs[j]
+        elif paramnames[j] == 'Alpha':
+            alpha = inputs[j]
 
-    if 'Age' not in paramnames:
-        Age = 3.0
+    for key in paramdict.keys():
+        if paramdict[key] == None:
+            continue
+
+        if key == 'Age':
+            Age = paramdict[key]
+        elif key == 'Z':
+            Z = paramdict[key]
+        elif key == 'x1':
+            x1 = paramdict[key]
+        elif key == 'x2':
+            x2 = paramdict[key]
+        elif key == 'Na':
+            Na = paramdict[key]
+        elif key == 'K':
+            K = paramdict[key]
+        elif key == 'Fe':
+            Fe = paramdict[key]
+        elif key == 'Ca':
+            Ca = paramdict[key]
+        elif key == 'Alpha':
+            alpha = paramdict[key]
+
+    #if 'Age' not in paramnames:
+    #    Age = 3.82
     #    if gal == 'M85':
     #        Age = 5.0
     #    elif gal == 'M87':
     #        Age = 13.5
-    if 'Z' not in paramnames:
-        Z = 0.0
-
+    #if 'Z' not in paramnames:
+    #    Z = 0.0
     if 'x1' not in paramnames:
-        x1 = 3.0
+        x1 = 1.3
     if 'x2' not in paramnames:
         x2 = 2.3
 
@@ -263,7 +283,16 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
     # NOTE THAT THIS IS AN ASSUMPTION AND THE CHANGE IN THE MODELS IS NOT NECESSARILY LINEAR
     fullage = np.array([1.0,3.0,5.0,7.0,9.0,11.0,13.5])
     fullZ = np.array([-1.5, -1.0, -0.5, 0.0, 0.2])
-    abundi = [0,1,2,-2,-1,29,16,15,6,5,4,3]
+    #abundi = [0,1,2,-2,-1,29,16,15,6,5,4,3,9]
+    abundi = [0,1,2,-2,-1,29,16,15,6,5,4,3,8,7,18,17,14,13,21]
+    wl = vcj["WL"]
+    if full:
+        rel = np.where((wl > 4000) & (wl < 14000))[0]
+    elif saurononly:
+        rel = np.where((wl > 4000) & (wl < 6000))[0]
+    else:
+        rel = np.where((wl > 8500) & (wl < 14000))[0]
+
     if mixage and mixZ:
         # Reading models. This step was vastly improved by pre-loading the models prior to running the mcmc
         fm1 = vcj[fl1][0]
@@ -279,10 +308,10 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
         wlc1 = vcj["WL"]
 
         #Finding the relevant section of the models to reduce the computational complexity
-        if not full:
-            rel = np.where((wlc1 > 8500) & (wlc1 < 14500))[0]
-        else:
-            rel = np.where((wlc1 > 3000) & (wlc1 < 24000))[0]
+        #if not full:
+        #    rel = np.where((wlc1 > 8500) & (wlc1 < 14500))[0]
+        #else:
+        #    rel = np.where((wlc1 > 4000) & (wlc1 < 14500))[0]
 
         fc1 = fc1[rel,:]
         fc2 = fc2[rel,:]
@@ -351,10 +380,10 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
         wlc1 = vcj["WL"]
 
         #Finding the relevant section of the models to reduce the computational complexity
-        if not full:
-            rel = np.where((wlc1 > 6500) & (wlc1 < 16000))[0]
-        else:
-            rel = np.where((wlc1 > 6500) & (wlc1 < 24000))[0]
+        #if not full:
+        #    rel = np.where((wlc1 > 6500) & (wlc1 < 16000))[0]
+        #else:
+        #    rel = np.where((wlc1 > 6500) & (wlc1 < 24000))[0]
 
         fc1 = fc1[rel,:]
         fc2 = fc2[rel,:]
@@ -395,10 +424,10 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
         wlc1 = vcj["WL"]
 
         #Finding the relevant section of the models to reduce the computational complexity
-        if not full:
-            rel = np.where((wlc1 > 6500) & (wlc1 < 16000))[0]
-        else:
-            rel = np.where((wlc1 > 6500) & (wlc1 < 24000))[0]
+        #if not full:
+        #    rel = np.where((wlc1 > 6500) & (wlc1 < 16000))[0]
+        #else:
+        #    rel = np.where((wlc1 > 6500) & (wlc1 < 24000))[0]
 
         fc1 = fc1[rel,:]
         fc2 = fc2[rel,:]
@@ -435,10 +464,10 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
         wlc1 = vcj["WL"]
         c = vcj[fl1][1]
 
-        if not full:
-            rel = np.where((wlc1 > 6500) & (wlc1 < 16000))[0]
-        else:
-            rel = np.where((wlc1 > 6500) & (wlc1 < 24000))[0]
+        #if not full:
+        #    rel = np.where((wlc1 > 6500) & (wlc1 < 16000))[0]
+        #else:
+        #    rel = np.where((wlc1 > 6500) & (wlc1 < 24000))[0]
 
         mimf = m[rel,imfsdict[(x1,x2)]]
         c = c[rel,:]
@@ -448,6 +477,31 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
     if timing:
         t3 = time.time()
         print("MSPEC T2: ", t3 - t2)
+
+    if saurononly:
+        if 'Alpha' in paramdict.keys():
+            alpha_contribution = 0.0
+
+            #Ca
+            interp = spi.interp2d(wl, [0.0,0.3], np.stack((c[:,0],c[:,3])), kind = 'linear')
+            alpha_contribution += interp(wl, alpha) / c[:,0] - 1.
+
+            #C
+            Cextend = (c[:,7]-c[:,0])*(0.3/0.15) + c[:,0]
+            interp = spi.interp2d(wl, [0.0,0.15,0.3], np.stack((c[:,0],c[:,7],Cextend)), kind = 'linear')
+            alpha_contribution += interp(wl, alpha) / c[:,0] - 1.
+
+            #Mg
+            interp = spi.interp2d(wl, [0.0,0.3], np.stack((c[:,0],c[:,15])), kind = 'linear')
+            alpha_contribution += interp(wl, alpha) / c[:,0] - 1.
+
+            #Si
+            interp = spi.interp2d(wl, [0.0,0.3], np.stack((c[:,0],c[:,17])), kind = 'linear')
+            alpha_contribution += interp(wl, alpha) / c[:,0] - 1.
+
+            basemodel = basemodel*(1 + alpha_contribution)
+        return wl, mimf, basemodel
+
 
     # Reminder of the abundance model columns
     # ['Solar', 'Na+', 'Na-',   'Ca+',  'Ca-', 'Fe+', 'Fe-', 'C+',  'C-',  'a/Fe+', 
@@ -465,14 +519,14 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
 
         #Na adjustment
     ab_contribution = 0.0
-    if 'Na' in paramnames:
+    if 'Na' in paramdict.keys():
         Naextend = (c[:,2]-c[:,0])*(-0.5/-0.3) + c[:,0]
         interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.6,0.9], np.stack((Naextend,c[:,2],c[:,0],c[:,1],c[:,-2],c[:,-1])), kind = 'cubic')
         NaP = interp(wl,Na) / c[:,0] - 1.
         ab_contribution += NaP
 
         #K adjustment (assume symmetrical K adjustment)
-    if 'K' in paramnames:
+    if 'K' in paramdict.keys():
         Kminus = (2. - (c[:,29] / c[:,0]))*c[:,0]
         Kmextend = (Kminus - c[:,0])*(-0.5/-0.3) + c[:,0]
         Kpextend = (c[:,29] - c[:,0]) * (0.5/0.3) + c[:,0]
@@ -481,7 +535,7 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
         ab_contribution += KP
 
         #Fe Adjustment
-    if 'Fe' in paramnames:
+    if 'Fe' in paramdict.keys():
         Femextend = (c[:,6] - c[:,0])*(-0.5/-0.3) + c[:,0]
         Fepextend = (c[:,5] - c[:,0])*(0.5/0.3) + c[:,0]
         interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], np.stack((Femextend,c[:,6], c[:,0],c[:,5],Fepextend)), kind = 'linear')
@@ -489,7 +543,7 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
         ab_contribution += FeP
 
         #Ca Adjustment
-    if 'Ca' in paramnames:
+    if 'Ca' in paramdict.keys():
         Cmextend = (c[:,4] - c[:,0])*(-0.5/-0.3) + c[:,0]
         Cpextend = (c[:,3] - c[:,0])*(0.5/0.3) + c[:,0]
         interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], np.stack((Cmextend,c[:,4], c[:,0],c[:,3],Cpextend)), kind = 'linear')
@@ -497,8 +551,8 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
         ab_contribution += CaP
 
     #model_ratio = mimf / basemodel
-    #model_ratio = basemodel / mimf
-    model_ratio = 1.0
+    model_ratio = basemodel / mimf
+    #model_ratio = 1.0
 
     # The model formula is as follows....
     # The new model is = the base IMF model * abundance effects. 
@@ -510,103 +564,178 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
     if timing:
         print("MSPEC T3: ", time.time() - t3)
 
-    return wl, newm
+    return wl, newm, basemodel
 
-def calc_chisq(params, wl, data, err, veldisp, paramnames, lineinclude, \
-        linedefs, plot=False, timing = False):
+def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict, lineinclude, \
+        linedefsfull, sauron, saurononly, plot=False, timing = False):
     ''' Important function that produces the value that essentially
     represents the likelihood of the mcmc equation. Produces the model
     spectrum then returns a normal chisq value.'''
 
-    linelow, linehigh, bluelow, bluehigh, redlow, redhigh, line_name, \
-        index_name, mlow, mhigh, morder = linedefs
-    
+    linedefs = linedefsfull[0]
+    line_names = linedefsfull[1]
+    index_names = linedefsfull[2]
+
     if timing:
         t1 = time.time()
 
     #Creating model spectrum then interpolating it so that it can be easily matched with the data.
-    wlm, newm = model_spec(params, paramnames, timing=timing)
+    if sauron:
+        if saurononly:
+            wlm, newm, base = model_spec(params, paramnames, paramdict, saurononly = True, timing=timing)
+        else:
+            wlm, newm, base = model_spec(params, paramnames, paramdict, full = True, timing=timing)
+    else:
+        wlm, newm, base = model_spec(params, paramnames, paramdict, timing=timing)
 
     # Convolve model to previously determined velocity dispersion (we don't fit dispersion in this code).
-    if 'VelDisp' in paramnames:
-        whsig = np.where(paramnames == 'VelDisp')[0]
-        wlc, mconv = mcsp.convolvemodels(wlm, newm, params[whsig])
-    else:
-        wlc, mconv = mcsp.convolvemodels(wlm, newm, veldisp)
+    if not saurononly:
+        if 'VelDisp' in paramdict.keys():
+            if 'VelDisp' in paramnames:
+                whsig = np.where(np.array(paramnames) == 'VelDisp')[0]
+                wlc, mconv = mcsp.convolvemodels(wlm, newm, params[whsig])
+            else:
+                wlc, mconv = mcsp.convolvemodels(wlm, newm, paramdict['VelDisp'])
+        else:
+            wlc, mconv = mcsp.convolvemodels(wlm, newm, veldisp)
 
-    if 'f' in paramnames:
-        whf = np.where(np.array(paramnames) == 'f')[0][0]
-        f = params[whf]
+    if sauron:
+        if saurononly:
+            if 'VelDisp' in paramdict.keys():
+                if 'VelDisp' in paramnames:
+                    whsig = np.where(np.array(paramnames) == 'VelDisp')[0]
+                    wlc_s, mconv_s = mcsp.convolvemodels(wlm, base, params[whsig])
+                else:
+                    wlc_s, mconv_s = mcsp.convolvemodels(wlm, base, paramdict['VelDisp'])
+            else:
+                wlc_s, mconv_s = mcsp.convolvemodels(wlm, base, sauron[4])
+        else:
+            wlc_s, mconv_s = mcsp.convolvemodels(wlm, base, sauron[4])
+
+    if 'f' in paramdict.keys():
+        if 'f' in paramnames:
+            whf = np.where(np.array(paramnames) == 'f')[0][0]
+            f = params[whf]
+        else:
+            f = paramdict['f']
     
     if timing:
         t2 = time.time()
         print("CHISQ T1: ", t2 - t1)
 
-    mconvinterp = spi.interp1d(wlc, mconv, kind='cubic', bounds_error=False)
+    if not saurononly:
+        mconvinterp = spi.interp1d(wlc, mconv, kind='cubic', bounds_error=False)
+
+    if sauron:
+        mconvinterp_s = spi.interp1d(wlc_s, mconv_s, kind='cubic', bounds_error=False)
 
     if timing:
         t3 = time.time()
         print("CHISQ T2: ", t3 - t2)
     
+    #bluelow, bluehigh, linelow, linehigh, redlow, redhigh, \
+            #mlow, mhigh, morder, line_name, index_name
+
     #Measuring the chisq
     chisq = 0
-    for i in range(len(mlow)):
-        if line_name[i] not in lineinclude:
-            #print line_name[i]
-            continue
 
-        #line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI']
-        if lineexclude:
-            if 'Na' not in paramnames:
-                if line_name[i] == 'NaI':
-                    continue
-            if 'Ca' not in paramnames:
-                if line_name[i] == 'CaI':
-                    continue
-            if 'Fe' not in paramnames:
-                if line_name[i] == 'FeH':
-                    continue
-            if 'K' not in paramnames:
-                if line_name[i] in ['KI_a','KI_b','KI_1.25']:
-                    continue
+    if not saurononly:
+        for i in range(len(linedefs[0,:])):
+            if line_names[i] not in lineinclude:
+                #print line_name[i]
+                continue
 
-        #Getting a slice of the model
-        wli = wl[i]
+            #line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI']
+            if lineexclude:
+                if 'Na' not in paramnames:
+                    if line_names[i] == 'NaI':
+                        continue
+                if 'Ca' not in paramnames:
+                    if line_names[i] == 'CaI':
+                        continue
+                if 'Fe' not in paramnames:
+                    if line_names[i] == 'FeH':
+                        continue
+                if 'K' not in paramnames:
+                    if line_names[i] in ['KI_a','KI_b','KI_1.25']:
+                        continue
 
-        modelslice = mconvinterp(wli)
+            #Getting a slice of the model
+            wli = wl[i]
 
-        #Removing a high-order polynomial from the slice
-        #Define the bandpasses for each line 
-        bluepass = np.where((wlc >= bluelow[i]) & (wlc <= bluehigh[i]))[0]
-        redpass = np.where((wlc >= redlow[i]) & (wlc <= redhigh[i]))[0]
+            modelslice = mconvinterp(wli)
 
-        #Cacluating center value of the blue and red bandpasses
-        blueavg = np.mean([bluelow[i],bluehigh[i]])
-        redavg = np.mean([redlow[i],redhigh[i]])
+            #Removing a high-order polynomial from the slice
+            #Define the bandpasses for each line 
+            bluepass = np.where((wlc >= linedefs[0,i]) & (wlc <= linedefs[1,i]))[0]
+            redpass = np.where((wlc >= linedefs[4,i]) & (wlc <= linedefs[5,i]))[0]
 
-        blueval = np.mean(mconv[bluepass])
-        redval = np.mean(mconv[redpass])
+            #Cacluating center value of the blue and red bandpasses
+            blueavg = np.mean([linedefs[0,i], linedefs[1,i]])
+            redavg = np.mean([linedefs[4,i], linedefs[5,i]])
 
-        pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
-        polyfit = np.poly1d(pf)
-        cont = polyfit(wli)
+            blueval = np.mean(mconv[bluepass])
+            redval = np.mean(mconv[redpass])
 
-        #Normalizing the model
-        modelslice = modelslice / cont
+            pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
+            polyfit = np.poly1d(pf) 
+            cont = polyfit(wli)
 
-        if 'f' in paramnames:
-            errterm = (err[i] ** 2.0) + (data[i]**2.0 * np.exp(2*f))
-            addterm = np.log(2.0 * np.pi * errterm)
-        else:
+            #Normalizing the model
+            modelslice = modelslice / cont
+
+            #if 'f' in paramdict.keys():
+            #    errterm = (err[i] ** 2.0) + (data[i]**2.0 * np.exp(2*f))
+            #    addterm = np.log(2.0 * np.pi * errterm)
+            #else:
+            #    errterm = err[i] ** 2.0
+            #    addterm = err[i] * 0.0
             errterm = err[i] ** 2.0
             addterm = err[i] * 0.0
 
-        #Performing the chisq calculation
-        chisq += np.sum(((data[i] - modelslice)**2.0 / errterm) + addterm)
+            #Performing the chisq calculation
+            chisq += np.sum(((data[i] - modelslice)**2.0 / errterm) + addterm)
 
-        if plot:
-            mpl.plot(wl[i], modelslice, 'r')
-            mpl.plot(wl[i], data[i], 'b')
+            if plot:
+                mpl.plot(wl[i], modelslice, 'r')
+                mpl.plot(wl[i], data[i], 'b')
+
+    if sauron:
+        for i in range(len(sauron[0])):
+
+            #Getting a slice of the model
+            wli = sauron[0][i]
+
+            modelslice = mconvinterp_s(wli)
+
+            #Removing a high-order polynomial from the slice
+            #Define the bandpasses for each line 
+            bluepass = np.where((wlc_s >= sauron[3][0][0,i]) & (wlc_s <= sauron[3][0][1,i]))[0]
+            redpass = np.where((wlc_s >= sauron[3][0][4,i]) & (wlc_s <= sauron[3][0][5,i]))[0]
+
+            #Cacluating center value of the blue and red bandpasses
+            blueavg = np.mean([sauron[3][0][0,i], sauron[3][0][1,i]])
+            redavg = np.mean([sauron[3][0][4,i], sauron[3][0][5,i]])
+
+            blueval = np.mean(mconv_s[bluepass])
+            redval = np.mean(mconv_s[redpass])
+
+            pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
+            polyfit = np.poly1d(pf) 
+            cont = polyfit(wli)
+
+            #Normalizing the model
+            modelslice = modelslice / cont
+
+            if 'f' in paramdict.keys():
+                errterm = (sauron[2][i] ** 2.0) + modelslice**2.0 * np.exp(2*np.log(f))
+                addterm = np.log(2.0 * np.pi * errterm)
+            else:
+                errterm = sauron[2][i] ** 2.0
+                addterm = sauron[2][i] * 0.0
+
+            #Performing the chisq calculation
+            chisq += np.sum(((sauron[1][i] - modelslice)**2.0 / errterm) + addterm)
 
     if plot:
         mpl.show()
@@ -630,6 +759,9 @@ def lnprior(theta, paramnames):
             #    goodpriors = False
             if not (-0.25 <= theta[j] <= 0.2):
                 goodpriors = False
+        elif paramnames[j] == 'Alpha':
+            if not (0.0 <= theta[j] <= 0.3):
+                goodpriors = False
         elif paramnames[j] in ['x1', 'x2']:
             if not (0.5 <= theta[j] <= 3.5):
                 goodpriors = False
@@ -651,7 +783,8 @@ def lnprior(theta, paramnames):
     else:
         return -np.inf
 
-def lnprob(theta, wl, data, err, paramnames, lineinclude, linedefs, veldisp):
+def lnprob(theta, wl, data, err, paramnames, paramdict, lineinclude, linedefs, veldisp, \
+        sauron,saurononly):
     '''Primary function of the mcmc. Checks priors and returns the likelihood'''
 
     lp = lnprior(theta, paramnames)
@@ -659,62 +792,91 @@ def lnprob(theta, wl, data, err, paramnames, lineinclude, linedefs, veldisp):
         return -np.inf
 
     chisqv = calc_chisq(theta, wl, data, err, veldisp, \
-            paramnames, lineinclude, linedefs, timing=False)
+            paramnames, paramdict, lineinclude, linedefs, \
+            sauron, saurononly, timing=False)
     return lp + chisqv
 
-def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramnames, instrument, lineinclude,\
-        threads = 6, restart=False, scale=False,fl=None):
+def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,\
+        threads = 6, restart=False, scale=False, fl=None, sauron=None, sauron_z=None, \
+        sauron_veldisp=None, saurononly=False):
     '''Main program. Runs the mcmc'''
 
+    if fl == None:
+        print('Please input filename for WIFIS data')
+        return
+
     #Line definitions & other definitions
-    if instrument == 'nifs':
-        linelow = [9905,10337,11372,11680,11765,12505,13115, 12810, 12670]
-        linehigh = [9935,10360,11415,11705,11793,12545,13165, 12840, 12690]
+    #WIFIS Defs
+    bluelow =  [9855, 10300, 11340, 11667, 11710, 12460, 12780, 12648, 12240, 11905]
+    bluehigh = [9880, 10320, 11370, 11680, 11750, 12495, 12800, 12660, 12260, 11935]
+    linelow =  [9905, 10337, 11372, 11680, 11765, 12505, 12810, 12670, 12309, 11935]
+    linehigh = [9935, 10360, 11415, 11705, 11793, 12545, 12840, 12690, 12333, 11965]
+    redlow =   [9940, 10365, 11417, 11710, 11793, 12555, 12860, 12700, 12360, 12005]
+    redhigh =  [9970, 10390, 11447, 11750, 11810, 12590, 12870, 12720, 12390, 12025]
 
-        bluelow = [9855,10300,11340,11667,11710,12460,13090, 12780, 12648]
-        bluehigh = [9880,10320,11370,11680,11750,12495,13113, 12800, 12660]
+    #mlow =     [9855, 10300, 11340, 11667, 11710, 12460, 12780, 12648, 12240]
+    #mhigh =    [9970, 10390, 11447, 11750, 11810, 12590, 12870, 12720, 12390]
+    mlow, mhigh = [],[]
+    for i in zip(bluelow, redhigh):
+        mlow.append(i[0])
+        mhigh.append(i[1])
+    morder = [1,1,1,1,1,1,1,1,1,1]
 
-        redlow = [9940,10365,11417,11710,11793,12555,13165, 12855, 12700]
-        redhigh = [9970,10390,11447,11750,11810,12590,13175, 12880, 12720]
+    line_name = np.array(['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'PaB', 'NaI127', 'NaI123','CaII119'])
 
-        line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI', 'PaB', 'NaI127']
+    linedefs = [np.array([bluelow, bluehigh, linelow, linehigh, redlow,\
+            redhigh, mlow, mhigh, morder]), line_name, line_name]
 
-        mlow = [9855,10300,11340,11667,11710,12460,13090,12780, 12648]
-        mhigh = [9970,10390,11447,11750,11810,12590,13175, 12880, 12720]
-        morder = [1,1,1,1,1,1,1,1]
-        linedefs = [linelow, linehigh, bluelow, bluehigh, redlow, redhigh,\
-                line_name, mlow, mhigh, morder]
-
-    elif instrument == 'wifis':
-        linelow =  [9905, 10337, 11372, 11680, 11765, 12505, 12810, 12670, 12309]
-        linehigh = [9935, 10360, 11415, 11705, 11793, 12545, 12840, 12690, 12333]
-        bluelow =  [9855, 10300, 11340, 11667, 11710, 12460, 12780, 12648, 12240]
-        bluehigh = [9880, 10320, 11370, 11680, 11750, 12495, 12800, 12660, 12260]
-        redlow =   [9940, 10365, 11417, 11710, 11793, 12555, 12860, 12700, 12360]
-        redhigh =  [9970, 10390, 11447, 11750, 11810, 12590, 12870, 12720, 12390]
-
-        mlow =     [9855, 10300, 11340, 11667, 11710, 12460, 12780, 12648, 12240]
-        mhigh =    [9970, 10390, 11447, 11750, 11810, 12590, 12870, 12720, 12390]
-
-        line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'PaB', 'NaI127', 'NaI123']
-
-        morder = [1,1,1,1,1,1,1,1,1]
-        linedefs = [linelow, linehigh, bluelow, bluehigh, redlow,\
-                redhigh, line_name, line_name, mlow, mhigh, morder]
-
-    if instrument == 'nifs':
-        wl, data, err = preps.preparespec(gal)
-    elif instrument == 'wifis':
-        if fl == None:
-            print('Please input filename for WIFIS data')
-            return
-        wl, data, err = preps.preparespecwifis(fl, z)
+    wl, data, err = preps.preparespecwifis(fl, z)
 
     if scale:
         wl, data, err = preps.splitspec(wl, data, linedefs, err = err, scale = scale)
     else:
         wl, data, err = preps.splitspec(wl, data, linedefs, err = err)
 
+    if sauron != None:
+        #SAURON Lines
+        bluelow_s =  [4827.875, 4946.500, 5142.625]
+        bluehigh_s = [4847.875, 4977.750, 5161.375]
+        linelow_s =  [4847.875, 4977.750, 5160.125]
+        linehigh_s = [4876.625, 5054.000, 5192.625]
+        redlow_s =   [4876.625, 5054.000, 5191.375]
+        redhigh_s =  [4891.625, 5065.250, 5206.375]
+
+        mlow_s, mhigh_s = [],[]
+        for i in zip(bluelow_s, redhigh_s):
+            mlow_s.append(i[0])
+            mhigh_s.append(i[1])
+        morder_s = [1,1,1]
+        line_names_s = np.array(['HBeta','Fe5015','MgB'])
+
+        sauronlines = [np.array([bluelow_s,bluehigh_s,linelow_s,linehigh_s,\
+                redlow_s,redhigh_s,mlow_s,mhigh_s,morder_s]),line_names_s,line_names_s]
+
+        ff = fits.open(sauron)
+        spec_s = ff[0].data
+        wl_s = ff[1].data
+        wl_s = wl_s / (1. + sauron_z)
+        noise_s = ff[2].data
+
+        wl_s, data_s, err_s = preps.splitspec(wl_s, spec_s, sauronlines, err = noise_s)
+
+    #Handle parameters and walker initialization
+    paramnames = []
+    for key in paramdict.keys():
+        if paramdict[key] == None:
+            paramnames.append(key)
+    if saurononly:
+        for param in paramnames:
+            if param in ['Ca','Mg','Fe','x1','x2','K']:
+                print("Please remove elemental abundances")
+                return
+    #    if 'Alpha' in paramdict.keys():
+    #        paramnames = ['Age','Z','Alpha']
+    #        paramdict = {'Age':None, 'Z':None, 'Alpha':None}
+    #    else:
+    #        paramnames = ['Age','Z']
+    #        paramdict = {'Age':None, 'Z':None}
     ndim = len(paramnames)
 
     print(paramnames)
@@ -729,6 +891,8 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramnames, instrument, lineinclu
                     newinit.append(np.random.random()*12.5 + 1.0)
                 elif paramnames[j] == 'Z':
                     newinit.append(np.random.random()*0.45 - 0.25)
+                elif paramnames[j] == 'Alpha':
+                    newinit.append(np.random.random()*0.3)
                 elif paramnames[j] in ['x1', 'x2']:
                     newinit.append(np.random.choice(x1_m))
                 elif paramnames[j] == 'Na':
@@ -738,6 +902,7 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramnames, instrument, lineinclu
                 elif paramnames[j] == 'VelDisp':
                     newinit.append(np.random.random()*240 + 120)
                 elif paramnames[j] == 'f':
+                    #newinit.append(np.random.random()*11 - 10.)
                     newinit.append(np.random.random())
             pos.append(np.array(newinit))
     else:
@@ -747,11 +912,13 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramnames, instrument, lineinclu
     savefl = base + "mcmcresults/"+time.strftime("%Y%m%dT%H%M%S")+"_%s_fullindex.dat" % (gal)
     f = open(savefl, "w")
     strparams = '\t'.join(paramnames)
-    strlines = '\t'.join(lineinclude)
+    strparamdict = '    '.join(['%s: %s' % (key, paramdict[key]) for key in paramdict.keys()])
+    strlines = '\t'.join(lineinclude+list(sauronlines[1]))
     f.write("#NWalk\tNStep\tGal\tFit\n")
     f.write("#%d\t%d\t%s\n" % (nwalkers, n_iter,gal))
     f.write("#%s\n" % (strparams))
     f.write("#%s\n" % (strlines))
+    f.write("#%s\n" % (strparamdict))
     f.close()
 
     pool = Pool(processes=16)
@@ -759,9 +926,14 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramnames, instrument, lineinclu
     #sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = \
     #        (wl, data, err, gal, paramnames, lineinclude, linedefs), \
     #        threads=threads)
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = \
-            (wl, data, err, paramnames, lineinclude, linedefs, veldisp), \
-            pool=pool)
+    if not sauron:
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = \
+                (wl, data, err, paramnames, paramdict, lineinclude, linedefs, veldisp, False, saurononly), \
+                pool=pool)
+    else:
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = \
+                (wl, data, err, paramnames, paramdict, lineinclude, linedefs, veldisp, \
+                [wl_s, data_s, err_s, sauronlines, sauron_veldisp], saurononly), pool=pool)
     print("Starting MCMC...")
 
     t1 = time.time() 
@@ -787,22 +959,33 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramnames, instrument, lineinclu
 
 if __name__ == '__main__':
     vcj = preload_vcj() #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
+    #fl_R1 = '/data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20171229_R1.fits'
+    #fl_R1 = '/data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20200528_R1.fits'
+    #fl_R2 = '/data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20200528_R2.fits'
+    fl_R1 = '/data2/wifis_reduction/elliot/NGC5557/20180302/processed/NGC5557_combined_cube_1_telluricreduced_20200602_R1.fits'
+    #fl_R1 = '/data2/wifis_reduction/elliot/NGC5845/20180531/processed/NGC5845_combined_cube_1_telluricreduced_20200604_R1.fits'
 
-    #lineinclude =   ['FeH', 'NaI','KI_a','KI_b','KI_1.25','PaB', 'NaI123']
-    lineinclude =   ['FeH', 'NaI','KI_a','KI_b','KI_1.25', 'NaI123']
-    params =        ['Z','x1','x2','Na','Fe','K']
-    sampler = do_mcmc('M85', 512, 4000, 0.00234, 157, params, 'wifis', lineinclude, threads = 16, \
-            fl = '/data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20171229_R1.fits')
+    #lineinclude =   ['FeH', 'CaI','NaI','KI_a','KI_b','KI_1.25','NaI123']
+    #lineinclude =   ['FeH', 'NaI','KI_a','KI_b','KI_1.25', 'NaI123']
+    #lineinclude =   ['FeH', 'CaI','NaI','KI_a','KI_b','KI_1.25','NaI123','PaB']
+    #params =        {'Age':None, 'Z':None,'x1':None,'x2':None,'Na':None,'Ca':None,'Fe':None,'K':None,'f':None}
+    #sampler = do_mcmc('M85', 512, 4000, 0.00235, 178, params, lineinclude, threads = 16, fl = fl_R1,\
+    #        sauron='/home/elliot/M85_ATLAS3D_R1_2.fits', sauron_z = 0.0022, sauron_veldisp=155) 
 
-#    sampler = do_mcmc('M85', 512, 4000, 0.002497, 189, params, 'wifis', lineinclude, threads = 16, \
-#            fl = '/data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20171229_R2.fits')
+    lineinclude =   ['FeH', 'NaI','CaI','KI_a','KI_b','KI_1.25','NaI127','PaB']
+    #params =        {'Age':None, 'Z':None,'x1':None,'x2':None,'Na':None,'Ca':None,'Fe':None,'K':None}
+    #sampler = do_mcmc('NGC5845', 512, 4000, 0.004967, 283, params, lineinclude, threads = 16, fl = fl_R1,\
+    #        sauron='/home/elliot/sauronspec/NGC5845_ATLAS3D_R1.fits',sauron_z = 0.0045, sauron_veldisp=225) 
+    #sampler = do_mcmc('NGC5557', 512, 4000, 0.0108, 229, params, 'wifis', lineinclude, threads = 16, fl = fl_R1) 
+
+    #lineinclude =   ['FeH', 'CaI','NaI','KI_a','KI_b','KI_1.25','NaI123']
+    #params =        {'Age':4.0, 'Z':None,'x1':None,'x2':None,'Na':None,'Ca':None,'Fe':None,'K':None}
+    #sampler = do_mcmc('M85', 512, 4000, 0.00235, 178, params, 'wifis', lineinclude, threads = 16, fl = fl_R2) 
     
-    #lineinclude =   ['FeH', 'CaI', 'NaI','KI_a','KI_b','KI_1.25','PaB', 'NaI123']
-    lineinclude =   ['FeH', 'CaI', 'NaI','KI_a','KI_b','KI_1.25','NaI123']
-    params =        ['Z','x1','x2','Na','Fe','Ca','K']
-    sampler = do_mcmc('M85', 512, 4000, 0.00234, 157, params, 'wifis', lineinclude, threads = 16, \
-            fl = '/data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20171229_R1.fits')
-
-#    sampler = do_mcmc('M85', 512, 4000, 0.002497, 189, params, 'wifis', lineinclude, threads = 16, \
-#            fl = '/data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20171229_R2.fits')
-
+    #lineinclude =   ['FeH','NaI','CaI','KI_a','KI_b','KI_1.25','NaI127']
+    #params =        {'Age': 11.0, 'Z':None,'x1':None,'x2':None,'Na':None,'Ca':None,'Fe':None,'K':None}
+    #sampler = do_mcmc('NGC5845', 512, 4000, 0.004967, 283, params, 'wifis', lineinclude, threads = 16, fl = fl_R1) 
+    #params =        {'Age':None, 'Z':None,'Alpha':None, 'x1':None,'x2':None,'Na':None,'Ca':None,'Fe':None,'K':None}
+    params =        {'Age':None, 'Z':None,'Alpha':None, 'VelDisp':None, 'f':None}
+    sampler = do_mcmc('NGC5557', 512, 4000, 0.0108, 229, params, lineinclude, threads = 16, fl = fl_R1,\
+            sauron='/home/elliot/sauronspec/NGC5557_ATLAS3D_R1_Re8.fits',sauron_z = 0.0105, sauron_veldisp=300, saurononly=True) 

@@ -54,6 +54,7 @@ def load_mcmc_file(fl):
     info = f.readline()
     firstline = f.readline()
     secondline = f.readline()
+    thirdline = f.readline()
 
     if secondline[0] == '#':
         lines = True
@@ -122,9 +123,14 @@ def load_mcmc_file(fl):
             high.append(390)
             low.append(120)
         elif paramnames[j] == 'f':
-            names.append('f')
+            names.append('log-f')
             high.append(1.0)
-            low.append(-1.0)
+            low.append(-10.0)
+        elif paramnames[j] == 'Alpha':
+            names.append('[Alpha/H]')
+            high.append(0.3)
+            low.append(0.0)
+
 
     names.insert(0,"Worker")
     names.insert(len(names), "ChiSq")
@@ -159,18 +165,38 @@ def load_mcmc_file(fl):
         #data = np.loadtxt(fl)
         n_steps = niter
 
+    paramorder = np.array(['Age','Z','Alpha','x1','x2','Na','K','Ca','Fe','Mg','Si','C','Si','Ti','Cr','VelDisp','f'])
+    rearrange = []
+    #for param in paramnames:
+    #   o = np.where(paramorder == param)[0][0]
+    #   rearrange.append(o)
+    paramnames = np.array(paramnames)
+    for param in paramorder:
+        o = np.where(paramnames == param)[0]
+        if len(o) > 0:
+            rearrange.append(o[0])
+
+    rearrange = np.array(rearrange)
+    high = np.array(high)[rearrange]
+    low = np.array(low)[rearrange]
+
     names = names[1:-1]
     for k,name in enumerate(names):
         if name == 'x1':
             names[k] = r'\textbf{$x_{1}$}'
         if name == 'x2':
             names[k] = r'\textbf{$x_{2}$}'
+    names = np.array(names)[rearrange]
+    paramnames = np.array(paramnames)[rearrange]
+    print(names)
+    print(paramnames)
 
     infol = [nworkers, niter, gal, names, high, low, paramnames, linenames, lines]
 
     folddata = data.reshape((n_steps, nworkers,len(names)+2))
     postprob = folddata[:,:,-1]
     realdata = folddata[:,:,1:-1]
+    realdata = realdata[:,:,rearrange]
     lastdata = realdata[-1,:,:]
     print "DATASHAPE: ", realdata.shape
 

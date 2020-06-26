@@ -12,9 +12,11 @@ from matplotlib import rc
 rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 rc('text', usetex=True)
 
-def plot_corner(fl, burnin, variables=[]):
+def plot_corner(fl, burnin, variables=[], nolimits=False):
 
     mpl.close('all')
+    #if fl.lower() == 'last':
+        #fls = np.sort(glob(
     dataall = mcsp.load_mcmc_file(fl)
 
     #infol = [nworkers, niter, gal, names, high, low, paramnames, linenames, legacy]
@@ -26,9 +28,9 @@ def plot_corner(fl, burnin, variables=[]):
     linenames = dataall[2][7]
     lines = dataall[2][8]
 
-    print(paramnames)
-    print(linenames)
-    print(lines)
+    #print(paramnames)
+    #print(linenames)
+    #print(lines)
 
     flsplname = fl.split('/')[-1]
     flspl = flsplname.split('_')[0]
@@ -40,8 +42,17 @@ def plot_corner(fl, burnin, variables=[]):
         datatype = "Spectra"
 
     samples = data[burnin:,:,:].reshape((-1,len(names)))
+    if 'f' in paramnames:
+        whf = np.where(paramnames == 'f')[0][0]
+        print(samples[:,whf])
+        print(paramnames[whf])
+        samples[:,whf] = np.log(samples[:,whf])
+        print(samples[:,whf])
+
+    #sys.exit()
 
     if len(variables) > 0:
+        print("Using only variables: ", variables)
         var_i = []
         var_names = []
         for j, var in enumerate(paramnames):
@@ -49,12 +60,12 @@ def plot_corner(fl, burnin, variables=[]):
                 var_i.append(j)
                 var_names.append(names[j])
         var_i = np.array(var_i)
-        print names
-        print variables
-        print var_i
 
         names = var_names
         samples = samples[:,var_i]
+        print(samples.shape)
+        #if 'f' in paramnames:
+            #samples[
         low = np.array(low)[var_i]
         high = np.array(high)[var_i]
 
@@ -81,12 +92,9 @@ def plot_corner(fl, burnin, variables=[]):
         #ax.set_title(names[i]+"=$%s_{-%s}^{+%s}$" % (np.round(truevalues[i][0],3), \
         #        np.round(truevalues[i][2],3), np.round(truevalues[i][1],3)))
         ax.set_title(names[i], fontsize = 20)
-        ax.set_xlim((low[i],high[i]))
+        if not nolimits:
+            ax.set_xlim((low[i],high[i]))
 
-        #xlab = ax.get_xticklabels()
-        #ylab = ax.get_yticklabels()
-        #xlab.set_fontsize(20)
-        #ylab.set_fontsize(20
         ax.tick_params(axis='both', which='major', labelsize=20)
 
     # Loop over the histograms
@@ -100,8 +108,9 @@ def plot_corner(fl, burnin, variables=[]):
             ax.axvline(truevalues[xi][0] - truevalues[xi][2], color="g")
             ax.axhline(truevalues[yi][0] + truevalues[yi][1], color="g")
             ax.axhline(truevalues[yi][0] - truevalues[yi][2], color="g")
-            ax.set_ylim((low[yi], high[yi]))
-            ax.set_xlim((low[xi], high[xi]))
+            if not nolimits:
+                ax.set_ylim((low[yi], high[yi]))
+                ax.set_xlim((low[xi], high[xi]))
             ax.tick_params(axis='both', which='major', labelsize=20)
             #xlab = ax.get_xticklabels()
             #ylab = ax.get_yticklabels()
