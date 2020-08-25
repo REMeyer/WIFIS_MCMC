@@ -819,7 +819,7 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramnames, threads = 6, fl = Non
     strparams = '\t'.join(paramnames)
     #strlines = '\t'.join(lineinclude)
     f.write("#NWalk\tNStep\tGal\tFit\n")
-    f.write("#%d\t%d\t%s\n" % (nwalkers, n_iter,gal))
+    f.write("#%d\t%d\t%s\tFullSpec\n" % (nwalkers, n_iter,gal))
     f.write("#%s\n" % (strparams))
     #f.write("#%s\n" % (strlines))
     f.close()

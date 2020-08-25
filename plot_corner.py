@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import matplotlib.pyplot as mpl
 import numpy as np
 import corner
@@ -14,9 +16,12 @@ rc('text', usetex=True)
 
 def plot_corner(fl, burnin, variables=[], nolimits=False):
 
+    rc('text', usetex=True)
+
     mpl.close('all')
     #if fl.lower() == 'last':
         #fls = np.sort(glob(
+    print(fl.split('/')[-1])
     dataall = mcsp.load_mcmc_file(fl)
 
     #infol = [nworkers, niter, gal, names, high, low, paramnames, linenames, legacy]
@@ -44,10 +49,7 @@ def plot_corner(fl, burnin, variables=[], nolimits=False):
     samples = data[burnin:,:,:].reshape((-1,len(names)))
     if 'f' in paramnames:
         whf = np.where(paramnames == 'f')[0][0]
-        print(samples[:,whf])
-        print(paramnames[whf])
         samples[:,whf] = np.log(samples[:,whf])
-        print(samples[:,whf])
 
     #sys.exit()
 
@@ -69,8 +71,8 @@ def plot_corner(fl, burnin, variables=[], nolimits=False):
         low = np.array(low)[var_i]
         high = np.array(high)[var_i]
 
-    truevalues = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),\
-            zip(*np.percentile(samples, [16, 50, 84], axis=0)))
+    truevalues = list(map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),\
+            zip(*np.percentile(samples, [16, 50, 84], axis=0))))
 
     figure = corner.corner(samples, labels = names, label_kwargs={'fontsize': 20})
     #figure.suptitle(dataall[2][2] + ' ' + flspl + ' ' + mcmctype + ' ' + str(datatype))
@@ -82,9 +84,22 @@ def plot_corner(fl, burnin, variables=[], nolimits=False):
     #mpl.rc('axes', titlesize=17)
     mpl.rc('xtick',labelsize=17)
     mpl.rc('ytick',labelsize=17)
+    #text = r''
 
     # Loop over the diagonal
     for i in range(len(names)):
+        print(paramnames[i]+':\t', np.round(truevalues[i][0] - truevalues[i][2],2), np.round(truevalues[i][0],2),\
+                np.round(truevalues[i][0] + truevalues[i][1],2))
+        midval = str(np.round(truevalues[i][0],2))
+        lowval = str(np.round(truevalues[i][2],2))
+        highval = str(np.round(truevalues[i][1],2))
+        textstr = r'$%s = %s^{%s}_{%s}$' % (names[i],midval, highval, lowval)
+        #text += '$'+names[i]+' = '+str(np.round(truevalues[i][0],2))+'^{'+str(np.round(truevalues[i][2],2))+\
+        #         '}_{'+str(np.round(truevalues[i][1],2))+'}$\n'
+        mpl.text(len(names)-1.25, 0.75-i*0.25, textstr, fontsize = 25,transform=axes[0,0].transAxes)
+
+        #mpl.text(0.7,0.7+i/10., r'$'+names[i]+' = '+str(np.round(truevalues[i][0],2))+'^{'+\
+        #        str(np.round(truevalues[i][2],2))+'}_{'+str(np.round(truevalues[i][1],2))+'}$\n',horizontalalignment='left')
         ax = axes[i, i]
         ax.axvline(truevalues[i][0], color="r")
         ax.axvline(truevalues[i][0] + truevalues[i][1], color="g")
@@ -112,6 +127,11 @@ def plot_corner(fl, burnin, variables=[], nolimits=False):
                 ax.set_ylim((low[yi], high[yi]))
                 ax.set_xlim((low[xi], high[xi]))
             ax.tick_params(axis='both', which='major', labelsize=20)
+
+            if np.logical_and(paramnames[yi] == 'x2', paramnames[xi] == 'x1'):
+                ax.plot(1.3,2.3,marker='o',color='b', markersize=10)
+                ax.plot(2.3,2.3,marker='o',color='g', markersize=10)
+                ax.plot(3.0,3.0,marker='o',color='r', markersize=10)
             #xlab = ax.get_xticklabels()
             #ylab = ax.get_yticklabels()
             #xlab.set_fontsize(20)
@@ -148,7 +168,7 @@ def burnin_test(fl, burnin, step=1000, variables=[]):
         datatype = "Spectra"
 
     for j in range(int(dataall[2][1])/step - 1):
-        print j*step, (j+1)*step
+        print(j*step, (j+1)*step)
         samples = data[j*step:(j+1)*step,:,:].reshape((-1,len(names)))
         truevalues = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),\
                 zip(*np.percentile(samples, [16, 50, 84], axis=0)))
@@ -216,7 +236,7 @@ def get_hist(fl, burnin=-300):
     x2 = samples[:,3]
     x_m = 0.4 + np.arange(17)/5.0
     histprint = mpl.hist2d(x1,x2, bins = x_m)
-    print histprint
+    print(histprint)
     mpl.show()
 
     return histprint

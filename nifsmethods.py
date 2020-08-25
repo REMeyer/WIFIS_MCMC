@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import numpy as np
 from astropy.io import fits
 from glob import glob
@@ -138,15 +140,15 @@ def genwlarr(hdu, speclen = 2040, resample = 1., verbose=False):
     wlarr = np.array(wlarr)
 
     if verbose:
-        print "Creating wl_arr with start %f and step %f. Length of wlarray is %i." % (w1, dw, len(wlarr))
+        print("Creating wl_arr with start %f and step %f. Length of wlarray is %i." % (w1, dw, len(wlarr)))
         
     return wlarr
 
 def sigmaclipspec(spec, halfwidth = 10, sigma = 3):
 
-    print "Starting sigma clipping..."
-    print "Sigma = %i, halfwidth = %i" % (sigma, halfwidth)
-    print "## ##"
+    print("Starting sigma clipping...")
+    print("Sigma = %i, halfwidth = %i" % (sigma, halfwidth))
+    print("## ##")
 
     for i in range(halfwidth, len(spec)-halfwidth):
         value = spec[i]
@@ -158,9 +160,9 @@ def sigmaclipspec(spec, halfwidth = 10, sigma = 3):
         upper = rangemean + sigma*stddev
         lower = rangemean - sigma*stddev
         if value > upper or value < lower:
-            print "Correcting value %f at %i" % (value, i)
+            print("Correcting value %f at %i" % (value, i))
             spec[i] = rangemean
-    print "\n"
+    print()
     return spec
         
 def normalizespec(spec, method = 'median'):
@@ -253,7 +255,7 @@ def skymask(wlarr, data, galaxy, band):
 
         #print "Plotting skymask"
         #mpl.plot(wlarr[mainpass], cont,'g--')
-        print "Correcting skyfeature: %s, %s, %s" % (str(skystart[i]), galaxy, band)
+        print("Correcting skyfeature: %s, %s, %s" % (str(skystart[i]), galaxy, band))
         data[mainpass] = cont
         
     return wlarr, data

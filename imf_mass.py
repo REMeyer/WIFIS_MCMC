@@ -47,19 +47,19 @@ def normalize_imf(x1,x2, age, mass = True):
         i2 = calc_imf(0.5,0.999999,x2, mass = mass)
         i3 = calc_imf(1.0,to_mass,2.3, mass = mass)
         sum_i = i1 + i2 + i3
-        print age, to_mass, i1, i2, i3, sum_i
+        print(age, to_mass, i1, i2, i3, sum_i)
     elif (to_mass <= 1.0) and (to_mass > 0.5):
         i1 = calc_imf(0.08,0.499999,x1, mass = mass)
         i2 = calc_imf(0.5,to_mass,x2, mass = mass)
         i3 = 0
         sum_i = i1 + i2 + i3
-        print age, to_mass, i1, i2, i3, sum_i
+        print(age, to_mass, i1, i2, i3, sum_i)
     elif to_mass <= 0.5:
         i1 = calc_imf(0.08,to_mass,x1, mass = mass)
         i2 = 0
         i3 = 0
         sum_i = i1 + i2 + i3
-        print age, to_mass, i1, i2, i3, sum_i
+        print(age, to_mass, i1, i2, i3, sum_i)
 
     return sum_i, i1,i2,i3,to_mass
 
@@ -73,7 +73,7 @@ def determine_mass_ratio(x1,x2,age):
     return age_i[0]*norm_constant
 
 def mass_ratio_prepare_isochrone():
-    remnantinfo = np.loadtxt('remnants.txt')
+    remnantinfo = np.loadtxt('/home/elliot/mcmcgemini/remnants.txt')
     remnantinfo[:,2] /= 1e9
 
     agemassinterp = spi.interp1d(remnantinfo[:,2], remnantinfo[:,0], kind=3, bounds_error=False)
@@ -129,8 +129,8 @@ def normalize_imf_isochrone(x1,x2, age, to_mass, mass = True):
         i3 = calc_imf(1.0,to_mass,2.3, mass = mass)
         i4 = calc_imf(to_mass,8.0, 2.3, mass = mass)
         sum_i = i1 + i2 + i3
-        print np.round(age,3), np.round(to_mass,3), np.round(i1,3), np.round(i2,3), np.round(i3,3), np.round(sum_i,3),\
-                np.round(i4,3)
+        #print(np.round(age,3), np.round(to_mass,3), np.round(i1,3), \
+        #np.round(i2,3), np.round(i3,3), np.round(sum_i,3),np.round(i4,3))
 
     elif (to_mass <= 1.0) and (to_mass > 0.5):
         i1 = calc_imf(0.08,0.499999,x1, mass = mass)
@@ -138,8 +138,8 @@ def normalize_imf_isochrone(x1,x2, age, to_mass, mass = True):
         i3 = 0
         i4 = calc_imf(to_mass, 0.99999, x2, mass = mass) + calc_imf(1.0, 8.0, 2.3,mass=mass)
         sum_i = i1 + i2 + i3
-        print np.round(age,3), np.round(to_mass,3), np.round(i1,3), np.round(i2,3), np.round(i3,3), np.round(sum_i,3),\
-                np.round(i4,3)
+        #print(np.round(age,3), np.round(to_mass,3), np.round(i1,3), \
+        #np.round(i2,3), np.round(i3,3), np.round(sum_i,3), np.round(i4,3))
 
     elif to_mass <= 0.5:
         i1 = calc_imf(0.08,to_mass,x1, mass = mass)
@@ -148,8 +148,8 @@ def normalize_imf_isochrone(x1,x2, age, to_mass, mass = True):
         i4 = calc_imf(to_mass,0.49999,x1, mass = mass) + calc_imf(0.5,0.99999,x2, mass = mass) \
                 + calc_imf(1.0,8.0,2.3, mass = mass)
         sum_i = i1 + i2 + i3
-        print np.round(age,3), np.round(to_mass,3), np.round(i1,3), np.round(i2,3), np.round(i3,3), np.round(sum_i,3),\
-                np.round(i4,3)
+        #print(np.round(age,3), np.round(to_mass,3), np.round(i1,3),\
+        #np.round(i2,3), np.round(i3,3), np.round(sum_i,3),np.round(i4,3))
 
     return sum_i, i1,i2,i3, to_mass, i4
 
@@ -220,35 +220,35 @@ if __name__ == '__main__':
         #x5 = determine_mass_ratio_isochrone(0.5,0.5, 5.0, bottomlight=True)#/0.256
         #x5 = determine_mass_ratio_isochrone(0.5,0.5, 5.0)#/0.256
         if age == 5.0:
-            print x1, x1/0.985
-            print x2, x2/0.952
-            print x3, x3/0.752
-            print x4, x4/0.597
+            print(x1, x1/0.985)
+            print(x2, x2/0.952)
+            print(x3, x3/0.752)
+            print(x4, x4/0.597)
         elif age == 3.0:
-            print x1, x1/0.987
-            print x2, x2/0.957
-            print x3, x3/0.765
-            print x4, x4/0.616
+            print(x1, x1/0.987)
+            print(x2, x2/0.957)
+            print(x3, x3/0.765)
+            print(x4, x4/0.616)
         elif age == 7.0:
-            print x1, x1/0.984
-            print x2, x2/0.949
-            print x3, x3/0.744
-            print x4, x4/0.585
+            print(x1, x1/0.984)
+            print(x2, x2/0.949)
+            print(x3, x3/0.744)
+            print(x4, x4/0.585)
         elif age == 9.0:
-            print x1, x1/0.983
-            print x2, x2/0.937
-            print x3, x3/0.740
-            print x4, x4/0.579
+            print(x1, x1/0.983)
+            print(x2, x2/0.937)
+            print(x3, x3/0.740)
+            print(x4, x4/0.579)
         elif age == 11.0:
-            print x1, x1/0.982
-            print x2, x2/0.944
-            print x3, x3/0.736
-            print x4, x4/0.572
+            print(x1, x1/0.982)
+            print(x2, x2/0.944)
+            print(x3, x3/0.736)
+            print(x4, x4/0.572)
         elif age == 13.5:
-            print x1, x1/0.982
-            print x2, x2/0.943
-            print x3, x3/0.732
-            print x4, x4/0.567
+            print(x1, x1/0.982)
+            print(x2, x2/0.943)
+            print(x3, x3/0.732)
+            print(x4, x4/0.567)
 
             
         #print x5, 0.262/x5

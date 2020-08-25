@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import numpy as np
 import scipy.optimize as spo
 import matplotlib.pyplot as mpl
@@ -8,6 +10,7 @@ import sys
 import pandas as pd
 import plot_corner as pc
 import imf_mass as imf
+import scipy.ndimage
 
 from matplotlib import rc
 rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
@@ -49,43 +52,62 @@ def load_mcmc_file(fl):
     Inputs:
         fl -- The mcmc chain data file.'''
 
+    fittype = fl.split('_')[-1][:-4]
+
     f = open(fl,'r')
     f.readline()
     info = f.readline()
-    firstline = f.readline()
-    secondline = f.readline()
-    thirdline = f.readline()
 
-    if secondline[0] == '#':
+    extralines = 0
+    if fittype == 'fullindex':
         lines = True
-        paramstr = firstline[1:]
-        linestr = secondline[1:]
-        nextline = f.readline()
-        n_values = len(nextline.split())
+
+        paramline = f.readline()
+        paramnames = paramline[1:].split()
+
+        linesline = f.readline()
+        linenames = linesline[1:].split()
+
+        dictline = f.readline()
+        if dictline[0] != '#':
+            extralines += 1
+
+        commentline = f.readline()
+        if commentline[0] != '#':
+            extralines += 1
+        
     else:
-        lines = False
-        paramstr = firstline[1:]
-        linestr = []
-        n_values = len(secondline.split())
+        lines = False 
+
+        paramline = f.readline()
+        paramnames = paramline[1:].split()
+
+        linenames = []
+
+        dictline = f.readline()
+        if dictline[0] != '#':
+            extralines += 1
+
+        commentline = f.readline()
+        if commentline[0] != '#':
+            extralines += 1
+
+    n_values = len(paramnames)
 
     #Get line count to diagnose
-    lc = 1
+    lc = extralines
     for line in f:
         lc += 1
     f.close()
+
+    #Get MCMC run info
     info = info[1:]
     values = info.split()
     nworkers = int(values[0])
     niter = int(values[1])
     gal = values[2]
 
-    if lines:
-        paramnames = paramstr.split()
-        linenames = linestr.split()
-    else:
-        paramnames = paramstr.split()
-        linenames = []
-
+    #Parse paramnames and assign ploting text and limits
     names = []
     high = []
     low = []
@@ -131,35 +153,34 @@ def load_mcmc_file(fl):
             high.append(0.3)
             low.append(0.0)
 
-
     names.insert(0,"Worker")
     names.insert(len(names), "ChiSq")
-    print "Params: ", paramnames
+    print("Params: ", paramnames)
     if lines:
-        print "Lines: ", linenames
+        print("Lines: ", linenames)
 
     #N lines should be nworkers*niter
     n_lines = nworkers*niter
     if lc < nworkers:
-        print "FILE DOES NOT HAVE ONE STEP...RETURNING"
+        print("FILE DOES NOT HAVE ONE STEP...RETURNING")
         return
     elif lc % nworkers != 0:
-        print "FILE HAS INCOMPLETE STEP...REMOVING"
+        print("FILE HAS INCOMPLETE STEP...REMOVING")
         n_steps = int(lc / nworkers)
-        initdata = pd.read_table(fl, comment='#', header = None, \
+        initdata = pd.read_csv(fl, comment='#', header = None, \
                 names=names, delim_whitespace=True)
         #initdata = np.loadtxt(fl)
         data = np.array(initdata)
         data = data[:n_steps*nworkers,:]
     elif lc != n_lines:
-        print "FILE NOT COMPLETE"
-        initdata = pd.read_table(fl, comment='#', header = None, \
+        print("FILE NOT COMPLETE")
+        initdata = pd.read_csv(fl, comment='#', header = None, \
                 names=names, delim_whitespace=True)
         data = np.array(initdata)
         #data = np.loadtxt(fl)
         n_steps = int(data.shape[0]/nworkers)
     else:
-        initdata = pd.read_table(fl, comment='#', header = None, \
+        initdata = pd.read_csv(fl, comment='#', header = None, \
                 names=names, delim_whitespace=True)
         data = np.array(initdata)
         #data = np.loadtxt(fl)
@@ -188,8 +209,6 @@ def load_mcmc_file(fl):
             names[k] = r'\textbf{$x_{2}$}'
     names = np.array(names)[rearrange]
     paramnames = np.array(paramnames)[rearrange]
-    print(names)
-    print(paramnames)
 
     infol = [nworkers, niter, gal, names, high, low, paramnames, linenames, lines]
 
@@ -198,7 +217,7 @@ def load_mcmc_file(fl):
     realdata = folddata[:,:,1:-1]
     realdata = realdata[:,:,rearrange]
     lastdata = realdata[-1,:,:]
-    print "DATASHAPE: ", realdata.shape
+    print("DATASHAPE: ", realdata.shape)
 
     return [realdata, postprob, infol, lastdata]
 
@@ -206,18 +225,20 @@ def convolvemodels(wlfull, datafull, veldisp, reglims = False):
 
     if reglims:
         reg = (wlfull >= reglims[0]) & (wlfull <= reglims[1])
+        m_center = reglims[0] + (reglims[1] - reglims[0])/2.
         #print("Reglims")
     else:
         reg = (wlfull >= 9500) & (wlfull <= 13500)
+        m_center = 11500
         #print("Not Reglims")
     
     wl = wlfull[reg]
+    dw = wl[1]-wl[0]
     data = datafull[reg]
 
     c = 299792.458
 
     #Sigma from description of models
-    m_center = 11500
     m_sigma = np.abs((m_center / (1 + 100./c)) - m_center)
     #f = m_center + m_sigma
     #v = c * ((f/m_center) - 1)
@@ -225,10 +246,11 @@ def convolvemodels(wlfull, datafull, veldisp, reglims = False):
     sigma_gal = np.abs((m_center / (veldisp/c + 1.)) - m_center)
     sigma_conv = np.sqrt(sigma_gal**2. - m_sigma**2.)
 
-    convolvex = np.arange(-5*sigma_conv,5*sigma_conv, 2.0)
-    gaussplot = gauss_nat(convolvex, [sigma_conv,0.])
+    #convolvex = np.arange(-5*sigma_conv,5*sigma_conv, 2.0)
+    #gaussplot = gauss_nat(convolvex, [sigma_conv,0.])
 
-    out = np.convolve(datafull, gaussplot, mode='same')
+    #out = np.convolve(datafull, gaussplot, mode='same')
+    out = scipy.ndimage.gaussian_filter(datafull, sigma_conv / dw)
 
     return wlfull, out
 
@@ -267,7 +289,7 @@ def calculate_MLR_test():
     massremnant = imf.massremnant(interps[-1], to_mass)
     #Caluclate final remaining mass
     MWremaining += massremnant*normconstant
-    print "MW Mass: ", MWremaining
+    print("MW Mass: ", MWremaining)
     
     whK = np.where((wlm >= 20300) & (wlm <= 23700))[0] 
 
@@ -294,8 +316,8 @@ def calculate_MLR_test():
     alphaAdjBH = (IMFBH * MLR_MW) / (MWremaining * MLR_BH)
     alphaAdjSALP =(IMFSALP * MLR_MW) / (MWremaining * MLR_SALP)
 
-    print alphaBH, alphaAdjBH
-    print alphaSALP, alphaAdjSALP
+    print(alphaBH, alphaAdjBH)
+    print(alphaSALP, alphaAdjSALP)
 
 def parsemodelname(modelname):
 
@@ -374,10 +396,10 @@ def measure_line(wl, spec, i, errors = False, contcorrect=False):
             eqwerrprop += ((errorarr[j]**2 / cont[j]**2) + ((conterr*linedata[j])/cont[j]**2)**2) * (wl[k+1] - wl[k])**2
 
     if errors:
-		eqwerrprop = np.sqrt(eqwerrprop)
-		return eqw, eqwerrprop
+        eqwerrprop = np.sqrt(eqwerrprop)
+        return eqw, eqwerrprop
     else:
-		return eqw
+        return eqw
 
 def preload_vcj(overwrite_base = False):
     '''Loads the SSP models into memory so the mcmc model creation takes a
