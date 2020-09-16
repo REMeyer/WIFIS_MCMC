@@ -489,13 +489,16 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
     #if fitmode in [True, False, 'NoAge', 'NoAgeVelDisp']:
 
     #Na adjustment
-    ab_contribution = 0.0
+    #ab_contribution = 0.0
+    ab_contribution = np.ones(c[:,0].shape)
     if 'Na' in paramnames:
         Naextend = (c[:,2]-c[:,0])*(-0.5/-0.3) + c[:,0]
         interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.6,0.9], \
                 np.stack((Naextend,c[:,2],c[:,0],c[:,1],c[:,-2],c[:,-1])), kind = 'cubic')
-        NaP = interp(wl,Na) / c[:,0] - 1.
-        ab_contribution += NaP
+        #NaP = interp(wl,Na) / c[:,0] - 1.
+        #ab_contribution += NaP
+        NaP = interp(wl,Na) / c[:,0]
+        ab_contribution *= NaP
 
     #K adjustment (assume symmetrical K adjustment)
     if 'K' in paramnames:
@@ -504,8 +507,10 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
         Kpextend = (c[:,29] - c[:,0]) * (0.5/0.3) + c[:,0]
         interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], \
                 np.stack((Kmextend,Kminus,c[:,0],c[:,29],Kpextend)), kind = 'linear')
-        KP = interp(wl,K) / c[:,0] - 1.
-        ab_contribution += KP
+        #KP = interp(wl,K) / c[:,0] - 1.
+        #ab_contribution += KP
+        KP = interp(wl,K) / c[:,0]
+        ab_contribution *= KP
 
     #Mg adjustment
     if 'Mg' in paramnames:
@@ -513,8 +518,10 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
         pextend = (c[:,15] - c[:,0])*(0.5/0.3) + c[:,0]
         interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], \
                 np.stack((mextend,c[:,16], c[:,0],c[:,15],pextend)), kind = 'linear')
-        MgP = interp(wl,Mg) / c[:,0] - 1.
-        ab_contribution += MgP
+        #MgP = interp(wl,Mg) / c[:,0] - 1.
+        #ab_contribution += MgP
+        MgP = interp(wl,Mg) / c[:,0]
+        ab_contribution *= MgP
 
     #Fe Adjustment
     if 'Fe' in paramnames:
@@ -522,8 +529,10 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
         Fepextend = (c[:,5] - c[:,0])*(0.5/0.3) + c[:,0]
         interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], \
                 np.stack((Femextend,c[:,6], c[:,0],c[:,5],Fepextend)), kind = 'linear')
-        FeP = interp(wl,Fe) / c[:,0] - 1.
-        ab_contribution += FeP
+        #FeP = interp(wl,Fe) / c[:,0] - 1.
+        #ab_contribution += FeP
+        FeP = interp(wl,Fe) / c[:,0]
+        ab_contribution *= FeP
 
     #Ca Adjustment
     if 'Ca' in paramnames:
@@ -531,8 +540,10 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
         Cpextend = (c[:,3] - c[:,0])*(0.5/0.3) + c[:,0]
         interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], \
                 np.stack((Cmextend,c[:,4], c[:,0],c[:,3],Cpextend)), kind = 'linear')
-        CaP = interp(wl,Ca) / c[:,0] - 1.
-        ab_contribution += CaP
+        #CaP = interp(wl,Ca) / c[:,0] - 1.
+        #ab_contribution += CaP
+        CaP = interp(wl,Ca) / c[:,0] 
+        ab_contribution *= CaP
 
     #C Adjustment
     if 'C' in paramnames:
@@ -540,9 +551,11 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
         pextend = (c[:,7] - c[:,0])*(0.3/0.15) + c[:,0]
         interp = spi.interp2d(wl, [-0.3,-0.15,0.0,0.15,0.3], \
                 np.stack((mextend,c[:,8], c[:,0],c[:,7],pextend)), kind = 'linear')
-        Abval = interp(wl,Carbon) / c[:,0] - 1.
-        ab_contribution += Abval
-    abundi = [0,1,2,-2,-1,29,16,15,6,5,4,3,8,7]
+        #Abval = interp(wl,Carbon) / c[:,0] - 1.
+        #ab_contribution += Abval
+        Abval = interp(wl,Carbon) / c[:,0] 
+        ab_contribution *= Abval
+#    abundi = [0,1,2,-2,-1,29,16,15,6,5,4,3,8,7]
 
     #Si Adjustment
     if 'Si' in paramnames:
@@ -550,8 +563,10 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
         pextend = (c[:,17] - c[:,0])*(0.5/0.3) + c[:,0]
         interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], \
                 np.stack((mextend,c[:,18], c[:,0],c[:,17],pextend)), kind = 'linear')
-        Abval = interp(wl,Si) / c[:,0] - 1.
-        ab_contribution += Abval
+        #Abval = interp(wl,Si) / c[:,0] - 1.
+        #ab_contribution += Abval
+        Abval = interp(wl,Si) / c[:,0]
+        ab_contribution *= Abval
 
     #Ti Adjustment
     if 'Ti' in paramnames:
@@ -559,8 +574,10 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
         pextend = (c[:,13] - c[:,0])*(0.5/0.3) + c[:,0]
         interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], \
                 np.stack((mextend,c[:,14], c[:,0],c[:,13],pextend)), kind = 'linear')
-        Abval = interp(wl,Ti) / c[:,0] - 1.
-        ab_contribution += Abval
+        #Abval = interp(wl,Ti) / c[:,0] - 1.
+        #ab_contribution += Abval
+        Abval = interp(wl,Ti) / c[:,0]
+        ab_contribution *= Abval
 
     #Cr Adjustment
     if 'Cr' in paramnames:
@@ -569,7 +586,9 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
         pextend = (c[:,21] - c[:,0])*(0.5/0.3) + c[:,0]
         interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], \
                 np.stack((mextend,Crminus, c[:,0],c[:,21],pextend)), kind = 'linear')
-        Abval = interp(wl,Cr) / c[:,0] - 1.
+        #Abval = interp(wl,Cr) / c[:,0] - 1.
+        #ab_contribution += Abval
+        Abval = interp(wl,Cr) / c[:,0]
         ab_contribution += Abval
 
     #model_ratio = mimf / basemodel
@@ -580,7 +599,8 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
     # The new model is = the base IMF model * abundance effects. 
     # The abundance effect %ages are scaled by the ratio of the selected IMF model to the Kroupa IMF model
     # The formula ensures that if the abundances are solar then the base IMF model is recovered. 
-    newm = mimf*(1. + (model_ratio*ab_contribution))
+    #newm = mimf*(1. + (model_ratio*ab_contribution))
+    newm = mimf*ab_contribution
 
     if timing:
         print("MSPEC T3: ", time.time() - t3)
@@ -592,10 +612,12 @@ def calc_chisq(params, wl, data, err, paramnames,\
     ''' Important function that produces the value that essentially
     represents the likelihood of the mcmc equation. Produces the model
     spectrum then returns a normal chisq value.'''
-    timing=True
+    #timing=True
 
-    linelow, linehigh, bluelow, bluehigh, redlow, redhigh, line_name, \
-            index_name, mlow, mhigh, morder = linedefs
+    linelow, linehigh, bluelow, bluehigh, redlow, redhigh, \
+            mlow, mhigh, morder = linedefs[0]
+    line_name = linedefs[1]
+    index_name = linedefs[2]
     
     if timing:
         t1 = time.time()
@@ -765,8 +787,8 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramnames, threads = 6, fl = Non
     #morder = [1,1,1,5,2,4]
     line_name = ['Band1','Band2','NaI','Band3','Band4','Band5']
 
-    linedefs = [linelow, linehigh, bluelow, bluehigh, redlow, redhigh,\
-            line_name, index_name, mlow, mhigh, morder]
+    linedefs = [[bluelow, bluehigh, linelow, linehigh, redlow,\
+            redhigh, mlow, mhigh, morder], line_name, index_name]
 
     ### INSERT YOUR SPECTRA LOADING SCRIPT HERE ######
     #wl, data, err = preps.preparespec(gal) ### NIFS
@@ -855,5 +877,5 @@ if __name__ == '__main__':
     
     #params = ['Age','Z','x1','x2','Ca','Na','Fe','K','Mg','C','Ti','Cr','Si']
     params = ['Age','Z','x1','x2','Ca','Na','Fe','K','Mg','C','Ti','Si']
-    sampler = do_mcmc('M85', 512, 10000, 0.00230, 157, params, threads = 16, \
-        fl = '/data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20171229_R1.fits')
+    fl_R1 = '/data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20200528_R1.fits'
+    sampler = do_mcmc('M85', 512, 10000, 0.00230, 157, params, threads = 16, fl = fl_R1)

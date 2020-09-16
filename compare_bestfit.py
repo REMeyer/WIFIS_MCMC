@@ -463,7 +463,8 @@ def compare_bestfit_animation(datafl, mcmcfl, z, veldisp, vcj, burnin=-1000, \
     #return wl, data, modelproc, [wlc,mconv]
 
 def compare_bestfit3(datafl, mcmcfl, z, veldisp, vcj, burnin=-1000, \
-        sauron = False, sauron_z=False, sauron_veldisp=False, save = False):
+        sauron = False, sauron_z=False, sauron_veldisp=False, save = False,\
+        medianonly=False):
 
     mpl.close('all')
     #if fl.lower() == 'last':
@@ -492,12 +493,12 @@ def compare_bestfit3(datafl, mcmcfl, z, veldisp, vcj, burnin=-1000, \
 
     #Line definitions & other definitions
     #WIFIS Defs
-    bluelow =  [9855, 10300, 11340, 11667, 11710, 12460, 12780, 12648, 12240, 11905]
-    bluehigh = [9880, 10320, 11370, 11680, 11750, 12495, 12800, 12660, 12260, 11935]
-    linelow =  [9905, 10337, 11372, 11680, 11765, 12505, 12810, 12670, 12309, 11935]
-    linehigh = [9935, 10360, 11415, 11705, 11793, 12545, 12840, 12690, 12333, 11965]
-    redlow =   [9940, 10365, 11417, 11710, 11793, 12555, 12860, 12700, 12360, 12005]
-    redhigh =  [9970, 10390, 11447, 11750, 11810, 12590, 12870, 12720, 12390, 12025]
+    bluelow =  [9855, 10300, 11340, 11667, 11710, 11905,12240,12460, 12648, 12780]
+    bluehigh = [9880, 10320, 11370, 11680, 11750, 11935,12260,12495, 12660, 12800]
+    linelow =  [9905, 10337, 11372, 11680, 11765, 11935,12309,12505, 12670, 12810]
+    linehigh = [9935, 10360, 11415, 11705, 11793, 11965,12333,12545, 12690, 12840]
+    redlow =   [9940, 10365, 11417, 11710, 11793, 12005,12360,12555, 12700, 12860]
+    redhigh =  [9970, 10390, 11447, 11750, 11810, 12025,12390,12590, 12720, 12870]
 
     #mlow =     [9855, 10300, 11340, 11667, 11710, 12460, 12780, 12648, 12240]
     #mhigh =    [9970, 10390, 11447, 11750, 11810, 12590, 12870, 12720, 12390]
@@ -507,10 +508,9 @@ def compare_bestfit3(datafl, mcmcfl, z, veldisp, vcj, burnin=-1000, \
         mhigh.append(i[1])
     morder = [1,1,1,1,1,1,1,1,1,1]
 
-    line_name = np.array(['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'PaB', 'NaI127', 'NaI123','CaII119'])
-    nice_name = np.array(['FeH',r'Ca$\,$I',r'Na$\,$I',r'K$\,$I$\,$a',r'K$\,$I$\,$b',\
-                          r'K$\,$I$\,$1.25', r'Pa$\,\beta$',\
-                          r'Na$\,$I$\,$1.27', r'Na$\,$I$\,$1.23',r'Ca$\,$II$\,$1.19'])
+    line_name = np.array(['FeH','CaI','NaI','KI_a','KI_b','CaII119', 'NaI123','KI_1.25','NaI127','PaB'])
+    nice_name = np.array(['FeH', r'Ca$\,$I',r'Na$\,$I$\,$1.14', r'K$\,$I$\,$a', r'K$\,$I$\,$b', r'Ca$\,$II$\,$1.19',\
+                r'Na$\,$I$\,$1.23', r'K$\,$I$\,$1.25',r'Na$\,$I$\,$1.27', r'Pa$\,\beta$'])
 
     linedefs = [np.array([bluelow, bluehigh, linelow, linehigh, redlow,\
             redhigh, mlow, mhigh, morder]), line_name, line_name]
@@ -549,6 +549,15 @@ def compare_bestfit3(datafl, mcmcfl, z, veldisp, vcj, burnin=-1000, \
     paramdict = {}
     for p in paramnames:
         paramdict[p] = None
+    
+    params_th = np.array(params_median)
+    x1_i = np.where(paramnames == 'x1')[0][0]
+    params_th[x1_i] = 3.0
+    x2_i = np.where(paramnames == 'x2')[0][0]
+    params_th[x2_i] = 3.0
+    
+    params_low = params_th
+
     
     if sauron:
         wlm, newm_median, base_median = mcfi.model_spec(params_median, paramnames, paramdict, full = True, vcjset=vcj)
@@ -589,6 +598,16 @@ def compare_bestfit3(datafl, mcmcfl, z, veldisp, vcj, burnin=-1000, \
         
     fig, axes = mpl.subplots(2,4,figsize = (16,8))
     axes = axes.flatten()
+
+    if 'HBeta' in linenames:
+        plotorder = ['HBeta']
+    else:
+        plotorder = []
+        
+    for n in line_name:
+        if n in linenames:
+            plotorder.append(n)
+    plotorder = np.array(plotorder)
 
     verbose = False
     for k in range(len(linenames)):
@@ -663,55 +682,71 @@ def compare_bestfit3(datafl, mcmcfl, z, veldisp, vcj, burnin=-1000, \
         #wlmslice = mwl[whm]
         
         # PLOT GALAXY AND MODELS
+        
+        ploti = np.where(plotorder == linenames[k])[0][0]
         if linenames[k] != 'HBeta':
-            axes[k].plot(wl[i], data[i], linewidth = 3.5, color='k', label = 'Galaxy')
-            axes[k].fill_between(wl[i],data[i] + err[i], data[i]-err[i],\
+            axes[ploti].plot(wl[i], data[i], linewidth = 3.5, color='k', label = 'Galaxy')
+            axes[ploti].fill_between(wl[i],data[i] + err[i], data[i]-err[i],\
                                  facecolor = 'gray', alpha = 0.5)
-            axes[k].set_title(nice_name[i], fontsize = 17)
+            axes[ploti].set_title(nice_name[i], fontsize = 20)
 
             #Plot REGIONS
-            axes[k].axvspan(bluelow[i], bluehigh[i], facecolor='b',\
+            axes[ploti].axvspan(bluelow[i], bluehigh[i], facecolor='b',\
                             alpha=0.2)
-            axes[k].axvspan(redlow[i], redhigh[i],facecolor='b', alpha=0.2)
-            axes[k].axvspan(linelow[i], linehigh[i],facecolor='r',\
+            axes[ploti].axvspan(redlow[i], redhigh[i],facecolor='b', alpha=0.2)
+            axes[ploti].axvspan(linelow[i], linehigh[i],facecolor='r',\
                             alpha=0.2)
             #axes[i].fill_between(wl[i], dataslice_low, dataslice_high,\
             #                     facecolor = '', alpha = 0.5)
-            axes[k].set_xlim((bluelow[i], redhigh[i]))
+            axes[ploti].set_xlim((bluelow[i], redhigh[i]))
             
-            axes[k].plot(wl[i], dataslice_med, color='r', linewidth = 2.5, label='Model')
-            axes[k].plot(wl[i], dataslice_low, color='r', linewidth = 2.5, \
-                    linestyle='--')
-            axes[k].plot(wl[i], dataslice_high, color='r', linewidth = 2.5, \
+            axes[ploti].plot(wl[i], dataslice_low, color='tab:green', linewidth = 2.5, \
+                     label='BH')
+            axes[ploti].plot(wl[i], dataslice_med, color='tab:red', linewidth = 2.5,\
+                label='Best-Fit')
+
+
+            if not medianonly:
+                axes[ploti].plot(wl[i], dataslice_high, color='r', linewidth = 2.5, \
                     linestyle='--')
 
         else:
-            axes[k].plot(wl_s[0], data_s[0], linewidth = 3.5, color='k', label = 'Galaxy')
-            axes[k].fill_between(wl_s[0],data_s[0] + err_s[0], data_s[0]-err_s[0],\
+            axes[ploti].plot(wl_s[0], data_s[0], linewidth = 3.5, color='k', label = 'Galaxy')
+            axes[ploti].fill_between(wl_s[0],data_s[0] + err_s[0], data_s[0]-err_s[0],\
                                  facecolor = 'gray', alpha = 0.5)
-            axes[k].set_title(r'H$\beta$', fontsize = 17)
+            axes[ploti].set_title(r'H$\beta$', fontsize = 20)
 
             #Plot REGIONS
-            axes[k].axvspan(bluelow_s[0], bluehigh_s[0], facecolor='b',\
+            axes[ploti].axvspan(bluelow_s[0], bluehigh_s[0], facecolor='b',\
                             alpha=0.2)
-            axes[k].axvspan(redlow_s[0], redhigh_s[0],facecolor='b', alpha=0.2)
-            axes[k].axvspan(linelow_s[0], linehigh_s[0],facecolor='r',\
+            axes[ploti].axvspan(redlow_s[0], redhigh_s[0],facecolor='b', alpha=0.2)
+            axes[ploti].axvspan(linelow_s[0], linehigh_s[0],facecolor='r',\
                             alpha=0.2)
-            axes[k].set_xlim((bluelow_s[0], redhigh_s[0]))
+            axes[ploti].set_xlim((bluelow_s[0], redhigh_s[0]))
 
-            axes[k].plot(wl_s[0], dataslice_med, color='r', linewidth = 2.5, label='Model')
-            axes[k].plot(wl_s[0], dataslice_low, color='r', linewidth = 2.5, \
+            axes[ploti].plot(wl_s[0], dataslice_low, color='tab:green', linewidth = 2.5, \
+                    label='BH')
+            axes[ploti].plot(wl_s[0], dataslice_med, color='tab:red', linewidth = 2.5, \
+                    label='Best-Fit')
+
+
+            if not medianonly:
+                axes[ploti].plot(wl_s[0], dataslice_high, color='r', linewidth = 2.5, \
                     linestyle='--')
-            axes[k].plot(wl_s[0], dataslice_high, color='r', linewidth = 2.5, \
-                    linestyle='--')
+        
+        axes[ploti].tick_params(axis='both', which='major', labelsize=20)
+        axes[ploti].minorticks_on()
 
 
-        axes[k].tick_params(axis='both', which='major', labelsize=15)
-    mpl.subplots_adjust(hspace=0.2)
+    mpl.subplots_adjust(hspace=0.3, wspace = 0.275)
+    axes[0].text(-0.35,-0.5,'Relative Flux', fontsize = 25, rotation = 'vertical',\
+                transform=axes[0].transAxes)
+    axes[4].text(2.0,-0.3,r'Wavelength ($\textrm{\AA}$)', fontsize = 22,\
+                transform=axes[4].transAxes)
 
-    handles, labels = axes[0].get_legend_handles_labels()
+    #handles, labels = axes[0].get_legend_handles_labels()
     #fig.legend(handles,labels, bbox_to_anchor=(1.09, 0.25), fontsize='large')
-    fig.legend(handles,labels, fontsize='large')
+    axes[4].legend(fontsize=15, handlelength=1, loc=4)
     #mpl.tight_layout()
     #fig.legend(handles, labels, fontsize='large')
 

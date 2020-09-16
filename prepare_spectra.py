@@ -131,8 +131,11 @@ def splitspec(wl, data, linedefsfull, err=False, scale = False, usecont=True):
     wlbands = []
     errorbands = []
 
-    for i in range(len(linedefs[0])):
-        wh = np.where(np.logical_and(wl >= linedefs[6,i],wl <= linedefs[7,i]))[0]
+    for i in range(len(linedefs[6])):
+        if type(linedefs) == list:
+            wh = np.where(np.logical_and(wl >= linedefs[6][i],wl <= linedefs[7][i]))[0]
+        else:
+            wh = np.where(np.logical_and(wl >= linedefs[6,i],wl <= linedefs[7,i]))[0]
 
         dataslice = data[wh]
         wlslice = wl[wh]
