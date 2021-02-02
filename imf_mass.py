@@ -73,11 +73,18 @@ def determine_mass_ratio(x1,x2,age):
     return age_i[0]*norm_constant
 
 def mass_ratio_prepare_isochrone():
+    # Load remnant information from file
+    # Colums: ? ? Age
     remnantinfo = np.loadtxt('/home/elliot/mcmcgemini/remnants.txt')
+    # Normalize the third column into Gyr
     remnantinfo[:,2] /= 1e9
 
+    # Interpolate the columns to make continuous series.
+    # First x=age, y = mass of star
     agemassinterp = spi.interp1d(remnantinfo[:,2], remnantinfo[:,0], kind=3, bounds_error=False)
+    # Second x=? y = mass of remnant after MS?
     remnantinterp = spi.interp1d(remnantinfo[:,0], remnantinfo[:,1], kind=3, bounds_error=False)
+    # Second x=? y = mass of remnant relative to MS mass
     newremnantinterp = spi.interp1d(remnantinfo[:,0], remnantinfo[:,1]/remnantinfo[:,0],\
             kind=3, bounds_error=False)
 
@@ -123,6 +130,7 @@ def massremnant(newremnantinterp, to_mass):
 
 def normalize_imf_isochrone(x1,x2, age, to_mass, mass = True):
         
+    # If the turn-off mass is greater than one
     if to_mass > 1.0:
         i1 = calc_imf(0.08,0.499999,x1, mass = mass)
         i2 = calc_imf(0.5,0.999999,x2, mass = mass)
@@ -131,7 +139,8 @@ def normalize_imf_isochrone(x1,x2, age, to_mass, mass = True):
         sum_i = i1 + i2 + i3
         #print(np.round(age,3), np.round(to_mass,3), np.round(i1,3), \
         #np.round(i2,3), np.round(i3,3), np.round(sum_i,3),np.round(i4,3))
-
+    
+    # if turnoff mass is between 0.5 and 1.0 
     elif (to_mass <= 1.0) and (to_mass > 0.5):
         i1 = calc_imf(0.08,0.499999,x1, mass = mass)
         i2 = calc_imf(0.5,to_mass,x2, mass = mass)
@@ -141,6 +150,7 @@ def normalize_imf_isochrone(x1,x2, age, to_mass, mass = True):
         #print(np.round(age,3), np.round(to_mass,3), np.round(i1,3), \
         #np.round(i2,3), np.round(i3,3), np.round(sum_i,3), np.round(i4,3))
 
+    # If turnoff mass is below 0.5
     elif to_mass <= 0.5:
         i1 = calc_imf(0.08,to_mass,x1, mass = mass)
         i2 = 0

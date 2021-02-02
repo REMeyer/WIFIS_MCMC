@@ -22,11 +22,13 @@ def calculate_MLR(fl, burnin = -1000, vcjset = None, verbose = False):
     for n in paramnames:
         paramdict[n] = None
     
+    #Generate 2d array for every IMF to hold M/L values
     MLR = np.zeros((len(x_m),len(x_m))) #Array to hold the M/L values
-    MWvalues = np.array(truevalues)
-    MWvalues[ix1] = 1.3
-    MWvalues[ix2] = 2.3
+    MWvalues = np.array(truevalues) #Generate array with same file params but w/ MW IMF
+    MWvalues[ix1] = 1.3 # Change IMF x1
+    MWvalues[ix2] = 2.3 # Change IMF x2
 
+    # Create model spectrum for best-fit run params & MW-imf
     wlgMW, newmMW, basemMW = mcfi.model_spec(MWvalues, paramnames, paramdict, \
                         vcjset = vcjset, MLR = True) #Generate the MW spectrum
     

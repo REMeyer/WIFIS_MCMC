@@ -1025,6 +1025,27 @@ def removeLineSlope(self, wlc, mconv, i):
 
     return polyfit, [bluepass, redpass, mainpass]
 
+def createModel(vcj, paramnames, params, save = False):
+
+    mpl.close('all')
+
+    paramdict = {}
+    for p in paramnames:
+        paramdict[p] = None
+    
+    wlm, newm, base = mcfi.model_spec(params, paramnames, \
+            paramdict, full = True, vcjset=vcj)
+
+    if save:
+        hdu = fits.PrimaryHDU(newm)
+        hdu2 = fits.ImageHDU(wlm, name = 'WL')
+        hdu3 = fits.ImageHDU(base, name = 'BASE')
+        hdul = fits.HDUList([hdu,hdu2,hdu3])
+
+        hdul.writeto(save, overwrite=True)
+
+
+    return wlm, newm, base
 
 if __name__ == '__main__':
     pass

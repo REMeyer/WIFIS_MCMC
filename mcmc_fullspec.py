@@ -62,11 +62,13 @@ for i in range(16):
 
 vcj = {}
 
-def preload_vcj(overwrite_base = False):
+def preload_vcj(overwrite_base = False, sauron=False, saurononly=False, MLR=False):
     '''Loads the SSP models into memory so the mcmc model creation takes a
     shorter time. Returns a dict with the filenames as the keys'''
-    global vcj
+    #global vcjfull
     #global base
+
+    vcj = {}
 
     if overwrite_base:
         base = overwrite_base
@@ -114,10 +116,48 @@ def preload_vcj(overwrite_base = False):
         vcj["%.1f_%.1f" % (age, Zval)].append(x[:,1:])
 
     vcj["WL"] = x[:,0]
-
     print("FINISHED LOADING MODELS")
 
-    return vcj
+    print("Calculating IMF interpolators")
+    wlfull = vcj["WL"]
+    if sauron:
+        rel = np.where((wlfull > 4000) & (wlfull < 14000))[0]
+    elif saurononly:
+        rel = np.where((wlfull > 4000) & (wlfull < 6000))[0]
+    elif MLR:
+        rel = np.where((wlfull > 20000) & (wlfull < 24000))[0]
+    else:
+        rel = np.where((wlfull > 8500) & (wlfull < 14000))[0]
+    wl = wlfull[rel]
+
+    fullage = np.array([1.0,3.0,5.0,7.0,9.0,11.0,13.5])
+    fullZ = np.array([-1.5, -1.0, -0.5, 0.0, 0.2])
+
+    imf_interp = []
+    for k in range(vcj['3.0_0.0'][0].shape[1]):
+        out = np.meshgrid(fullage,fullZ,wl)
+        grid = (out[0],out[1],out[2])
+        newgrid = np.zeros(out[0].shape)
+        for i,age in enumerate(fullage):
+            for j,z in enumerate(fullZ):
+                #print(vcj["%.1f_%.1f" % (age, z)][0][rel,73].shape)
+                newgrid[j,i,:] = vcj["%.1f_%.1f" % (age, z)][0][rel,k]
+        fulli = spi.RegularGridInterpolator((fullZ,fullage,wl), newgrid)
+        imf_interp.append(fulli)
+    
+    print("Calculating elemental interpolators")
+    ele_interp = []
+    for k in range(vcj['3.0_0.0'][1].shape[1]):
+        out = np.meshgrid(fullage,fullZ,wl)
+        grid = (out[0],out[1],out[2])
+        newgrid = np.zeros(out[0].shape)
+        for i,age in enumerate(fullage):
+            for j,z in enumerate(fullZ):
+                newgrid[j,i,:] = vcj["%.1f_%.1f" % (age, z)][1][rel,k]
+        fulli = spi.RegularGridInterpolator((fullZ,fullage,wl), newgrid)
+        ele_interp.append(fulli)
+    
+    return vcj, imf_interp, ele_interp
 
 def select_model_file(Z, Age):
     '''Selects the model file for a given Age and [Z/H]. If the requested values
@@ -257,218 +297,32 @@ def model_spec(inputs, paramnames, vcjset = False, timing = False, full = False)
     if timing:
         t2 = time.time()
         print("MSPEC T1: ",t2 - t1)
+
+    wlfull = vcj[0]["WL"]
+    #Finding the relevant section of the models to reduce the computational complexity
+    if full:
+        rel = np.where((wlfull > 3000) & (wlfull < 24000))[0]
+    else:
+        rel = np.where((wlfull > 8500) & (wlfull < 14000))[0]
+    wl = vcj[0]["WL"][rel]
+
+    abundi = [0,1,2,-2,-1,29,16,15,6,5,4,3,8,7,18,17,14,13,21]
+    imfinterp = vcj[1][imfsdict[(x1,x2)]]
+    mimf = imfinterp((Z,Age,wl))
+    baseinterp = vcj[1][imfsdict[(1.3,2.3)]]
+    basemodel = baseinterp((Z,Age,wl))
+
+    c = np.zeros((len(wl), vcj[0]['3.0_0.0'][1].shape[1]))
+    for k in abundi:
+        c[:,k] = vcj[2][k]((Z,Age,wl))
         
     # If the Age of Z is inbetween models then this will average the respective models to produce 
     # one that is closer to what is expected.
     # NOTE THAT THIS IS AN ASSUMPTION AND THE CHANGE IN THE MODELS IS NOT NECESSARILY LINEAR
-    fullage = np.array([1.0,3.0,5.0,7.0,9.0,11.0,13.5])
-    fullZ = np.array([-1.5, -1.0, -0.5, 0.0, 0.2])
+    #fullage = np.array([1.0,3.0,5.0,7.0,9.0,11.0,13.5])
+    #fullZ = np.array([-1.5, -1.0, -0.5, 0.0, 0.2])
     #abundi = [0,1,2,-2,-1,29,16,15,6,5,4,3]
-    abundi = [0,1,2,-2,-1,29,16,15,6,5,4,3,8,7,18,17,14,13,21]
-    if mixage and mixZ:
-        # Reading models. This step was vastly improved by pre-loading the models prior to running the mcmc
-        fm1 = vcj[fl1][0]
-        fm2 = vcj[fl2][0]
-        fm3 = vcj[fl3][0]
-        fm4 = vcj[fl4][0]
-
-        fc1 = vcj[fl1][1]
-        fc2 = vcj[fl2][1]
-        fc3 = vcj[fl3][1]
-        fc4 = vcj[fl4][1]
-
-        wlc1 = vcj["WL"]
-
-        #Finding the relevant section of the models to reduce the computational complexity
-        if not full:
-            rel = np.where((wlc1 > 8500) & (wlc1 < 14500))[0]
-        else:
-            rel = np.where((wlc1 > 3000) & (wlc1 < 24000))[0]
-
-        fc1 = fc1[rel,:]
-        fc2 = fc2[rel,:]
-        fc3 = fc3[rel,:]
-        fc4 = fc4[rel,:]
-
-        fm1 = fm1[rel, :]
-        fm2 = fm2[rel, :]
-        fm3 = fm3[rel, :]
-        fm4 = fm4[rel, :]
-
-        wl = wlc1[rel]
-
-        #m = np.zeros(fm1.shape)
-        c = np.zeros(fc1.shape)
-        imf_i = imfsdict[(x1,x2)]
-
-        #For the x1x2 model
-        interp1 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
-                np.stack((fm1[:,imf_i],fm2[:,imf_i])), kind = 'linear')
-        interp2 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
-                np.stack((fm3[:,imf_i],fm4[:,imf_i])), kind = 'linear')
-        age1 = interp1(wl,Age)
-        age2 = interp2(wl,Age)
-
-        interp3 = spi.interp2d(wl, [fullZ[zm],fullZ[zp]], np.stack((age1,age2)), kind = 'linear')
-        mimf = interp3(wl,Z)
-
-        #For the basemodel
-        interp1 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
-                np.stack((fm1[:,73],fm2[:,73])), kind = 'linear')
-        interp2 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
-                np.stack((fm3[:,73],fm4[:,73])), kind = 'linear')
-        age1 = interp1(wl,Age)
-        age2 = interp2(wl,Age)
-
-        interp3 = spi.interp2d(wl, [fullZ[zm],fullZ[zp]], np.stack((age1,age2)), kind = 'linear')
-        basemodel = interp3(wl,Z)
-
-        if timing:
-            t2_1 = time.time()
-            print("MSPEC T1_1: ", t2_1 - t2)
-
-        #Taking the average of the models (could be improved?)
-        #mimf = (fm1[rel,imfsdict[(x1,x2)]] + fm2[rel,imfsdict[(x1,x2)]])/2.0
-        #basemodel = (fm1[rel,73] + fm2[rel,73])/2.0
-        for i in abundi:
-            interp1 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
-                    np.stack((fc1[:,i],fc2[:,i])), kind = 'linear')
-            interp2 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
-                    np.stack((fc3[:,i],fc4[:,i])), kind = 'linear')
-            age1 = interp1(wl,Age)
-            age2 = interp2(wl,Age)
-
-            interp3 = spi.interp2d(wl, [fullZ[zm],fullZ[zp]], np.stack((age1,age2)), kind = 'linear')
-            c[:,i] = interp3(wl,Z)
-
-        if timing:
-            t2_2 = time.time()
-            print("MSPEC T1_2: ", t2_2 - t2_1)
-
-        #c = (fc1 + fc2)/2.0
-
-        # Setting the models to the proper length
-        #c = c[rel,:]
-        #mimf = m[rel,imfsdict[(x1,x2)]]
-    elif mixage:
-        fm1 = vcj[fl1][0]
-        fm2 = vcj[fl2][0]
-
-        fc1 = vcj[fl1][1]
-        fc2 = vcj[fl2][1]
-
-        wlc1 = vcj["WL"]
-
-        #Finding the relevant section of the models to reduce the computational complexity
-        if not full:
-            rel = np.where((wlc1 > 6500) & (wlc1 < 16000))[0]
-        else:
-            rel = np.where((wlc1 > 6500) & (wlc1 < 24000))[0]
-
-        fc1 = fc1[rel,:]
-        fc2 = fc2[rel,:]
-
-        fm1 = fm1[rel, :]
-        fm2 = fm2[rel, :]
-
-        wl = wlc1[rel]
-
-        #m = np.zeros(fm1.shape)
-        c = np.zeros(fc1.shape)
-
-        #For the x1x2 model
-        interp1 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
-                np.stack((fm1[:,imfsdict[(x1,x2)]],fm2[:,imfsdict[(x1,x2)]])), kind = 'linear')
-        mimf = interp1(wl,Age)
-
-        #For the basemodel
-        interp1 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
-                np.stack((fm1[:,73],fm2[:,73])), kind = 'linear')
-        basemodel = interp1(wl,Age)
-
-        #Taking the average of the models (could be improved?)
-        #mimf = (fm1[rel,imfsdict[(x1,x2)]] + fm2[rel,imfsdict[(x1,x2)]])/2.0
-        #basemodel = (fm1[rel,73] + fm2[rel,73])/2.0
-
-        if timing:
-            t2_1 = time.time()
-            print("MSPEC T1_1: ", t2_1 - t2)
-
-        for i in abundi:
-            interp1 = spi.interp2d(wl, [fullage[agem],fullage[agep]], \
-                    np.stack((fc1[:,i],fc2[:,i])), kind = 'linear')
-            c[:,i] = interp1(wl,Age)
-
-        if timing:
-            t2_2 = time.time()
-            print("MSPEC T1_2: ", t2_2 - t2_1)
-    elif mixZ:
-        fm1 = vcj[fl1][0]
-        fm2 = vcj[fl2][0]
-
-        fc1 = vcj[fl1][1]
-        fc2 = vcj[fl2][1]
-
-        wlc1 = vcj["WL"]
-
-        #Finding the relevant section of the models to reduce the computational complexity
-        if not full:
-            rel = np.where((wlc1 > 6500) & (wlc1 < 16000))[0]
-        else:
-            rel = np.where((wlc1 > 6500) & (wlc1 < 24000))[0]
-
-        fc1 = fc1[rel,:]
-        fc2 = fc2[rel,:]
-
-        fm1 = fm1[rel, :]
-        fm2 = fm2[rel, :]
-
-        wl = wlc1[rel]
-
-        #m = np.zeros(fm1.shape)
-        c = np.zeros(fc1.shape)
-
-        #For the x1x2 model
-        interp1 = spi.interp2d(wl, [fullZ[zm],fullZ[zp]], \
-                np.stack((fm1[:,imfsdict[(x1,x2)]],fm2[:,imfsdict[(x1,x2)]])), kind = 'linear')
-        mimf = interp1(wl,Z)
-
-        #For the basemodel
-        interp1 = spi.interp2d(wl, [fullZ[zm],fullZ[zp]], \
-                np.stack((fm1[:,73],fm2[:,73])), kind = 'linear')
-        basemodel = interp1(wl,Z)
-
-        #Taking the average of the models (could be improved?)
-        #mimf = (fm1[rel,imfsdict[(x1,x2)]] + fm2[rel,imfsdict[(x1,x2)]])/2.0
-        #basemodel = (fm1[rel,73] + fm2[rel,73])/2.0
-
-        if timing:
-            t2_1 = time.time()
-            print("MSPEC T1_1: ", t2_1 - t2)
-
-        for i in abundi:
-            interp1 = spi.interp2d(wl, [fullZ[zm],fullZ[zp]], \
-                    np.stack((fc1[:,i],fc2[:,i])), kind = 'linear')
-            c[:,i] = interp1(wl,Z)
-
-        if timing:
-            t2_2 = time.time()
-            print("MSPEC T1_2: ", t2_2 - t2_1)
-    else:
-        #If theres no need to mix models then just read them in and set the length
-        m = vcj[fl1][0]
-        wlc1 = vcj["WL"]
-        c = vcj[fl1][1]
-
-        if not full:
-            rel = np.where((wlc1 > 6500) & (wlc1 < 16000))[0]
-        else:
-            rel = np.where((wlc1 > 6500) & (wlc1 < 24000))[0]
-
-        mimf = m[rel,imfsdict[(x1,x2)]]
-        c = c[rel,:]
-        wl = wlc1[rel]
-        basemodel = m[rel,73]
+    #abundi = [0,1,2,-2,-1,29,16,15,6,5,4,3,8,7,18,17,14,13,21]
 
     if timing:
         t3 = time.time()

@@ -153,6 +153,7 @@ def load_mcmc_file(fl):
             high.append(0.3)
             low.append(0.0)
 
+
     names.insert(0,"Worker")
     names.insert(len(names), "ChiSq")
     print("Params: ", paramnames)
@@ -186,7 +187,7 @@ def load_mcmc_file(fl):
         #data = np.loadtxt(fl)
         n_steps = niter
 
-    paramorder = np.array(['Age','Z','Alpha','x1','x2','Na','K','Ca','Fe','Mg','Si','C','Si','Ti','Cr','VelDisp','f'])
+    paramorder = np.array(['Age','Z','Alpha','x1','x2','Na','K','Ca','Fe','Mg','Si','C','Ti','Cr','VelDisp','f'])
     rearrange = []
     #for param in paramnames:
     #   o = np.where(paramorder == param)[0][0]

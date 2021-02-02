@@ -885,7 +885,7 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,\
     return sampler
 
 if __name__ == '__main__':
-    vcj = preload_vcj(sauron=False,saurononly=False) #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
+    vcj = preload_vcj(sauron=True, saurononly=False) #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
     #fl_R1 = '/data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20171229_R1.fits'
     #fl_R1 = '/data2/wifis_reduction/elliot/NGC5845/20180531/processed/NGC5845_combined_cube_1_telluricreduced_20200604_R1.fits'
 
@@ -907,6 +907,47 @@ if __name__ == '__main__':
     #        sauron_z = 0.004262, sauron_veldisp=187, saurononly=False, \
     #        comments= 'R1 5 spaxels, Hbeta only, 20200716 extraction, equivalent regions, new broadening, multabundance, x1 only') 
 
+    fl_R1 = '/data2/wifis_reduction/elliot/NGC5557/20180302/processed/NGC5557_combined_cube_1_telluricreduced_20200709_R1.fits'
+    fl_R2 = '/data2/wifis_reduction/elliot/NGC5557/20180302/processed/NGC5557_combined_cube_1_telluricreduced_20200709_R2.fits'
+    lineinclude =   ['FeH', 'NaI', 'KI_a', 'KI_b', 'KI_1.25', 'NaI127']
+    #lineinclude =   ['HBeta', 'Fe5015','MgB']
+    #params =        {'Age':None, 'Z':None, 'Alpha':None}
+    params =        {'Age':None, 'Z':None,'x1':None,'x2':2.3,'Na':None,'K':None,'Fe':None}
+
+    sfl1 = '/home/elliot/sauronspec/NGC5557_ATLAS3D_R1.fits'
+    sampler = do_mcmc('NGC5557', 512, 4000, 0.01076, 224, params, lineinclude, threads = 16, \
+            fl = fl_R1, sauron=sfl1,\
+            sauron_z = 0.01048, sauron_veldisp=269, saurononly=False, \
+            comments= 'R1 5 spaxels, 20200709 extraction, equivalent regions, new broadening, multabundance, FixedConvolve, Sauron, x1 only') 
+
+    sfl2 = '/home/elliot/sauronspec/NGC5557_ATLAS3D_R2.fits'
+    #params =        {'Age':9.5, 'Z':-0.03,'x1':None,'x2':None,'Na':None,'K':None,'Fe':None}
+    sampler = do_mcmc('NGC5557', 512, 4000, 0.01076, 226, params, lineinclude, threads = 16,\
+            fl = fl_R2, sauron=sfl2,\
+            sauron_z = 0.010513, sauron_veldisp=201, saurononly=False,\
+            comments= 'R2 20-5 spaxels, 20200709 extraction, equivalent regions, new broadening, multabundance, fixedconvolve, Sauron, x1 only') 
+    
+
+
+    fl_R1 = '/data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20200528_R1.fits'
+    fl_R2 = '/data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20200528_R2.fits'
+
+    lineinclude =   ['FeH', 'CaI', 'NaI', 'KI_a', 'KI_b', 'KI_1.25', 'NaI123']
+    params =        {'Age':None, 'Z':None,'x1':None,'x2':2.3,'Na':None,'Ca':None,'K':None,'Fe':None}
+    #params =        {'Age':None, 'Z':None, 'Alpha':None}
+    #params =        {'Age':None, 'Z':None,'x1':None,'x2':None}#'Na':None,'Fe':None,'K':None}
+
+    sfl1 = '/home/elliot/sauronspec/M85_ATLAS3D_R1.fits'
+    sampler = do_mcmc('M85', 512, 4000, 0.00235, 178, params, lineinclude, threads = 16,\
+            fl = fl_R1, sauron=sfl1, sauron_z = 0.002169, sauron_veldisp=200, saurononly=False, \
+            comments = 'R1 5 spaxels, 20200528 extraction, equivalent regions, new broadening, multabundance, Sauron, x1 only') 
+
+    sfl2 = '/home/elliot/sauronspec/M85_ATLAS3D_R2.fits'
+    sampler = do_mcmc('M85', 512, 4000, 0.00228, 163, params, lineinclude, threads = 16,\
+            fl = fl_R2, sauron=sfl2, sauron_z = 0.002177, sauron_veldisp=200, saurononly=False, \
+            comments = 'R2 20-5 spaxels, 20200528 extraction, equivalent regions, new broadening, multabundance, Sauron, x1 only')
+    
+
 
 
     fl_R1 = '/data2/wifis_reduction/elliot/NGC5557/20180302/processed/NGC5557_combined_cube_1_telluricreduced_20200709_R1.fits'
@@ -914,42 +955,38 @@ if __name__ == '__main__':
     lineinclude =   ['FeH', 'NaI', 'KI_a', 'KI_b', 'KI_1.25', 'NaI127', 'PaB']
     #lineinclude =   ['HBeta', 'Fe5015','MgB']
     #params =        {'Age':None, 'Z':None, 'Alpha':None}
-    params =        {'Age':None, 'Z':None,'x1':None,'x2':None,'Na':None,'K':None,'Fe':None}
+    params =        {'Age':None, 'Z':None,'x1':None,'Na':None,'K':None,'Fe':None}
 
-    #'/home/elliot/sauronspec/NGC5557_ATLAS3D_R1.fits',\
+    sfl1 = '/home/elliot/sauronspec/NGC5557_ATLAS3D_R1.fits'
     sampler = do_mcmc('NGC5557', 512, 4000, 0.01076, 224, params, lineinclude, threads = 16, \
-            fl = fl_R1, sauron=None,\
+            fl = fl_R1, sauron=sfl1,\
             sauron_z = 0.01048, sauron_veldisp=269, saurononly=False, \
-            comments= 'R1 5 spaxels, 20200709 extraction, equivalent regions, new broadening, multabundance, FixedConvolve, No Sauron') 
+            comments= 'R1 5 spaxels, 20200709 extraction, equivalent regions, new broadening, multabundance, FixedConvolve, Sauron, Single Slope') 
 
-    #'/home/elliot/sauronspec/NGC5557_ATLAS3D_R2.fits',\
+    sfl2 = '/home/elliot/sauronspec/NGC5557_ATLAS3D_R2.fits'
     #params =        {'Age':9.5, 'Z':-0.03,'x1':None,'x2':None,'Na':None,'K':None,'Fe':None}
     sampler = do_mcmc('NGC5557', 512, 4000, 0.01076, 226, params, lineinclude, threads = 16,\
-            fl = fl_R1, sauron=None,\
+            fl = fl_R2, sauron=sfl2,\
             sauron_z = 0.010513, sauron_veldisp=201, saurononly=False,\
-            comments= 'R2 20-5 spaxels, 20200709 extraction, equivalent regions, new broadening, multabundance, fixedconvolve, No Sauron') 
-
-
+            comments= 'R2 20-5 spaxels, 20200709 extraction, equivalent regions, new broadening, multabundance, fixedconvolve, Sauron, Single Slope') 
 
     fl_R1 = '/data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20200528_R1.fits'
     fl_R2 = '/data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20200528_R2.fits'
 
     lineinclude =   ['FeH', 'CaI', 'NaI', 'KI_a', 'KI_b', 'KI_1.25', 'NaI123', 'PaB']
-    params =        {'Age':None, 'Z':None,'x1':None,'x2':None,'Na':None,'Ca':None,'K':None,'Fe':None}
+    params =        {'Age':None, 'Z':None,'x1':None,'Na':None,'Ca':None,'K':None,'Fe':None}
     #params =        {'Age':None, 'Z':None, 'Alpha':None}
     #params =        {'Age':None, 'Z':None,'x1':None,'x2':None}#'Na':None,'Fe':None,'K':None}
 
-    #'/home/elliot/sauronspec/M85_ATLAS3D_R1.fits',\
+    sfl1 = '/home/elliot/sauronspec/M85_ATLAS3D_R1.fits'
     sampler = do_mcmc('M85', 512, 4000, 0.00235, 178, params, lineinclude, threads = 16,\
-            fl = fl_R1, sauron=None,\
-            sauron_z = 0.002169, sauron_veldisp=200, saurononly=False, \
-            comments = 'R1 5 spaxels, 20200528 extraction, equivalent regions, new broadening, multabundance, No Sauron') 
+            fl = fl_R1, sauron=sfl1, sauron_z = 0.002169, sauron_veldisp=200, saurononly=False, \
+            comments = 'R1 5 spaxels, 20200528 extraction, equivalent regions, new broadening, multabundance, Sauron, Single Slope') 
 
-    #'/home/elliot/sauronspec/M85_ATLAS3D_R2.fits',\
+    sfl2 = '/home/elliot/sauronspec/M85_ATLAS3D_R2.fits'
     sampler = do_mcmc('M85', 512, 4000, 0.00228, 163, params, lineinclude, threads = 16,\
-            fl = fl_R2, sauron=None,\
-            sauron_z = 0.002177, sauron_veldisp=200, saurononly=False, \
-            comments = 'R2 20-5 spaxels, 20200528 extraction, equivalent regions, new broadening, multabundance, No Sauron')
+            fl = fl_R2, sauron=sfl2, sauron_z = 0.002177, sauron_veldisp=200, saurononly=False, \
+            comments = 'R2 20-5 spaxels, 20200528 extraction, equivalent regions, new broadening, multabundance, Sauron, Single Slope')
 
     #######################################
     #sampler = do_mcmc('NGC5845', 512, 4000, 0.004967, 283, params, lineinclude, threads = 16, fl = fl_R1,\
