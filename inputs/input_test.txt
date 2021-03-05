@@ -1,0 +1,27 @@
+fl              /data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20210226_Full.fits
+lineinclude     FeH CaI NaI KI_a KI_b KI_1.25 NaI123
+params          Age:None Z:None x1:None x2:None Na:None K:None Fe:None Ca:None
+target          M85
+workers         512
+steps           4000
+targetz         0.0023
+targetsigma     168
+sfl             /home/elliot/sauronspec/M85_ATLAS3D_Full.fits
+sz              0.0022
+ssigma          187
+saurononly      False
+comments        Full - 20210226 extraction - all IMF
+
+fl              /data2/wifis_reduction/elliot/NGC5557/20180302/processed/NGC5557_combined_cube_1_telluricreduced_20210304_Full.fits
+lineinclude     FeH NaI KI_a KI_b KI_1.25 NaI127
+params          Age:None Z:None x1:None x2:None Na:None K:None Fe:None
+target          NGC5557
+workers         512
+steps           4000
+targetz         0.0107
+targetsigma     158
+sfl             /home/elliot/sauronspec/NGC5557_ATLAS3D_Full.fits
+sz              0.010
+ssigma          234
+saurononly      False
+comments        Full - 20210304 extraction - all IMF
