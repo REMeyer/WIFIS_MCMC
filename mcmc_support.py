@@ -140,8 +140,12 @@ def load_mcmc_file(fl):
             names.append('[%s/H]' % (paramnames[j]))
             high.append(0.3)
             low.append(-0.3)
+        elif paramnames[j] == 'Vel':
+            names.append('z')
+            high.append(0)
+            low.append(0.015)
         elif paramnames[j] == 'VelDisp':
-            names.append('$\sigma$')
+            names.append('Veldisp')
             high.append(390)
             low.append(120)
         elif paramnames[j] == 'f':
@@ -152,7 +156,6 @@ def load_mcmc_file(fl):
             names.append('[Alpha/H]')
             high.append(0.3)
             low.append(0.0)
-
 
     names.insert(0,"Worker")
     names.insert(len(names), "ChiSq")
@@ -187,7 +190,7 @@ def load_mcmc_file(fl):
         #data = np.loadtxt(fl)
         n_steps = niter
 
-    paramorder = np.array(['Age','Z','Alpha','x1','x2','Na','K','Ca','Fe','Mg','Si','C','Ti','Cr','VelDisp','f'])
+    paramorder = np.array(['Age','Z','Alpha','x1','x2','Na','K','Ca','Fe','Mg','Si','C','Ti','Cr','Vel','VelDisp','f'])
     rearrange = []
     #for param in paramnames:
     #   o = np.where(paramorder == param)[0][0]
@@ -456,6 +459,65 @@ def preload_vcj(overwrite_base = False):
     print("FINISHED LOADING MODELS")
 
     return vcj
+
+def load_mcmc_inputs(fl):
+
+    f = open(fl,'r')
+    lines = f.readlines()
+    f.close()
+
+    inputs = []
+    inputset = {}
+    for i, line in enumerate(lines):
+
+        if line == '\n' and inputset != {}:
+            inputs.append(inputset)
+            inputset = {}
+            continue
+
+        line_split = line.split()
+        key = line_split[0]
+
+        if key == 'fl':
+            inputset['fl'] = line_split[1]
+        elif key == 'lineinclude':
+            inputset['lineinclude'] = line_split[1:]
+        elif key == 'params':
+            paramdict = {}
+            for s in line_split[1:]:
+                k_v = s.split(':')
+                if k_v[1] == 'None':
+                    paramdict[k_v[0]] = None
+                else:
+                    paramdict[k_v[0]] = float(k_v[1])
+            inputset['paramdict'] = paramdict
+        elif key == 'target':
+            inputset['target'] = line_split[1]
+        elif key == 'workers':
+            inputset['workers'] = int(line_split[1])
+        elif key == 'steps':
+            inputset['steps'] = int(line_split[1])
+        elif key == 'targetz':
+            inputset['targetz'] = float(line_split[1])
+        elif key == 'targetsigma':
+            inputset['targetsigma'] = float(line_split[1])
+        elif key == 'sfl':
+            inputset['sfl'] = line_split[1]
+        elif key == 'sz':
+            inputset['sz'] = float(line_split[1])
+        elif key == 'ssigma':
+            inputset['ssigma'] = float(line_split[1])
+        elif key == 'saurononly':
+            if line_split[1] == 'False':
+                inputset['saurononly'] = False
+            else:
+                inputset['saurononly'] = True
+        elif key == 'comments':
+            inputset['comments'] = ' '.join(line_split[1:])
+        
+    inputs.append(inputset)
+
+    return inputs
 
 if __name__ == '__main__':
 

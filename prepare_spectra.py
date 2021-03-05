@@ -102,19 +102,15 @@ def preparespecwifis(fl, z, baseforce = False):
     data = ff[0].data
     wl = ff[1].data 
     errors = ff[2].data
+    try:
+        mask = np.array(ff[3].data, dtype = bool)
+    except:
+        print("...No mask included in fits")
+        mask = np.ones(data.shape, dtype = bool)
 
-    wl = wl / (1 + z)
-    #wlz, dataz = nm.skymask(wlz, dataz, galaxy, 'Z')
+    data[mask == False] = np.nan
 
-    #gd = ~np.isnan(data)
-    #data = data[gd]
-    #wl = wl[gd]
-    #errors = errors[gd]
-
-    #gd2 = ~np.isnan(errors)
-    #data = data[gd2]
-    #wl = wl[gd2]
-    #errors = errors[gd2]
+    wl = wl / (1. + z)
 
     return wl, data, errors
 
@@ -165,8 +161,8 @@ def splitspec(wl, data, linedefsfull, err=False, scale = False, usecont=True):
                     newdata = np.array(data)
                     newdata[fullpass] -= scale*polyfit(wl[fullpass])
 
-                    blueval = np.mean(newdata[bluepass])
-                    redval = np.mean(newdata[redpass])
+                    blueval = np.nanmean(newdata[bluepass])
+                    redval = np.nanmean(newdata[redpass])
 
                     pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
                     polyfit = np.poly1d(pf)
