@@ -108,11 +108,12 @@ def preparespecwifis(fl, z, baseforce = False):
         print("...No mask included in fits")
         mask = np.ones(data.shape, dtype = bool)
 
+    data_nomask = np.array(data)
     data[mask == False] = np.nan
 
     wl = wl / (1. + z)
 
-    return wl, data, errors
+    return wl, data, errors, data_nomask, mask
 
 def splitspec(wl, data, linedefsfull, err=False, scale = False, usecont=True):
 

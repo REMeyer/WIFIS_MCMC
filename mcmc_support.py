@@ -514,6 +514,8 @@ def load_mcmc_inputs(fl):
                 inputset['saurononly'] = True
         elif key == 'comments':
             inputset['comments'] = ' '.join(line_split[1:])
+        elif key == 'skip':
+            inputset['skip'] = bool(line_split[1])
         
     inputs.append(inputset)
 

@@ -14,6 +14,7 @@ import sys
 import pandas as pd
 import plot_corner as pc
 import imf_mass as imf
+from masstolight import calculate_MLR_func
 
 from astropy.io import fits
 
@@ -22,7 +23,6 @@ from matplotlib import animation
 
 rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 rc('text', usetex=True)
-
 
 chem_names = ['Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', \
         'C+', 'C-', 'a/Fe+', 'N+', 'N-', 'as/Fe+', 'Ti+', 'Ti-',\
@@ -182,12 +182,14 @@ def compare_bestfit(datafl, mcmcfl, z, veldisp, burnin=-1000, \
 
         axes[i].plot(wl[i], data[i],'b')
         axes[i].plot(wl[i], modelslice, 'r')
-        axes[i].fill_between(wl[i],data[i] + err[i],data[i]-err[i], facecolor = 'gray', alpha=0.5)
+        axes[i].fill_between(wl[i],data[i] + err[i],data[i]-err[i], \
+                    facecolor = 'gray', alpha=0.5)
         axes[i].set_title(nicenames[i])
         axes[i].axvspan(linelow[i], linehigh[i], facecolor='m', alpha=0.25)
 
         axes2[i].plot(wl[i], (data[i]/modelslice) - 1,'b')
-        axes2[i].fill_between(wl[i],(data[i] + err[i])/modelslice - 1 ,(data[i]-err[i])/modelslice - 1, facecolor = 'gray', alpha=0.5)
+        axes2[i].fill_between(wl[i],(data[i] + err[i])/modelslice - 1 ,\
+                    (data[i]-err[i])/modelslice - 1, facecolor = 'gray', alpha=0.5)
         axes2[i].set_title(nicenames[i])
         axes2[i].axvspan(linelow[i], linehigh[i], facecolor='m', alpha=0.25)
         axes2[i].axhspan(-0.01,0.01, facecolor='red', alpha = 0.5)
@@ -462,10 +464,11 @@ def compare_bestfit_animation(datafl, mcmcfl, z, veldisp, vcj, burnin=-1000, \
     anim.save('/home/elliot/basic_animation.mp4', writer='ffmpeg')#extra_args=['--verbose-debug','libx264'])
     #return wl, data, modelproc, [wlc,mconv]
 
-def compare_bestfit3(datafl, mcmcfl, z, veldisp, vcj, burnin=-1000, \
+def compare_bestfit3(datafl, mcmcfl, z, veldisp, vcj, vcjmlr, burnin=-1000, \
         sauron = False, sauron_z=False, sauron_veldisp=False, save = False,\
-        medianonly=False):
+        medianonly=False, title='', galaxy='Galaxy'):
 
+    ######### DATA PREP
     mpl.close('all')
     #if fl.lower() == 'last':
         #fls = np.sort(glob(
@@ -480,8 +483,9 @@ def compare_bestfit3(datafl, mcmcfl, z, veldisp, vcj, burnin=-1000, \
     paramnames = dataall[2][6]
     linenames = dataall[2][7]
     lines = dataall[2][8]
-
-    samples = data[burnin:,:,:].reshape((-1,len(names)))
+    
+    samples = np.array(data[burnin:,:,:]).reshape((-1,len(names)))
+    #data[burnin:,:,:].reshape((-1,len(names)))
     truevalues = np.array(list(map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),\
             zip(*np.percentile(samples, [16, 50, 84], axis=0)))))
     params_median = truevalues[:,0]
@@ -508,15 +512,21 @@ def compare_bestfit3(datafl, mcmcfl, z, veldisp, vcj, burnin=-1000, \
         mhigh.append(i[1])
     morder = [1,1,1,1,1,1,1,1,1,1]
 
-    line_name = np.array(['FeH','CaI','NaI','KI_a','KI_b','CaII119', 'NaI123','KI_1.25','NaI127','PaB'])
-    nice_name = np.array(['FeH', r'Ca$\,$I',r'Na$\,$I$\,$1.14', r'K$\,$I$\,$a', r'K$\,$I$\,$b', r'Ca$\,$II$\,$1.19',\
-                r'Na$\,$I$\,$1.23', r'K$\,$I$\,$1.25',r'Na$\,$I$\,$1.27', r'Pa$\,\beta$'])
+    line_name = np.array(['FeH','CaI','NaI','KI_a','KI_b','CaII119',\
+                          'NaI123','KI_1.25','NaI127','PaB'])
+    nice_name = np.array(['FeH', r'Ca$\,$I',r'Na$\,$I$\,$1.14', r'K$\,$I$\,$a', \
+                          r'K$\,$I$\,$b', r'Ca$\,$II$\,$1.19', r'Na$\,$I$\,$1.23',\
+                          r'K$\,$I$\,$1.25',r'Na$\,$I$\,$1.27', r'Pa$\,\beta$'])
 
     linedefs = [np.array([bluelow, bluehigh, linelow, linehigh, redlow,\
             redhigh, mlow, mhigh, morder]), line_name, line_name]
 
-    wl, data, err = preps.preparespecwifis(datafl, z)
-    wl, data, err = preps.splitspec(wl, data, linedefs, err = err)
+    wl, data, err, data_nomask, mask = preps.preparespecwifis(datafl, z)
+    wlorig = np.array(wl)
+    wl, data, err = preps.splitspec(wlorig, data, linedefs, err = err)
+    wl_nomask, data_nomask, err_nomask = preps.splitspec(wlorig, data_nomask, linedefs)
+    wl_nomask, mask, err_nomask = preps.splitspec(wlorig, mask, linedefs)
+
 
     if sauron != None:
         #SAURON Lines
@@ -550,26 +560,38 @@ def compare_bestfit3(datafl, mcmcfl, z, veldisp, vcj, burnin=-1000, \
     for p in paramnames:
         paramdict[p] = None
     
-    params_th = np.array(params_median)
-    x1_i = np.where(paramnames == 'x1')[0][0]
-    params_th[x1_i] = 3.0
-    x2_i = np.where(paramnames == 'x2')[0][0]
-    params_th[x2_i] = 3.0
+    #params_th = np.array(params_median)
+    #x1_i = np.where(paramnames == 'x1')[0][0]
+    #params_th[x1_i] = 3.0
+    #x2_i = np.where(paramnames == 'x2')[0][0]
+    #params_th[x2_i] = 3.0
+    #params_low = params_th
     
-    params_low = params_th
+    if "VelDisp" in paramnames:
+        vwh = np.where(paramnames == 'VelDisp')[0][0]
+        sigmed = params_median[vwh]
+        siglow = params_low[vwh]
+        sighigh = params_high[vwh]
+    else:
+        sigmed = veldisp
+        siglow = veldisp
+        sighigh = veldisp
 
     
     if sauron:
-        wlm, newm_median, base_median = mcfi.model_spec(params_median, paramnames, paramdict, full = True, vcjset=vcj)
-        wlm, newm_low, base_low = mcfi.model_spec(params_low, paramnames, paramdict, full = True, vcjset=vcj)
-        wlm, newm_high, base_high = mcfi.model_spec(params_high, paramnames, paramdict, full = True, vcjset=vcj)
+        wlm, newm_median, base_median = mcfi.model_spec(params_median, paramnames, paramdict, \
+                                                  full = True, vcjset=vcj)
+        wlm, newm_low, base_low = mcfi.model_spec(params_low, paramnames, paramdict, \
+                                                  full = True, vcjset=vcj)
+        wlm, newm_high, base_high = mcfi.model_spec(params_high, paramnames, paramdict, \
+                                                  full = True, vcjset=vcj)
 
         # Convolve model to previously determined velocity dispersion (we don't fit dispersion in this code).
-        wlc, mconv_median = mcsp.convolvemodels(wlm, newm_median, veldisp)
+        wlc, mconv_median = mcsp.convolvemodels(wlm, newm_median, sigmed)
         mconvinterp_median = spi.interp1d(wlc, mconv_median, kind='cubic', bounds_error=False)
-        wlc, mconv_low = mcsp.convolvemodels(wlm, newm_low, veldisp)
+        wlc, mconv_low = mcsp.convolvemodels(wlm, newm_low, siglow)
         mconvinterp_low = spi.interp1d(wlc, mconv_low, kind='cubic', bounds_error=False)
-        wlc, mconv_high = mcsp.convolvemodels(wlm, newm_high, veldisp)
+        wlc, mconv_high = mcsp.convolvemodels(wlm, newm_high, sighigh)
         mconvinterp_high = spi.interp1d(wlc, mconv_high, kind='cubic', bounds_error=False)
 
         wlc_s, mconv_s_median = mcsp.convolvemodels(wlm, base_median, sauron_veldisp,\
@@ -589,16 +611,22 @@ def compare_bestfit3(datafl, mcmcfl, z, veldisp, vcj, burnin=-1000, \
         wlm, newm_high, base_high = model_spec(params_high, paramnames, paramdict, vcjset=vcj)
 
         # Convolve model to previously determined velocity dispersion (we don't fit dispersion in this code).
-        wlc, mconv_median = mcsp.convolvemodels(wlm, newm_median, veldisp)
+        wlc, mconv_median = mcsp.convolvemodels(wlm, newm_median, sigmed)
         mconvinterp_median = spi.interp1d(wlc, mconv_median, kind='cubic', bounds_error=False)
-        wlc, mconv_low = mcsp.convolvemodels(wlm, newm_low, veldisp)
+        wlc, mconv_low = mcsp.convolvemodels(wlm, newm_low, siglow)
         mconvinterp_low = spi.interp1d(wlc, mconv_low, kind='cubic', bounds_error=False)
-        wlc, mconv_high = mcsp.convolvemodels(wlm, newm_high, veldisp)
+        wlc, mconv_high = mcsp.convolvemodels(wlm, newm_high, sighigh)
         mconvinterp_high = spi.interp1d(wlc, mconv_high, kind='cubic', bounds_error=False)
         
+    ####### MLR CALCULATION ########
+    MLROut = calculate_MLR_func(paramnames, params_median, names, samples, vcjset = vcjmlr)
+    print(r"$\alpha_K$: ", np.percentile(MLROut[-1], [16, 50, 84], axis=0))
+    
+    ####### PLOTTING (Up to 8 Features)
     fig, axes = mpl.subplots(2,4,figsize = (16,8))
     axes = axes.flatten()
 
+    #Determine line plotting order (HBeta goes first)
     if 'HBeta' in linenames:
         plotorder = ['HBeta']
     else:
@@ -608,7 +636,16 @@ def compare_bestfit3(datafl, mcmcfl, z, veldisp, vcj, burnin=-1000, \
         if n in linenames:
             plotorder.append(n)
     plotorder = np.array(plotorder)
+    
+    if len(plotorder) < 8:
+        diff = 8 - len(linenames)
+        for i in range(diff):
+            axes[-1].set_visible(False)
+        mpl.subplots_adjust(hspace=0.3, wspace = 0.275)
+    else:
+        mpl.subplots_adjust(hspace=0.3, wspace = 0.275, right=0.85)
 
+    #Preparing plot data (Cutting and normalizing spectra)
     verbose = False
     for k in range(len(linenames)):
         if verbose:
@@ -685,7 +722,9 @@ def compare_bestfit3(datafl, mcmcfl, z, veldisp, vcj, burnin=-1000, \
         
         ploti = np.where(plotorder == linenames[k])[0][0]
         if linenames[k] != 'HBeta':
-            axes[ploti].plot(wl[i], data[i], linewidth = 3.5, color='k', label = 'Galaxy')
+            #axes[ploti].plot(wl[i], data_nomask[i], linewidth = 3.5, color='k', \
+            #                         linestyle='--',label = "Removed")
+            axes[ploti].plot(wl[i], data[i], linewidth = 3.5, color='k', label = galaxy)
             axes[ploti].fill_between(wl[i],data[i] + err[i], data[i]-err[i],\
                                  facecolor = 'gray', alpha = 0.5)
             axes[ploti].set_title(nice_name[i], fontsize = 20)
@@ -700,18 +739,21 @@ def compare_bestfit3(datafl, mcmcfl, z, veldisp, vcj, burnin=-1000, \
             #                     facecolor = '', alpha = 0.5)
             axes[ploti].set_xlim((bluelow[i], redhigh[i]))
             
-            axes[ploti].plot(wl[i], dataslice_low, color='tab:green', linewidth = 2.5, \
-                     label='BH')
+            #axes[ploti].plot(wl[i], dataslice_low, color='tab:green', linewidth = 2.5, \
+            #         label='BH')
+            axes[ploti].fill_between(wl[i],dataslice_high,dataslice_low,\
+                                 facecolor = 'red', alpha = 0.33, label=r'Best-Fit $\sigma$')
+
             axes[ploti].plot(wl[i], dataslice_med, color='tab:red', linewidth = 2.5,\
                 label='Best-Fit')
 
 
-            if not medianonly:
-                axes[ploti].plot(wl[i], dataslice_high, color='r', linewidth = 2.5, \
-                    linestyle='--')
+            #if not medianonly:
+            #    axes[ploti].plot(wl[i], dataslice_high, color='r', linewidth = 2.5, \
+            #        linestyle='--')
 
         else:
-            axes[ploti].plot(wl_s[0], data_s[0], linewidth = 3.5, color='k', label = 'Galaxy')
+            axes[ploti].plot(wl_s[0], data_s[0], linewidth = 3.5, color='k', label = galaxy)
             axes[ploti].fill_between(wl_s[0],data_s[0] + err_s[0], data_s[0]-err_s[0],\
                                  facecolor = 'gray', alpha = 0.5)
             axes[ploti].set_title(r'H$\beta$', fontsize = 20)
@@ -724,21 +766,23 @@ def compare_bestfit3(datafl, mcmcfl, z, veldisp, vcj, burnin=-1000, \
                             alpha=0.2)
             axes[ploti].set_xlim((bluelow_s[0], redhigh_s[0]))
 
-            axes[ploti].plot(wl_s[0], dataslice_low, color='tab:green', linewidth = 2.5, \
-                    label='BH')
+            #axes[ploti].plot(wl_s[0], dataslice_low, color='tab:green', linewidth = 2.5, \
+            #        label='BH')
+            axes[ploti].fill_between(wl_s[0],dataslice_high, dataslice_low,\
+                                 facecolor = 'red', alpha = 0.33)
+
             axes[ploti].plot(wl_s[0], dataslice_med, color='tab:red', linewidth = 2.5, \
                     label='Best-Fit')
 
 
-            if not medianonly:
-                axes[ploti].plot(wl_s[0], dataslice_high, color='r', linewidth = 2.5, \
-                    linestyle='--')
+            #if not medianonly:
+            #    axes[ploti].plot(wl_s[0], dataslice_high, color='r', linewidth = 2.5, \
+            #        linestyle='--')
         
         axes[ploti].tick_params(axis='both', which='major', labelsize=20)
         axes[ploti].minorticks_on()
 
 
-    mpl.subplots_adjust(hspace=0.3, wspace = 0.275)
     axes[0].text(-0.35,-0.5,'Relative Flux', fontsize = 25, rotation = 'vertical',\
                 transform=axes[0].transAxes)
     axes[4].text(2.0,-0.3,r'Wavelength ($\textrm{\AA}$)', fontsize = 22,\
@@ -746,10 +790,32 @@ def compare_bestfit3(datafl, mcmcfl, z, veldisp, vcj, burnin=-1000, \
 
     #handles, labels = axes[0].get_legend_handles_labels()
     #fig.legend(handles,labels, bbox_to_anchor=(1.09, 0.25), fontsize='large')
-    axes[4].legend(fontsize=15, handlelength=1, loc=4)
+    if len(linenames) < 8:
+        axes[len(linenames)-1].legend(fontsize=15, handlelength=1, loc='upper left', bbox_to_anchor=(1.225, 1.05))
+    else:
+        axes[3].legend(fontsize=15, handlelength=1, loc='upper left', bbox_to_anchor=(1, 1.05))
     #mpl.tight_layout()
     #fig.legend(handles, labels, fontsize='large')
+    axes[0].text(1.75,1.2, title, fontsize=30, transform=axes[0].transAxes)
 
+    for i in range(len(names)):
+        midval = str(np.round(truevalues[i][0],2))
+        lowval = str(np.round(truevalues[i][2],2))
+        highval = str(np.round(truevalues[i][1],2))
+        textstr = r'$%s = %s^{%s}_{%s}$' % (names[i],midval, highval, lowval)
+        #text += '$'+names[i]+' = '+str(np.round(truevalues[i][0],2))+'^{'+str(np.round(truevalues[i][2],2))+\
+        #         '}_{'+str(np.round(truevalues[i][1],2))+'}$\n'
+        if i*1.25 < 5:
+            axes[0].text(i*1.25, -1.8, textstr, fontsize = 25,transform=axes[0].transAxes)
+            endval = i
+        elif i*1.25 < 10:
+            axes[0].text((i-endval-1)*1.25, -2, textstr, \
+                         fontsize = 25,transform=axes[0].transAxes)
+            endval2 = i
+        elif i*1.25 < 15:
+            axes[0].text((i-endval2-1)*1.25, -2.2, textstr, \
+                         fontsize = 25,transform=axes[0].transAxes)
+    
     if save:
         mpl.savefig(save, dpi = 300)
     else:
@@ -1000,7 +1066,7 @@ def imf_plots_nice(datafl, z, veldisp, vcj, linenames,\
         axes[-diff-1].legend(fontsize=20, loc=(1.2,0.2))
     #mpl.tight_layout()
     #fig.legend(handles, labels, fontsize='large')
-
+    
     if save:
         mpl.savefig(save, dpi = 300)
     else:

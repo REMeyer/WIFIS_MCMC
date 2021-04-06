@@ -660,6 +660,9 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,\
         print('Please input filename for WIFIS data')
         return
 
+    if sauron.lower() == 'none':
+        sauron = None
+
     #Handle parameters and walker initialization
     paramnames = []
     for key in paramdict.keys():
@@ -694,7 +697,7 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,\
     linedefs = [np.array([bluelow, bluehigh, linelow, linehigh, redlow,\
             redhigh, mlow, mhigh, morder]), line_name, line_name]
 
-    wl, data, err = preps.preparespecwifis(fl, z)
+    wl, data, err, datanomask, mask = preps.preparespecwifis(fl, z)
 
     if scale:
         wl, data, err = preps.splitspec(wl, data, linedefs, err = err, scale = scale)
@@ -767,11 +770,7 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,\
                 elif paramnames[j] == 'VelDisp':
                     newinit.append(np.random.random()*240 + 120)
                 elif paramnames[j] == 'Vel':
-                    if paramdict['Vel'] != None:
-                        newinit.append(paramdict['Vel'] + \
-                                np.random.random()*0.004 - 0.002)
-                    else:
-                        newinit.append(np.random.random()*0.008 + 0.002)
+                    newinit.append(np.random.random()*0.015 + 0.002)
                 elif paramnames[j] == 'f':
                     #newinit.append(np.random.random()*11 - 10.)
                     newinit.append(np.random.random())
@@ -839,12 +838,19 @@ if __name__ == '__main__':
     vcj = preload_vcj(sauron=True, saurononly=False) 
 
     #Load the inputs for each MCMC run
-    inputfl = 'inputs/20210305_SauronPaB.txt'
+    inputfl = 'inputs/20210326_PaperPaBTest.txt'
     mcmcinputs = mcsp.load_mcmc_inputs(inputfl)
 
     #Run the MCMC for each set of inputs
     #mcmcinputs = mcmcinputs[:1]
     for i in range(len(mcmcinputs)):
+        try:
+            print(mcmcinputs[i]['skip'], type(mcmcinputs[i]['skip']))
+            if mcmcinputs[i]['skip'] == True:
+                print("Skipping: ",i)
+                continue
+        except:
+            print("No skip parameter, not skipping")
         print(mcmcinputs[i])
         sampler = do_mcmc(mcmcinputs[i]['target'], mcmcinputs[i]['workers'],\
             mcmcinputs[i]['steps'],mcmcinputs[i]['targetz'],\
