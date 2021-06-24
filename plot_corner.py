@@ -14,7 +14,7 @@ from matplotlib import rc
 rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 rc('text', usetex=True)
 
-def plot_corner(fl, burnin, variables=[], nolimits=False):
+def plot_corner(fl, burnin, variables=[], nolimits=False,latexout=False, annotate=True, save=True):
 
     rc('text', usetex=True)
 
@@ -74,7 +74,7 @@ def plot_corner(fl, burnin, variables=[], nolimits=False):
     truevalues = list(map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),\
             zip(*np.percentile(samples, [16, 50, 84], axis=0))))
 
-    figure = corner.corner(samples, labels = names, label_kwargs={'fontsize': 20})
+    figure = corner.corner(samples, labels = names, label_kwargs={'fontsize': 23})
     #figure.suptitle(dataall[2][2] + ' ' + flspl + ' ' + mcmctype + ' ' + str(datatype))
 
     # Extract the axes
@@ -90,13 +90,16 @@ def plot_corner(fl, burnin, variables=[], nolimits=False):
     for i in range(len(names)):
         print(paramnames[i]+':\t', np.round(truevalues[i][0] - truevalues[i][2],2), np.round(truevalues[i][0],2),\
                 np.round(truevalues[i][0] + truevalues[i][1],2))
+
         midval = str(np.round(truevalues[i][0],2))
         lowval = str(np.round(truevalues[i][2],2))
         highval = str(np.round(truevalues[i][1],2))
-        textstr = r'$%s = %s^{%s}_{%s}$' % (names[i],midval, highval, lowval)
+
         #text += '$'+names[i]+' = '+str(np.round(truevalues[i][0],2))+'^{'+str(np.round(truevalues[i][2],2))+\
         #         '}_{'+str(np.round(truevalues[i][1],2))+'}$\n'
-        mpl.text(len(names)-1.25, 0.75-i*0.25, textstr, fontsize = 25,transform=axes[0,0].transAxes)
+        if annotate:
+            textstr = r'%s = $%s^{%s}_{%s}$' % (names[i],midval, highval, lowval)
+            mpl.text(len(names)-1.25, 0.75-i*0.25, textstr, fontsize = 25,transform=axes[0,0].transAxes)
 
         #mpl.text(0.7,0.7+i/10., r'$'+names[i]+' = '+str(np.round(truevalues[i][0],2))+'^{'+\
         #        str(np.round(truevalues[i][2],2))+'}_{'+str(np.round(truevalues[i][1],2))+'}$\n',horizontalalignment='left')
@@ -106,7 +109,10 @@ def plot_corner(fl, burnin, variables=[], nolimits=False):
         ax.axvline(truevalues[i][0] - truevalues[i][2], color="g")
         #ax.set_title(names[i]+"=$%s_{-%s}^{+%s}$" % (np.round(truevalues[i][0],3), \
         #        np.round(truevalues[i][2],3), np.round(truevalues[i][1],3)))
-        ax.set_title(names[i], fontsize = 20)
+        if paramnames[i] in ['x1','x2','VelDisp']:
+            ax.set_title(names[i], fontsize = 30)
+        else:
+            ax.set_title(names[i], fontsize = 23)
         if not nolimits:
             ax.set_xlim((low[i],high[i]))
 
@@ -136,8 +142,25 @@ def plot_corner(fl, burnin, variables=[], nolimits=False):
             #ylab = ax.get_yticklabels()
             #xlab.set_fontsize(20)
             #ylab.set_fontsize(20
+            if (xi == 0) and (yi != 0):
+                if names[yi] in ['x1','x2','VelDisp']:
+                    ax.set_ylabel(names[yi], fontsize = 30)
+                else:
+                    ax.set_ylabel(names[yi], fontsize = 23)
+            if (yi == 0) :
+                if names[yi] in ['x1','x2','VelDisp']:
+                    ax.set_xlabel(names[yi], fontsize = 30)
+                else:
+                    ax.set_xlabel(names[yi], fontsize = 23)
+    if latexout:
+        print()
+        for i in range(len(names)):
+            print(paramnames[i]+':\t', "$"+str(np.round(truevalues[i][0],2))+
+                    "^{+"+str(np.round(truevalues[i][2],2))+"}_{-"+\
+                            str(np.round(truevalues[i][1],2))+"}$")
 
-    figure.savefig(fl[:-4]+'.pdf')
+    if save:
+        figure.savefig(fl[:-4]+'.pdf')
 
 def burnin_test(fl, burnin, step=1000, variables=[]):
 

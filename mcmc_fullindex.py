@@ -196,6 +196,12 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False, vcjset = False
         elif paramnames[j] == 'Alpha':
             alpha = inputs[j]
 
+    if 'x1' not in paramnames:
+        x1 = 1.3
+    if 'x2' not in paramnames:
+        #x2 = 2.3
+        x2 = x1
+
     for key in paramdict.keys():
         if paramdict[key] == None:
             continue
@@ -227,11 +233,6 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False, vcjset = False
     #        Age = 13.5
     #if 'Z' not in paramnames:
     #    Z = 0.0
-    if 'x1' not in paramnames:
-        x1 = 1.3
-    if 'x2' not in paramnames:
-        #x2 = 2.3
-        x2 = x1
 
     if x1 not in x1_m:
         x1min = np.argmin(np.abs(x1_m - x1))
@@ -838,15 +839,18 @@ if __name__ == '__main__':
     vcj = preload_vcj(sauron=True, saurononly=False) 
 
     #Load the inputs for each MCMC run
-    inputfl = 'inputs/20210326_PaperPaBTest.txt'
+    #inputfl = 'inputs/20210326_PaperPaBTest.txt'
+    #inputfl = 'inputs/20210324_Paper.txt'
+    #inputfl = 'inputs/20210613_Paper.txt'
+    inputfl = 'inputs/20210614_OtherIMFPaper.txt'
     mcmcinputs = mcsp.load_mcmc_inputs(inputfl)
 
     #Run the MCMC for each set of inputs
     #mcmcinputs = mcmcinputs[:1]
     for i in range(len(mcmcinputs)):
         try:
-            print(mcmcinputs[i]['skip'], type(mcmcinputs[i]['skip']))
-            if mcmcinputs[i]['skip'] == True:
+            #print(mcmcinputs[i]['skip'], type(mcmcinputs[i]['skip']))
+            if mcmcinputs[i]['skip'] == 1:
                 print("Skipping: ",i)
                 continue
         except:

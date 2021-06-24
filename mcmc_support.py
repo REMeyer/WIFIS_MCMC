@@ -44,7 +44,7 @@ def gauss_nat(xs, p0):
     #return  (1 / (2.*np.pi*p0[0]**2.))* np.exp((-1.0/2.0) * ((xs - p0[1])/p0[0])**2.0)
     return  (1 / (np.sqrt(2.*np.pi)*p0[0])) * np.exp( (-1.0/2.0) * ((xs - p0[1])/p0[0])**2.0 )
 
-def load_mcmc_file(fl):
+def load_mcmc_file(fl, linesoverride=False):
     '''Loads the mcmc chain ouput. Returns
     the full walker data, the calculated statistcal data, 
     and the run info.
@@ -59,7 +59,7 @@ def load_mcmc_file(fl):
     info = f.readline()
 
     extralines = 0
-    if fittype == 'fullindex':
+    if (fittype == 'fullindex') or linesoverride:
         lines = True
 
         paramline = f.readline()
@@ -69,13 +69,24 @@ def load_mcmc_file(fl):
         linenames = linesline[1:].split()
 
         dictline = f.readline()
+        paramdict = {}
         if dictline[0] != '#':
             extralines += 1
+            for param in paramnames:
+                paramdict[param] = None
+        else:
+            dictline = dictline[1:].split()
+            for k in range(len(dictline)-1):
+                if k % 2 == 0:
+                    if dictline[k+1] == 'None':
+                        paramdict[dictline[k][:-1]] = None
+                    else:
+                        paramdict[dictline[k][:-1]] = float(dictline[k+1])
+        print(paramdict)
 
         commentline = f.readline()
         if commentline[0] != '#':
             extralines += 1
-        
     else:
         lines = False 
 
@@ -87,6 +98,7 @@ def load_mcmc_file(fl):
         dictline = f.readline()
         if dictline[0] != '#':
             extralines += 1
+
 
         commentline = f.readline()
         if commentline[0] != '#':
@@ -145,7 +157,7 @@ def load_mcmc_file(fl):
             high.append(0)
             low.append(0.015)
         elif paramnames[j] == 'VelDisp':
-            names.append('Veldisp')
+            names.append(r'$\sigma_{v}$')
             high.append(390)
             low.append(120)
         elif paramnames[j] == 'f':
@@ -190,7 +202,8 @@ def load_mcmc_file(fl):
         #data = np.loadtxt(fl)
         n_steps = niter
 
-    paramorder = np.array(['Age','Z','Alpha','x1','x2','Na','K','Ca','Fe','Mg','Si','C','Ti','Cr','Vel','VelDisp','f'])
+    paramorder = np.array(['Age','Z','Alpha','x1','x2','Na','K','Ca',\
+            'Fe','Mg','Si','C','Ti','Cr','Vel','VelDisp','f'])
     rearrange = []
     #for param in paramnames:
     #   o = np.where(paramorder == param)[0][0]
@@ -214,7 +227,7 @@ def load_mcmc_file(fl):
     names = np.array(names)[rearrange]
     paramnames = np.array(paramnames)[rearrange]
 
-    infol = [nworkers, niter, gal, names, high, low, paramnames, linenames, lines]
+    infol = [nworkers, niter, gal, names, high, low, paramnames, linenames, lines, paramdict]
 
     folddata = data.reshape((n_steps, nworkers,len(names)+2))
     postprob = folddata[:,:,-1]
@@ -515,7 +528,7 @@ def load_mcmc_inputs(fl):
         elif key == 'comments':
             inputset['comments'] = ' '.join(line_split[1:])
         elif key == 'skip':
-            inputset['skip'] = bool(line_split[1])
+            inputset['skip'] = int(line_split[1])
         
     inputs.append(inputset)
 

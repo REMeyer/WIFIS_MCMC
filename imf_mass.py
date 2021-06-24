@@ -5,6 +5,7 @@ import scipy.interpolate as spi
 #import mist_wrapper as mw
 import scipy.integrate as integrate
 import sys
+from time import time
 
 def imffunc(x, m):
 
@@ -112,9 +113,12 @@ def determine_mass_ratio_isochrone(x1,x2,age, interp, bottomlight=False):
     #return age_i[0]*norm_constant + age_i[-1]*norm_constant*percent_remnant
     return age_i[0]*norm_constant, to_mass, norm_constant
 
-def massremnant(newremnantinterp, to_mass):
+def massremnant(newremnantinterp, to_mass, testtime=False):
 
-    massarr = np.arange(to_mass, 100., 0.001)
+    if testtime:
+        massarr = np.arange(to_mass, 100., testtime)
+    else:
+        massarr = np.arange(to_mass, 100., 0.001)
     massremnant = 0
     for i in range(1, len(massarr)):
         mmass = np.mean(massarr[i-1:i])
@@ -127,6 +131,37 @@ def massremnant(newremnantinterp, to_mass):
             massremnant += int_val*avgremratio
 
     return massremnant
+
+def massremnant_prepare(newremnantinterp):
+
+    massarr = np.arange(0.08, 100., 0.001)
+
+    massremnantarr = []
+    for i in range(1, len(massarr)):
+        # Get mass for this subset
+        mmass = np.mean(massarr[i-1:i])
+        # Determine remnant ratio
+        avgremratio = newremnantinterp(mmass) 
+        # Calculate IMF for this subset
+        int_val = calc_imf(massarr[i-1], massarr[i], 2.3)
+
+        # Determinant remnant mass in this region
+        if mmass >= 6.0:
+            massremnantarr.append(int_val*2.1/mmass)
+
+        else:
+            massremnantarr.append(int_val*avgremratio)
+
+    return massarr, np.array(massremnantarr)
+
+def massremnant_get(massarr, massremnantarr, to_mass):
+    '''
+    Simple function that sums up the massremnantarr from 
+    the index in the massarr = to_mass to the end.
+    '''
+    whmass = massarr >= to_mass
+
+    return np.nansum(massremnantarr[whmass[1:]])
 
 def normalize_imf_isochrone(x1,x2, age, to_mass, mass = True):
         
@@ -162,6 +197,83 @@ def normalize_imf_isochrone(x1,x2, age, to_mass, mass = True):
         #np.round(i2,3), np.round(i3,3), np.round(sum_i,3),np.round(i4,3))
 
     return sum_i, i1,i2,i3, to_mass, i4
+
+def normalize_imf_isochrone_new(x1,x2, age, to_mass, mass = True):
+    '''
+    New version of normalize_imf_isochrone that accounts for 
+    the scaling parameter.
+    '''
+    ratio = 0.5**(-x1+x2)
+    # If the turn-off mass is greater than one
+    if to_mass > 1.0:
+        i1 = calc_imf(0.08,0.499999,x1, mass = mass)
+        i2 = ratio*calc_imf(0.5,0.999999,x2, mass = mass)
+        i3 = ratio*calc_imf(1.0,to_mass,2.3, mass = mass)
+        i4 = ratio*calc_imf(to_mass,8.0, 2.3, mass = mass)
+        sum_i = i1 + i2 + i3
+        #print(np.round(age,3), np.round(to_mass,3), np.round(i1,3), \
+        #np.round(i2,3), np.round(i3,3), np.round(sum_i,3),np.round(i4,3))
+    
+    # if turnoff mass is between 0.5 and 1.0 
+    elif (to_mass <= 1.0) and (to_mass > 0.5):
+        i1 = calc_imf(0.08,0.499999,x1, mass = mass)
+        i2 = ratio*calc_imf(0.5,to_mass,x2, mass = mass)
+        i3 = 0
+        i4 = ratio*calc_imf(to_mass, 0.99999, x2, mass = mass) + ratio*calc_imf(1.0, 8.0, 2.3,mass=mass)
+        sum_i = i1 + i2 + i3
+        #print(np.round(age,3), np.round(to_mass,3), np.round(i1,3), \
+        #np.round(i2,3), np.round(i3,3), np.round(sum_i,3), np.round(i4,3))
+
+    # If turnoff mass is below 0.5
+    elif to_mass <= 0.5:
+        i1 = calc_imf(0.08,to_mass,x1, mass = mass)
+        i2 = 0
+        i3 = 0
+        i4 = ratio*calc_imf(to_mass,0.49999,x1, mass = mass) + \
+             ratio*calc_imf(0.5,0.99999,x2, mass = mass) + \
+             ratio*calc_imf(1.0,8.0,2.3, mass = mass)
+        sum_i = i1 + i2 + i3
+        #print(np.round(age,3), np.round(to_mass,3), np.round(i1,3),\
+        #np.round(i2,3), np.round(i3,3), np.round(sum_i,3),np.round(i4,3))
+
+    return sum_i, i1,i2,i3, to_mass, i4
+
+def determine_mass_ratio_isochrone_new(x1,x2,age, interp, bottomlight=False):
+    agemassinterp, remnantinterp, newremnantinterp = interp
+
+    fulli = normalize_imf_isochrone_new(x1,x2, 0.0, 100.) #Calculate full integral
+    to_mass = agemassinterp(age)
+    age_i = normalize_imf_isochrone_new(x1,x2, age, to_mass) #Calculate integral for the turnoff mass
+    norm_constant = 1.0/fulli[0]
+
+    return age_i[0]*norm_constant, to_mass, norm_constant
+
+def conroy_remnants(x1,x2,m_to):
+    '''
+    Uses the remnant estimate from C. Conroy's 
+    alf code.
+    '''
+    ratio = 0.5**(-x1+x2) 
+    remnant_mass = 0
+    
+    # 40 - 100 Msun, leave a 0.5*M BH
+    remnant_mass += 0.5*ratio*calc_imf(40,100,2.3)
+    
+    # 8.5<M<40, leave behind 1.4 Msun NS
+    remnant_mass += 1.3*ratio*(40**(-2.3+1) - 8.5**(-2.3+1))/(-2.3+1)
+
+    # WD Remnants M<8.5, leave behind a 0.077*M+0.48 WD
+    if m_to > 1:
+        remnant_mass += 0.48*ratio*calc_imf(m_to, 8.5, 2.3, mass=False)
+        remnant_mass += 0.077*ratio*calc_imf(m_to,8.5,2.3)
+    else:
+        remnant_mass += 0.48*ratio*calc_imf(m_to, 1, x2, mass=False)
+        remnant_mass += 0.077*ratio*calc_imf(m_to, 1, x2)
+
+        remnant_mass += 0.48*ratio*calc_imf(1, 8.5, 2.3, mass=False)
+        remnant_mass += 0.077*ratio*calc_imf(1,8.5,2.3)
+
+    return remnant_mass
 
 def massinitfinal(m1,m2):
 

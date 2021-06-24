@@ -115,7 +115,7 @@ def preparespecwifis(fl, z, baseforce = False):
 
     return wl, data, errors, data_nomask, mask
 
-def splitspec(wl, data, linedefsfull, err=False, scale = False, usecont=True):
+def splitspec(wl, data, linedefsfull, err=False, scale = False, usecont=True, returncont=False):
 
     #bluelow, bluehigh, linelow, linehigh, redlow, redhigh, \
     #      mlow, mhigh, morder, line_name, index_name = linedefs
@@ -127,6 +127,7 @@ def splitspec(wl, data, linedefsfull, err=False, scale = False, usecont=True):
     databands = []
     wlbands = []
     errorbands = []
+    contarray = []
 
     for i in range(len(linedefs[6])):
         if type(linedefs) == list:
@@ -157,6 +158,7 @@ def splitspec(wl, data, linedefsfull, err=False, scale = False, usecont=True):
                 pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
                 polyfit = np.poly1d(pf)
                 cont = polyfit(wlslice)
+                contarray.append(polyfit)
 
                 if scale:
                     newdata = np.array(data)
@@ -186,4 +188,11 @@ def splitspec(wl, data, linedefsfull, err=False, scale = False, usecont=True):
                 errslice = err[wh]
                 errorbands.append(errslice)
     
-    return wlbands, databands, errorbands
+    if returncont:
+        return wlbands, databands, errorbands, contarray
+    else:
+        return wlbands, databands, errorbands
+
+
+
+
