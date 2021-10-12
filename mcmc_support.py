@@ -29,20 +29,19 @@ def gaussian_os(xs, a, sigma, x0, b):
     return full
 
 def gaussian_fit_os(xdata,ydata,p0, gaussian=gaussian_os):
-    '''Performs a very simple gaussian fit using scipy.optimize.curvefit. Returns 
-        the fit parameters and the covariance matrix'''
+    '''
+    Performs a very simple gaussian fit using scipy.optimize.curvefit. 
+    Returns the fit parameters and the covariance matrix'''
 
-    #first = 1.0 / (sigma * np.sqrt(2.0 * np.pi))
-    #second = ((x - x0)/sigma)**2.0
-        
-    #gaussian = lambda x,a,sigma,x0: a * np.exp((-1.0/2.0) * ((x - x0)/sigma)**2.0)
     popt, pcov = spo.curve_fit(gaussian, xdata, ydata, p0=p0)
     return [popt, pcov]
 
 def gauss_nat(xs, p0):
-    '''Returns a gaussian function with inputs p0 over xs. p0 = [sigma, mean]'''
-    #return  (1 / (2.*np.pi*p0[0]**2.))* np.exp((-1.0/2.0) * ((xs - p0[1])/p0[0])**2.0)
-    return  (1 / (np.sqrt(2.*np.pi)*p0[0])) * np.exp( (-1.0/2.0) * ((xs - p0[1])/p0[0])**2.0 )
+    '''
+    Returns a gaussian function with inputs p0 over xs. p0 = [sigma, mean]
+    '''
+    return  (1 / (np.sqrt(2.*np.pi)*p0[0])) * np.exp( (-1.0/2.0) * \
+                ((xs - p0[1])/p0[0])**2.0 )
 
 def load_mcmc_file(fl, linesoverride=False):
     '''Loads the mcmc chain ouput. Returns
@@ -237,6 +236,33 @@ def load_mcmc_file(fl, linesoverride=False):
     print("DATASHAPE: ", realdata.shape)
 
     return [realdata, postprob, infol, lastdata]
+
+def save_sliced_mcmc(mcmcfile, save, start, end=None):
+    '''
+    Loads an MCMC results file, truncates the file accordingly, 
+    then saves two new files with the trucated data and information.
+    '''
+
+    data, postprob, infolist, lastdata = load_mcmc_file(mcmcfile)
+
+    names = infolist[3]
+    paramnames = infolist[6]
+    linenames = infolist[7]
+    lines = infolist[8]
+
+    if start < 0:
+        samples = data[start:,:,:].reshape((-1,len(names)))
+    else:
+        samples = data[start:end+1,:,:].reshape((-1,len(names)))
+        
+    savefl = open(save+'.mcmc', 'w')
+    savefl.write('\t'.join(paramnames) + '\n')
+    for s in range(samples.shape[0]):
+        savefl.write('\t'.join([str(float(i)) for i in samples[s,:]]) + '\n')
+
+    savefl.close()
+        
+    return
 
 def convolvemodels(wlfull, datafull, veldisp, reglims = False):
 

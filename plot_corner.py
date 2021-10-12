@@ -14,7 +14,8 @@ from matplotlib import rc
 rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 rc('text', usetex=True)
 
-def plot_corner(fl, burnin, variables=[], nolimits=False,latexout=False, annotate=True, save=True):
+def plot_corner(fl, burnin, variables=[], nolimits=False, latexout=False, \
+        alpha=False, annotate=True, save=True):
 
     rc('text', usetex=True)
 
@@ -24,7 +25,6 @@ def plot_corner(fl, burnin, variables=[], nolimits=False,latexout=False, annotat
     print(fl.split('/')[-1])
     dataall = mcsp.load_mcmc_file(fl)
 
-    #infol = [nworkers, niter, gal, names, high, low, paramnames, linenames, legacy]
     data = dataall[0]
     names = dataall[2][3]
     high = dataall[2][4]
@@ -46,7 +46,14 @@ def plot_corner(fl, burnin, variables=[], nolimits=False,latexout=False, annotat
     elif datatype == "fullfit":
         datatype = "Spectra"
 
-    samples = data[burnin:,:,:].reshape((-1,len(names)))
+    if type(alpha) != bool:
+        samples = data[burnin:,:,:].reshape((-1,len(names)))
+        names = np.append(names, r'$\alpha_{K}$')
+        paramnames = np.append(paramnames,'alpha')
+        samples = np.c_[samples, alpha]
+    else:
+        samples = data[burnin:,:,:].reshape((-1,len(names)))
+
     if 'f' in paramnames:
         whf = np.where(paramnames == 'f')[0][0]
         samples[:,whf] = np.log(samples[:,whf])
@@ -74,8 +81,10 @@ def plot_corner(fl, burnin, variables=[], nolimits=False,latexout=False, annotat
     truevalues = list(map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),\
             zip(*np.percentile(samples, [16, 50, 84], axis=0))))
 
-    figure = corner.corner(samples, labels = names, label_kwargs={'fontsize': 23})
-    #figure.suptitle(dataall[2][2] + ' ' + flspl + ' ' + mcmctype + ' ' + str(datatype))
+    figure = corner.corner(samples, labels = names, label_kwargs=\
+            {'fontsize': 23})
+    #figure.suptitle(dataall[2][2] + ' ' + flspl + ' ' + mcmctype + ' ' + \
+    # str(datatype))
 
     # Extract the axes
     axes = np.array(figure.axes).reshape((len(names), len(names)))
@@ -88,33 +97,33 @@ def plot_corner(fl, burnin, variables=[], nolimits=False,latexout=False, annotat
 
     # Loop over the diagonal
     for i in range(len(names)):
-        print(paramnames[i]+':\t', np.round(truevalues[i][0] - truevalues[i][2],2), np.round(truevalues[i][0],2),\
+        print(paramnames[i]+':\t', np.round(truevalues[i][0] - \
+                truevalues[i][2],2), np.round(truevalues[i][0],2),\
                 np.round(truevalues[i][0] + truevalues[i][1],2))
 
         midval = str(np.round(truevalues[i][0],2))
         lowval = str(np.round(truevalues[i][2],2))
         highval = str(np.round(truevalues[i][1],2))
 
-        #text += '$'+names[i]+' = '+str(np.round(truevalues[i][0],2))+'^{'+str(np.round(truevalues[i][2],2))+\
-        #         '}_{'+str(np.round(truevalues[i][1],2))+'}$\n'
         if annotate:
-            textstr = r'%s = $%s^{%s}_{%s}$' % (names[i],midval, highval, lowval)
-            mpl.text(len(names)-1.25, 0.75-i*0.25, textstr, fontsize = 25,transform=axes[0,0].transAxes)
+            textstr = r'%s = $%s^{%s}_{%s}$' % (names[i],midval, highval, \
+                    lowval)
+            mpl.text(len(names)-1.25, 0.75-i*0.25, textstr, fontsize = 25,\
+                    transform=axes[0,0].transAxes)
 
-        #mpl.text(0.7,0.7+i/10., r'$'+names[i]+' = '+str(np.round(truevalues[i][0],2))+'^{'+\
-        #        str(np.round(truevalues[i][2],2))+'}_{'+str(np.round(truevalues[i][1],2))+'}$\n',horizontalalignment='left')
         ax = axes[i, i]
         ax.axvline(truevalues[i][0], color="r")
         ax.axvline(truevalues[i][0] + truevalues[i][1], color="g")
         ax.axvline(truevalues[i][0] - truevalues[i][2], color="g")
-        #ax.set_title(names[i]+"=$%s_{-%s}^{+%s}$" % (np.round(truevalues[i][0],3), \
-        #        np.round(truevalues[i][2],3), np.round(truevalues[i][1],3)))
+
         if paramnames[i] in ['x1','x2','VelDisp']:
             ax.set_title(names[i], fontsize = 30)
         else:
             ax.set_title(names[i], fontsize = 23)
         if not nolimits:
             ax.set_xlim((low[i],high[i]))
+        elif paramnames[i] == 'alpha':
+            ax.set_xlim((0,4))
 
         ax.tick_params(axis='both', which='major', labelsize=20)
 
@@ -132,6 +141,11 @@ def plot_corner(fl, burnin, variables=[], nolimits=False,latexout=False, annotat
             if not nolimits:
                 ax.set_ylim((low[yi], high[yi]))
                 ax.set_xlim((low[xi], high[xi]))
+            elif paramnames[yi] == 'alpha':
+                ax.set_ylim((0,4))
+            elif paramnames[xi] == 'alpha':
+                ax.set_xlim((0,4))
+
             ax.tick_params(axis='both', which='major', labelsize=20)
 
             if np.logical_and(paramnames[yi] == 'x2', paramnames[xi] == 'x1'):
@@ -156,7 +170,7 @@ def plot_corner(fl, burnin, variables=[], nolimits=False,latexout=False, annotat
         print()
         for i in range(len(names)):
             print(paramnames[i]+':\t', "$"+str(np.round(truevalues[i][0],2))+
-                    "^{+"+str(np.round(truevalues[i][2],2))+"}_{-"+\
+                    "_{-"+str(np.round(truevalues[i][2],2))+"}^{+"+\
                             str(np.round(truevalues[i][1],2))+"}$")
 
     if save:

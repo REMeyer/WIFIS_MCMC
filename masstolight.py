@@ -44,20 +44,13 @@ def calculate_alpha(fl, burnin = -1000, vcjset = None, verbose = False):
     fitvalues = np.array(fitvalues)
     midvalues = fitvalues[:,0]
 
-    #return [data, names, gal, datatype, fitvalues, midvalues, paramnames, linenames, lines]
-    #data, names, gal, datatype, fitvalues, truevalues, \
-    #paramnames, linenames, lines = cbf.bestfitPrepare(fl, burnin)
-
-#    paramdict = {}
-#    for n in paramnames:
-#        paramdict[n] = None
-
     #Generate the IMF exponent arrays and get indices for various parameters
     x_m = 0.5 + np.arange(16)/5.0
     paramnames = np.array(paramnames)
 
     #Generate 2d array for every IMF to hold M/L values
-    MWvalues = np.array(midvalues) #Generate array with same file params but w/ MW IMF
+    #Generate array with same file params but w/ MW IMF 
+    MWvalues = np.array(midvalues) 
 
     if ('x1' in paramnames) and ('x2' in paramnames):
         ix1 = np.where(paramnames == 'x1')[0][0]
@@ -73,9 +66,9 @@ def calculate_alpha(fl, burnin = -1000, vcjset = None, verbose = False):
         iage = np.where(paramnames == 'Age')[0][0]
     
     # Create model spectrum for best-fit run params & MW-imf
-    wlgMW, newmMW, basemMW = mcfi.model_spec(MWvalues, paramnames, paramdict, \
-                        vcjset = vcjset, MLR = True) #Generate the MW spectrum
-    
+    #Generate the MW spectrum
+    wlgMW, newmMW, basemMW = mcfi.model_spec(MWvalues, paramnames, paramdict,
+                        vcjset = vcjset, MLR = True)     
     #Get the best fit age
     bestage = MWvalues[iage]
     print("Age: ", bestage)
@@ -83,7 +76,8 @@ def calculate_alpha(fl, burnin = -1000, vcjset = None, verbose = False):
     #Get interpolation function
     interps = imf.mass_ratio_prepare_isochrone()
     #Calculate Kroupa IMF integrals
-    MWremaining, to_mass, normconstant = imf.determine_mass_ratio_isochrone(1.3,2.3, bestage, interps)
+    MWremaining, to_mass, normconstant = \
+            imf.determine_mass_ratio_isochrone(1.3,2.3, bestage, interps)
     #Calculate Remnant mass at turnoff mass
     massremnant = imf.massremnant(interps[-1], to_mass)
     #Caluclate final remaining mass
@@ -214,10 +208,11 @@ def calculate_alpha(fl, burnin = -1000, vcjset = None, verbose = False):
     print(rtwo(percentiles[1]), rtwo(percentiles[2]-percentiles[1]),\
             rtwo(percentiles[1]-percentiles[0]))
 
-    return MLR, MLRDict, paramnames, midvalues, histprint, mlrarr, percentiles, fullMLR
+    return MLR, MLRDict, paramnames, midvalues, histprint, mlrarr, \
+            percentiles, fullMLR
 
-def calculate_alpha_new(fl, burnin = -1000, vcjset = None, verbose = False, limited=False,\
-        linesoverride = False):
+def calculate_alpha_new(fl, burnin = -1000, vcjset = None, verbose = False, \
+        limited=False, linesoverride = False):
     '''
     New version of calculate_alpha that estimates alpha for every MCMC step in
     the posterior distributions specified by burnin. In addition, this function
@@ -225,7 +220,8 @@ def calculate_alpha_new(fl, burnin = -1000, vcjset = None, verbose = False, limi
     '''
 
     # Load the MCMC data, parameters, line names
-    data, postprob, info, lastdata = mcsp.load_mcmc_file(fl, linesoverride=linesoverride)
+    data, postprob, info, lastdata = mcsp.load_mcmc_file(fl, \
+            linesoverride=linesoverride)
     gal = info[2]
     names = info[3]
     high = info[4]
@@ -251,42 +247,66 @@ def calculate_alpha_new(fl, burnin = -1000, vcjset = None, verbose = False, limi
     iage = np.where(paramnames == 'Age')[0][0]
     iz = np.where(paramnames == 'Z')[0][0]
     
-    #Get interpolation function
+    #Get interpolation functions, specifically turnoff mass estimator
     interps = imf.mass_ratio_prepare_isochrone()
-    massarr, massremnantarr = imf.massremnant_prepare(interps[-1])
+    # Pre-calculate remnant mass estimator (Note: Old remnant calculation)
+    #massarr, massremnantarr = imf.massremnant_prepare(interps[-1])
     
-    MWvalues = np.array(samples[0,:]) #Generate array with same file params but w/ MW IMF
-    # Create model spectrum for best-fit run params & MW-imf
-    wlgMW, newmMW, basemMW = mcfi.model_spec(MWvalues, paramnames, paramdict, \
-                        vcjset = vcjset, MLR = True) #Generate the MW spectrum
-    whK = np.where((wlgMW >= 20300) & (wlgMW <= 23700))[0] 
+    # Generate a model simply to acquire the wavelength limits for the K band
+    wlgMW, newmMW, basemMW = mcfi.model_spec(np.array(samples[0,:]), \
+            paramnames, paramdict, vcjset = vcjset, \
+            MLR = True) #Generate the MW spectrum
+    whK = np.where((wlgMW >= 20300) & (wlgMW <= 23700))[0] # K-band range
 
+    #Some constants and arrays
+    pi = 3.14159265
+    clight = 2.9979e10
+    lsun = 3.839e33
+    pc2cm = 3.08568E18
     AlphaArr = [] # Array to hold alpha parameters for each MCMC step
+    t1 = time()
+
     # Loop through every step
     for i in range(samples.shape[0]):
+        # If limited mode, set abundance to zero and use age,z,imf
+        # Otherwise use full MCMC parameters
         if limited:
             MWvalues = np.zeros(len(samples[i,:]))
             MWvalues[iz] = samples[i,:][iz]
             MWvalues[iage] = samples[i,:][iage]
+
             rval = np.zeros(len(samples[i,:]))
             rval[iage] = samples[i,:][iage]
             rval[iz] = samples[i,:][iz]
             rval[ix1] = samples[i,:][ix1]
             rval[ix2] = samples[i,:][ix2]
         else:
-            MWvalues = np.array(samples[i,:]) #Generate array with same file params but w/ MW IMF
+            #Generate array with same file params but w/ MW IMF
+            MWvalues = np.array(samples[i,:])             
             rval = np.array(samples[i,:])
+
+        # Set the IMF parameters for the MW set to a Kroupa IMF
         MWvalues[ix1] = 1.3 # Change IMF x1
         MWvalues[ix2] = 2.3 # Change IMF x2
 
-        # Create model spectrum for best-fit run params & MW-imf
-        wlgMW, newmMW, basemMW = mcfi.model_spec(MWvalues, paramnames, paramdict, \
-                            vcjset = vcjset, MLR = True) #Generate the MW spectrum
-        L_MW = np.sum(newmMW[whK])
+        # Create model spectrum for MW-imf
+        wlgMW, newmMW, basemMW = mcfi.model_spec(MWvalues, paramnames, 
+                paramdict, vcjset = vcjset, MLR = True) 
+
+        MW_SpecK = newmMW[whK]
+        dw_m = wlgMW[whK][1:] - wlgMW[whK][:-1]
+        MW_SpecK_Units = MW_SpecK * lsun/1E6 * \
+                wlgMW[whK]**2.0 / clight / 1E8 / 4 / pi / pc2cm**2
+        dSpecMW = (MW_SpecK_Units[1:] + MW_SpecK_Units[:-1])/2.0
+
+        L_MW_tot = np.sum(dw_m * dSpecMW)
+        L_MW_mag = -2.5*np.log10(L_MW_tot) - 48.60
+        L_MW = 10**((2./5)*(5.14 - L_MW_mag))
         
         #Calculate Kroupa IMF integrals
-        MW_Mass, to_mass, normconstant = imf.determine_mass_ratio_isochrone_new(1.3,2.3, \
-                MWvalues[iage], interps)
+        MW_Mass, to_mass, normconstant = \
+                imf.determine_mass_ratio_isochrone_new(1.3,2.3, 
+                    MWvalues[iage], interps)
 
         #Calculate Remnant mass at turnoff mass
         #massremnant = imf.massremnant_get(massarr, massremnantarr, to_mass)
@@ -294,31 +314,39 @@ def calculate_alpha_new(fl, burnin = -1000, vcjset = None, verbose = False, limi
         #Caluclate final remaining mass
         MW_Mass += massremnant_mw*normconstant
 
-        wlg, newm, basem = mcfi.model_spec(rval, paramnames, paramdict, \
+        wlg, newm, basem = mcfi.model_spec(rval, paramnames, paramdict, 
                         vcjset = vcjset, MLR = True)
-        L_IMF = np.sum(newm[whK])
+        IMF_SpecK = newm[whK]
+        IMF_SpecK_Units = IMF_SpecK * lsun/1E6 * \
+                wlg[whK]**2.0 / clight / 1E8 / 4 / pi / pc2cm**2
+        dSpecIMF = (IMF_SpecK_Units[1:] + IMF_SpecK_Units[:-1])/2.0
+        L_IMF_tot = np.sum(dw_m * dSpecIMF)
+        L_IMF_mag = -2.5*np.log10(L_IMF_tot) - 48.60
+        L_IMF = 10**((2./5)*(5.14 - L_IMF_mag))
+        #L_IMF = np.sum(newm[whK])
 
         IMF_Mass, to_massimf, normconstantimf = \
-                imf.determine_mass_ratio_isochrone(rval[ix1],rval[ix2], MWvalues[iage], interps)
+                imf.determine_mass_ratio_isochrone_new(rval[ix1],rval[ix2], 
+                        MWvalues[iage], interps)
         massremnant_imf = imf.conroy_remnants(rval[ix1],rval[ix2], to_mass)
         IMF_Mass += massremnant_imf*normconstantimf
 
         alpha = (IMF_Mass * L_MW) / (MW_Mass * L_IMF)
         AlphaArr.append(alpha)
         
-        if verbose and (i % 5000 == 0):
-            print(i, (time()-t1)/60)
-            print(IMF_Mass, L_MW, MW_Mass, L_IMF, massremnant_mw, massremnant_imf, alpha)
-            print(np.percentile(AlphaArr, [16,50,84], axis = 0))
+        if verbose and (i % 50000 == 0):
+            print(i, (time()-t1)/60,np.percentile(AlphaArr, 
+                [16,50,84], axis = 0), end='\r', flush=True)
 
     plt.close('all')
     
-    percentiles = np.percentile(AlphaArr, [16,50,84], axis = 0)
-    print(fl, percentiles)
+    p = np.percentile(AlphaArr, [16,50,84], axis = 0)
+    print(fl, p, p[1],p[1]-p[0],p[2]-p[1], '\n')
 
     return AlphaArr
 
-def calculate_MLR_func(paramnames, truevalues, names, samples, vcjset = None, verbose = False):
+def calculate_MLR_func(paramnames, truevalues, names, samples, 
+        vcjset = None, verbose = False):
 
     #Load the best-fit parameters
     #data, names, gal, datatype, fitvalues, truevalues, \

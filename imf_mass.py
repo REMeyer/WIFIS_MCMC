@@ -82,18 +82,14 @@ def mass_ratio_prepare_isochrone():
 
     # Interpolate the columns to make continuous series.
     # First x=age, y = mass of star
-    agemassinterp = spi.interp1d(remnantinfo[:,2], remnantinfo[:,0], kind=3, bounds_error=False)
-    # Second x=? y = mass of remnant after MS?
-    remnantinterp = spi.interp1d(remnantinfo[:,0], remnantinfo[:,1], kind=3, bounds_error=False)
-    # Second x=? y = mass of remnant relative to MS mass
-    newremnantinterp = spi.interp1d(remnantinfo[:,0], remnantinfo[:,1]/remnantinfo[:,0],\
+    agemassinterp = spi.interp1d(remnantinfo[:,2], remnantinfo[:,0], 
             kind=3, bounds_error=False)
-
-    #mpl.plot(remnantinfo[:,0], remnantinfo[:,1])
-    #mpl.plot(remnantinfo[:,0], remnantinfo[:,0])
-    #mpl.plot(np.arange(0.08,100, 0.01), newremnantinterp(np.arange(0.08,100,0.01)))
-    #mpl.show()
-    #sys.exit()
+    # Second x=? y = mass of remnant after MS?
+    remnantinterp = spi.interp1d(remnantinfo[:,0], remnantinfo[:,1], 
+            kind=3, bounds_error=False)
+    # Second x=? y = mass of remnant relative to MS mass
+    newremnantinterp = spi.interp1d(remnantinfo[:,0], 
+            remnantinfo[:,1]/remnantinfo[:,0], kind=3, bounds_error=False)
 
     return agemassinterp, remnantinterp, newremnantinterp
 
@@ -219,7 +215,8 @@ def normalize_imf_isochrone_new(x1,x2, age, to_mass, mass = True):
         i1 = calc_imf(0.08,0.499999,x1, mass = mass)
         i2 = ratio*calc_imf(0.5,to_mass,x2, mass = mass)
         i3 = 0
-        i4 = ratio*calc_imf(to_mass, 0.99999, x2, mass = mass) + ratio*calc_imf(1.0, 8.0, 2.3,mass=mass)
+        i4 = ratio*calc_imf(to_mass, 0.99999, x2, mass = mass) + \
+                ratio*calc_imf(1.0, 8.0, 2.3,mass=mass)
         sum_i = i1 + i2 + i3
         #print(np.round(age,3), np.round(to_mass,3), np.round(i1,3), \
         #np.round(i2,3), np.round(i3,3), np.round(sum_i,3), np.round(i4,3))
@@ -241,9 +238,13 @@ def normalize_imf_isochrone_new(x1,x2, age, to_mass, mass = True):
 def determine_mass_ratio_isochrone_new(x1,x2,age, interp, bottomlight=False):
     agemassinterp, remnantinterp, newremnantinterp = interp
 
-    fulli = normalize_imf_isochrone_new(x1,x2, 0.0, 100.) #Calculate full integral
+    #Calculate full integral
+    fulli = normalize_imf_isochrone_new(x1, x2, 0.0, 100.)     
+    #Calculate turnoff mass
     to_mass = agemassinterp(age)
-    age_i = normalize_imf_isochrone_new(x1,x2, age, to_mass) #Calculate integral for the turnoff mass
+    #Calculate integral for the turnoff mass
+    age_i = normalize_imf_isochrone_new(x1, x2, age, to_mass) 
+    #Full integral normalization
     norm_constant = 1.0/fulli[0]
 
     return age_i[0]*norm_constant, to_mass, norm_constant
