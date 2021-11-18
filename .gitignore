@@ -1,10 +1,12 @@
 widths/*.txt
 mcmcresults/*.dat
 mcmcresults/*.pdf
+mcmcresults/*.npy
 *.pyc
 *.swp
 *.swo
-spec/atlas/
-spec/vcj_ssp/
-spec/*.zip
+models/atlas/
+modesl/vcj_ssp/
+models/*.zip
 *.png
+inputs/*.txt
