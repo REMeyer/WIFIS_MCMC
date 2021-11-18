@@ -3,6 +3,12 @@
 #   Based off of emcee 
 #   Author: Elliot Meyer, Dept Astronomy & Astrophysics University of Toronto
 ###################
+#
+#
+#   NOTE: THIS PROCEDURE IS NOT FULLY FUNCTIONAL NOR ACCURATE
+#
+#
+##################
 from __future__ import print_function
 
 from astropy.io import fits
@@ -81,7 +87,7 @@ def preload_vcj(overwrite_base = False, sauron=False, saurononly=False, MLR=Fals
             'Ba-', 'Ni+', 'Co+', 'Eu+', 'Sr+', 'K+','V+', 'Cu+', 'Na+0.6', 'Na+0.9']
 
     print("PRELOADING SSP MODELS INTO MEMORY")
-    fls = glob(base+'spec/vcj_ssp/*')    
+    fls = glob(base+'models/vcj_ssp/*')    
 
     for fl in fls:
         #print fl
@@ -97,7 +103,7 @@ def preload_vcj(overwrite_base = False, sauron=False, saurononly=False, MLR=Fals
         vcj["%.1f_%.1f" % (age, Zval)] = [x[:,1:]]
 
     print("PRELOADING ABUNDANCE MODELS INTO MEMORY")
-    fls = glob(base+'spec/atlas/*')    
+    fls = glob(base+'models/atlas/*')    
     for fl in fls:
         #print fl
         flspl = fl.split('/')[-1]

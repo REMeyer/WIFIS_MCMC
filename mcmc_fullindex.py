@@ -60,7 +60,8 @@ for i in range(16):
 
 vcj = {}
 
-def preload_vcj(overwrite_base = False, sauron=False, saurononly=False, MLR=False):
+def preload_vcj(overwrite_base = False, sauron=False, saurononly=False, 
+        MLR=False):
     '''Loads the SSP models into memory so the mcmc model creation takes a
     shorter time. Returns a dict with the filenames as the keys'''
     #global vcjfull
@@ -76,10 +77,11 @@ def preload_vcj(overwrite_base = False, sauron=False, saurononly=False, MLR=Fals
     chem_names = ['WL', 'Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', \
             'C+', 'C-', 'a/Fe+', 'N+', 'N-', 'as/Fe+', 'Ti+', 'Ti-',\
             'Mg+', 'Mg-', 'Si+', 'Si-', 'T+', 'T-', 'Cr+', 'Mn+', 'Ba+', \
-            'Ba-', 'Ni+', 'Co+', 'Eu+', 'Sr+', 'K+','V+', 'Cu+', 'Na+0.6', 'Na+0.9']
+            'Ba-', 'Ni+', 'Co+', 'Eu+', 'Sr+', 'K+','V+', 'Cu+', 'Na+0.6',\
+            'Na+0.9']
 
     print("PRELOADING SSP MODELS INTO MEMORY")
-    fls = glob(base+'spec/vcj_ssp/*')    
+    fls = glob(base+'models/vcj_ssp/*')    
 
     for fl in fls:
         #print fl
@@ -95,7 +97,7 @@ def preload_vcj(overwrite_base = False, sauron=False, saurononly=False, MLR=Fals
         vcj["%.1f_%.1f" % (age, Zval)] = [x[:,1:]]
 
     print("PRELOADING ABUNDANCE MODELS INTO MEMORY")
-    fls = glob(base+'spec/atlas/*')    
+    fls = glob(base+'models/atlas/*')    
     for fl in fls:
         #print fl
         flspl = fl.split('/')[-1]
@@ -109,7 +111,8 @@ def preload_vcj(overwrite_base = False, sauron=False, saurononly=False, MLR=Fals
         if age == 13.0:
             age = 13.5
 
-        x = pd.read_csv(fl, skiprows=2, names = chem_names, delim_whitespace = True, header=None)
+        x = pd.read_csv(fl, skiprows=2, names = chem_names, 
+                delim_whitespace = True, header=None)
         x = np.array(x)
         vcj["%.1f_%.1f" % (age, Zval)].append(x[:,1:])
 
@@ -157,11 +160,15 @@ def preload_vcj(overwrite_base = False, sauron=False, saurononly=False, MLR=Fals
     
     return vcj, imf_interp, ele_interp
 
-def model_spec(inputs, paramnames, paramdict, saurononly = False, vcjset = False, timing = False, \
-        full = False, MLR=False, fixZ = False):
-    '''Core function which takes the input model parameters, finds the appropriate models,
-    and adjusts them for the input abundance ratios. Returns a broadened model spectrum 
-    to be matched with a data spectrum.'''
+def model_spec(inputs, paramnames, paramdict, saurononly = False, 
+        vcjset = False, timing = False, full = False, MLR=False, 
+        fixZ = False):
+    '''
+    Core function which takes the input model parameters, finds the 
+    appropriate models, and adjusts them for the input abundance ratios. 
+    
+    Returns a broadened model spectrum to be matched with a data spectrum.
+    '''
 
     global vcj
 
@@ -242,14 +249,14 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False, vcjset = False
         x2 = x2_m[x2min]
 
     #Finding the appropriate base model files.
-    #fl1, fl2, fl3, fl4, agem, agep, zm, zp, mixage, mixZ = select_model_file(Z, Age)
 
     if timing:
         t2 = time.time()
         print("MSPEC T1: ",t2 - t1)
     
     wlfull = vcj[0]["WL"]
-    #Finding the relevant section of the models to reduce the computational complexity
+    #Finding the relevant section of the models to reduce the 
+    #computational complexity
     if full:
         rel = np.where((wlfull > 4000) & (wlfull < 14000))[0]
     elif saurononly:
@@ -260,9 +267,11 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False, vcjset = False
         rel = np.where((wlfull > 8500) & (wlfull < 14000))[0]
     wl = vcj[0]["WL"][rel]
         
-    # If the Age of Z is inbetween models then this will average the respective models to produce 
-    # one that is closer to what is expected.
-    # NOTE THAT THIS IS AN ASSUMPTION AND THE CHANGE IN THE MODELS IS NOT NECESSARILY LINEAR
+    # If the Age of Z is inbetween models then this will average the 
+    # respective models to produce one that is closer to what is expected.
+    # NOTE THAT THIS IS AN ASSUMPTION AND THE CHANGE IN THE MODELS IS NOT 
+    # NECESSARILY LINEAR
+
     #fullage = np.array([1.0,3.0,5.0,7.0,9.0,11.0,13.5])
     #fullZ = np.array([-1.5, -1.0, -0.5, 0.0, 0.2])
     #abundi = [0,1,2,-2,-1,29,16,15,6,5,4,3]
@@ -298,8 +307,8 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False, vcjset = False
 
             #C
             Cextend = (c[:,7]-c[:,0])*(0.3/0.15) + c[:,0]
-            interp = spi.interp2d(wl, [0.0,0.15,0.3], np.stack((c[:,0],c[:,7],Cextend)), \
-                    kind = 'linear')
+            interp = spi.interp2d(wl, [0.0,0.15,0.3], 
+                    np.stack((c[:,0],c[:,7],Cextend)), kind = 'linear')
             alpha_contribution += interp(wl, alpha) / c[:,0] - 1.
 
             #Mg
@@ -322,19 +331,21 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False, vcjset = False
     #  'V+',    'Cu+', 'Na+0.6','Na+0.9']
 
     # DETERMINING THE ABUNDANCE RATIO EFFECTS
-    # The assumption here is that the abundance effects scale linearly...for all except sodium which covers a much wider
-    # range of acceptable values.
-    # The models are interpolated at the various given abundances to allow for abundance values to be continuous.
-    # The interpolated value is then normalized by the solar metallicity model and then subtracted by 1 to 
-    # retain the percentage
-    #if fitmode in [True, False, 'NoAge', 'NoAgeVelDisp']:
+    # The assumption here is that the abundance effects scale linearly...for 
+    # all except sodium which covers a much wider range of acceptable values.
+    # The models are interpolated at the various given abundances to allow for 
+    # abundance values to be continuous.
+    # The interpolated value is then normalized by the solar metallicity model 
+    # and then subtracted by 1 to retain the percentage
 
-        #Na adjustment
+    #Na adjustment
     ab_contribution = np.ones(c[:,0].shape)
+
     if 'Na' in paramdict.keys():
         Naextend = (c[:,2]-c[:,0])*(-0.5/-0.3) + c[:,0]
-        interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.6,0.9], \
-                np.stack((Naextend,c[:,2],c[:,0],c[:,1],c[:,-2],c[:,-1])), kind = 'cubic')
+        interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.6,0.9], 
+                np.stack((Naextend,c[:,2],c[:,0],c[:,1],c[:,-2],c[:,-1])), 
+                kind = 'cubic')
         #NaP = interp(wl,Na) / c[:,0] - 1.
         #ab_contribution += NaP
         if fixZ:
@@ -342,13 +353,14 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False, vcjset = False
         else:
             ab_contribution *= interp(wl,Na) / c[:,0]
 
-        #K adjustment (assume symmetrical K adjustment)
+    #K adjustment (assume symmetrical K adjustment)
     if 'K' in paramdict.keys():
         Kminus = (2. - (c[:,29] / c[:,0]))*c[:,0]
         Kmextend = (Kminus - c[:,0])*(-0.5/-0.3) + c[:,0]
         Kpextend = (c[:,29] - c[:,0]) * (0.5/0.3) + c[:,0]
-        interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], \
-                np.stack((Kmextend,Kminus,c[:,0],c[:,29],Kpextend)), kind = 'linear')
+        interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], 
+                np.stack((Kmextend,Kminus,c[:,0],c[:,29],Kpextend)), 
+                kind = 'linear')
         #KP = interp(wl,K) / c[:,0] - 1.
         #ab_contribution += KP
         if fixZ:
@@ -356,12 +368,13 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False, vcjset = False
         else:
             ab_contribution *= interp(wl,K) / c[:,0] 
 
-        #Fe Adjustment
+    #Fe Adjustment
     if 'Fe' in paramdict.keys():
         Femextend = (c[:,6] - c[:,0])*(-0.5/-0.3) + c[:,0]
         Fepextend = (c[:,5] - c[:,0])*(0.5/0.3) + c[:,0]
-        interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], \
-                np.stack((Femextend,c[:,6], c[:,0],c[:,5],Fepextend)), kind = 'linear')
+        interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], 
+                np.stack((Femextend,c[:,6], c[:,0],c[:,5],Fepextend)), 
+                kind = 'linear')
         #FeP = interp(wl,Fe) / c[:,0] - 1.
         #ab_contribution += FeP
         if fixZ:
@@ -369,12 +382,13 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False, vcjset = False
         else:
             ab_contribution *= interp(wl,Fe) / c[:,0]
 
-        #Ca Adjustment
+    #Ca Adjustment
     if 'Ca' in paramdict.keys():
         Cmextend = (c[:,4] - c[:,0])*(-0.5/-0.3) + c[:,0]
         Cpextend = (c[:,3] - c[:,0])*(0.5/0.3) + c[:,0]
-        interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], \
-                np.stack((Cmextend,c[:,4], c[:,0],c[:,3],Cpextend)), kind = 'linear')
+        interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], 
+                np.stack((Cmextend,c[:,4], c[:,0],c[:,3],Cpextend)), 
+                kind = 'linear')
         #CaP = interp(wl,Ca) / c[:,0] - 1.
         #ab_contribution += CaP
         if fixZ:
@@ -386,20 +400,24 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False, vcjset = False
         alpha_contribution = np.ones(c[:,0].shape)
 
         #Ca
-        interp = spi.interp2d(wl, [0.0,0.3], np.stack((c[:,0],c[:,3])), kind = 'linear')
+        interp = spi.interp2d(wl, [0.0,0.3], np.stack((c[:,0],c[:,3])), 
+                kind = 'linear')
         alpha_contribution *= interp(wl, alpha) / c[:,0] 
 
         #C
         Cextend = (c[:,7]-c[:,0])*(0.3/0.15) + c[:,0]
-        interp = spi.interp2d(wl, [0.0,0.15,0.3], np.stack((c[:,0],c[:,7],Cextend)), kind = 'linear')
+        interp = spi.interp2d(wl, [0.0,0.15,0.3], 
+                np.stack((c[:,0],c[:,7],Cextend)), kind = 'linear')
         alpha_contribution *= interp(wl, alpha) / c[:,0]
 
         #Mg
-        interp = spi.interp2d(wl, [0.0,0.3], np.stack((c[:,0],c[:,15])), kind = 'linear')
+        interp = spi.interp2d(wl, [0.0,0.3], np.stack((c[:,0],c[:,15])), 
+                kind = 'linear')
         alpha_contribution *= interp(wl, alpha) / c[:,0]
 
         #Si
-        interp = spi.interp2d(wl, [0.0,0.3], np.stack((c[:,0],c[:,17])), kind = 'linear')
+        interp = spi.interp2d(wl, [0.0,0.3], np.stack((c[:,0],c[:,17])), 
+                kind = 'linear')
         alpha_contribution *= interp(wl, alpha) / c[:,0]
 
         ab_contribution *= alpha_contribution
@@ -424,8 +442,9 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False, vcjset = False
 
     return wl, newm, basemodel
 
-def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict, lineinclude, \
-        linedefsfull, sauron, saurononly, plot=False, timing = False):
+def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict, 
+        lineinclude, linedefsfull, sauron, saurononly, plot=False, 
+        timing = False):
     ''' Important function that produces the value that essentially
     represents the likelihood of the mcmc equation. Produces the model
     spectrum then returns a normal chisq value.'''
@@ -437,16 +456,18 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict, lineinclud
     if timing:
         t1 = time.time()
 
-    #Creating model spectrum then interpolating it so that it can be easily matched with the data.
+    # Creating model spectrum then interpolate to matched with the observed
+    # wavegrid.
     if sauron:
         if saurononly:
-            wlm, newm, base = model_spec(params, paramnames, paramdict, \
+            wlm, newm, base = model_spec(params, paramnames, paramdict, 
                     saurononly = True, timing=timing)
         else:
-            wlm, newm, base = model_spec(params, paramnames, paramdict, \
+            wlm, newm, base = model_spec(params, paramnames, paramdict, 
                     full = True, timing=timing)
     else:
-        wlm, newm, base = model_spec(params, paramnames, paramdict, timing=timing)
+        wlm, newm, base = model_spec(params, paramnames, paramdict, 
+                timing=timing)
 
     # Convolve model to velocity dispersion
     if not saurononly:
@@ -455,7 +476,8 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict, lineinclud
                 whsig = np.where(np.array(paramnames) == 'VelDisp')[0]
                 wlc, mconv = mcsp.convolvemodels(wlm, newm, params[whsig])
             else:
-                wlc, mconv = mcsp.convolvemodels(wlm, newm, paramdict['VelDisp'])
+                wlc, mconv = mcsp.convolvemodels(wlm, newm, 
+                        paramdict['VelDisp'])
         else:
             wlc, mconv = mcsp.convolvemodels(wlm, newm, veldisp)
 
@@ -464,16 +486,16 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict, lineinclud
             if 'VelDisp' in paramdict.keys():
                 if 'VelDisp' in paramnames:
                     whsig = np.where(np.array(paramnames) == 'VelDisp')[0]
-                    wlc_s, mconv_s = mcsp.convolvemodels(wlm, base, params[whsig],\
-                            reglims=[4000,6000])
+                    wlc_s, mconv_s = mcsp.convolvemodels(wlm, base, 
+                            params[whsig], reglims=[4000,6000])
                 else:
-                    wlc_s, mconv_s = mcsp.convolvemodels(wlm, base, \
+                    wlc_s, mconv_s = mcsp.convolvemodels(wlm, base, 
                             paramdict['VelDisp'], reglims=[4000,6000])
             else:
-                wlc_s, mconv_s = mcsp.convolvemodels(wlm, base, sauron[4], \
+                wlc_s, mconv_s = mcsp.convolvemodels(wlm, base, sauron[4], 
                         reglims=[4000,6000])
         else:
-            wlc_s, mconv_s = mcsp.convolvemodels(wlm, base, sauron[4],\
+            wlc_s, mconv_s = mcsp.convolvemodels(wlm, base, sauron[4],
                     reglims=[4000,6000])
 
     if 'f' in paramdict.keys():
@@ -488,10 +510,12 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict, lineinclud
         print("CHISQ T1: ", t2 - t1)
 
     if not saurononly:
-        mconvinterp = spi.interp1d(wlc, mconv, kind='cubic', bounds_error=False)
+        mconvinterp = spi.interp1d(wlc, mconv, kind='cubic', 
+                bounds_error=False)
 
     if sauron:
-        mconvinterp_s = spi.interp1d(wlc_s, mconv_s, kind='cubic', bounds_error=False)
+        mconvinterp_s = spi.interp1d(wlc_s, mconv_s, kind='cubic', 
+                bounds_error=False)
 
     if timing:
         t3 = time.time()
@@ -531,8 +555,10 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict, lineinclud
 
             #Removing a high-order polynomial from the slice
             #Define the bandpasses for each line 
-            bluepass = np.where((wlc >= linedefs[0,i]) & (wlc <= linedefs[1,i]))[0]
-            redpass = np.where((wlc >= linedefs[4,i]) & (wlc <= linedefs[5,i]))[0]
+            bluepass = np.where((wlc >= linedefs[0,i]) & \
+                    (wlc <= linedefs[1,i]))[0]
+            redpass = np.where((wlc >= linedefs[4,i]) & \
+                    (wlc <= linedefs[5,i]))[0]
 
             #Cacluating center value of the blue and red bandpasses
             blueavg = np.mean([linedefs[0,i], linedefs[1,i]])
@@ -558,7 +584,8 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict, lineinclud
             addterm = err[i] * 0.0
 
             #Performing the chisq calculation
-            chisq += np.nansum(((data[i] - modelslice)**2.0 / errterm) + addterm)
+            chisq += np.nansum(((data[i] - modelslice)**2.0 / errterm) +\
+                    addterm)
 
             if plot:
                 mpl.plot(wl[i], modelslice, 'r')
@@ -572,7 +599,8 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict, lineinclud
 
             modelslice = mconvinterp_s(wli)
 
-            linedefs_s = [sauron[3][0][0,:], sauron[3][0][1,:], sauron[3][0][4,:], sauron[3][0][5,:]]
+            linedefs_s = [sauron[3][0][0,:], sauron[3][0][1,:],\
+                    sauron[3][0][4,:], sauron[3][0][5,:]]
 
             polyfit_model = mcsp.removeLineSlope(wlc_s, mconv_s, linedefs_s, i)
             cont = polyfit_model(wli)
@@ -581,14 +609,16 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict, lineinclud
             modelslice = modelslice / cont
 
             if 'f' in paramdict.keys():
-                errterm = (sauron[2][i] ** 2.0) + modelslice**2.0 * np.exp(2*np.log(f))
+                errterm = (sauron[2][i] ** 2.0) + modelslice**2.0 * \
+                        np.exp(2*np.log(f))
                 addterm = np.log(2.0 * np.pi * errterm)
             else:
                 errterm = sauron[2][i] ** 2.0
                 addterm = sauron[2][i] * 0.0
 
             #Performing the chisq calculation
-            chisq += np.nansum(((sauron[1][i] - modelslice)**2.0 / errterm) + addterm)
+            chisq += np.nansum(((sauron[1][i] - modelslice)**2.0 / errterm) +\
+                    addterm)
 
     if plot:
         mpl.show()
@@ -600,7 +630,9 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict, lineinclud
     return -0.5*chisq
 
 def lnprior(theta, paramnames):
-    '''Setting the priors for the mcmc. Returns 0.0 if fine and -inf if otherwise.'''
+    '''
+    Setting the priors for the mcmc. 
+    Returns 0.0 if the inputs are clean and -inf if otherwise.'''
 
     goodpriors = True
     for j in range(len(paramnames)):
@@ -639,22 +671,25 @@ def lnprior(theta, paramnames):
     else:
         return -np.inf
 
-def lnprob(theta, wl, data, err, paramnames, paramdict, lineinclude, linedefs, \
+def lnprob(theta, wl, data, err, paramnames, paramdict, lineinclude, linedefs,
         veldisp, sauron, saurononly):
-    '''Primary function of the mcmc. Checks priors and returns the likelihood'''
+    '''
+    Primary function of the mcmc. Checks priors and returns the likelihood.
+    '''
 
     lp = lnprior(theta, paramnames)
     if not np.isfinite(lp):
         return -np.inf
 
-    chisqv = calc_chisq(theta, wl, data, err, veldisp, \
-            paramnames, paramdict, lineinclude, linedefs, \
+    chisqv = calc_chisq(theta, wl, data, err, veldisp, 
+            paramnames, paramdict, lineinclude, linedefs, 
             sauron, saurononly, timing=False)
     return lp + chisqv
 
-def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,\
-        threads = 6, restart=False, scale=False, fl=None, sauron=None, \
-        sauron_z=None, sauron_veldisp=None, saurononly=False,comments='No Comment'):
+def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
+        threads = 6, restart=False, scale=False, fl=None, sauron=None, 
+        sauron_z=None, sauron_veldisp=None, saurononly=False,
+        comments='No Comment'):
     '''Main program. Runs the mcmc'''
 
     if fl == None:
@@ -677,12 +712,18 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,\
 
     #Line definitions & other definitions
     #WIFIS Defs
-    bluelow =  [9855, 10300, 11340, 11667, 11710, 12460, 12780, 12648, 12240, 11905]
-    bluehigh = [9880, 10320, 11370, 11680, 11750, 12495, 12800, 12660, 12260, 11935]
-    linelow =  [9905, 10337, 11372, 11680, 11765, 12505, 12810, 12670, 12309, 11935]
-    linehigh = [9935, 10360, 11415, 11705, 11793, 12545, 12840, 12690, 12333, 11965]
-    redlow =   [9940, 10365, 11417, 11710, 11793, 12555, 12860, 12700, 12360, 12005]
-    redhigh =  [9970, 10390, 11447, 11750, 11810, 12590, 12870, 12720, 12390, 12025]
+    bluelow =  [9855, 10300, 11340, 11667, 11710, 12460, 12780, 12648, \
+                    12240, 11905]
+    bluehigh = [9880, 10320, 11370, 11680, 11750, 12495, 12800, 12660, \
+                    12260, 11935]
+    linelow =  [9905, 10337, 11372, 11680, 11765, 12505, 12810, 12670, \
+                    12309, 11935]
+    linehigh = [9935, 10360, 11415, 11705, 11793, 12545, 12840, 12690, \
+                    12333, 11965]
+    redlow =   [9940, 10365, 11417, 11710, 11793, 12555, 12860, 12700, \
+                    12360, 12005]
+    redhigh =  [9970, 10390, 11447, 11750, 11810, 12590, 12870, 12720, \
+                    12390, 12025]
 
     #mlow =     [9855, 10300, 11340, 11667, 11710, 12460, 12780, 12648, 12240]
     #mhigh =    [9970, 10390, 11447, 11750, 11810, 12590, 12870, 12720, 12390]
@@ -692,7 +733,7 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,\
         mhigh.append(i[1])
     morder = [1,1,1,1,1,1,1,1,1,1]
 
-    line_name = np.array(['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'PaB', \
+    line_name = np.array(['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'PaB',\
             'NaI127', 'NaI123','CaII119'])
 
     linedefs = [np.array([bluelow, bluehigh, linelow, linehigh, redlow,\
@@ -701,7 +742,8 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,\
     wl, data, err, datanomask, mask = preps.preparespecwifis(fl, z)
 
     if scale:
-        wl, data, err = preps.splitspec(wl, data, linedefs, err = err, scale = scale)
+        wl, data, err = preps.splitspec(wl, data, linedefs, err = err, 
+                scale = scale)
     else:
         wl, data, err = preps.splitspec(wl, data, linedefs, err = err)
 
@@ -809,8 +851,9 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,\
                 veldisp, False, saurononly), pool=pool)
     else:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = \
-                (wl, data, err, paramnames, paramdict, lineinclude, linedefs, veldisp, \
-                [wl_s, data_s, err_s, sauronlines, sauron_veldisp], saurononly), pool=pool)
+                (wl, data, err, paramnames, paramdict, lineinclude, linedefs, 
+                veldisp, [wl_s, data_s, err_s, sauronlines, \
+                sauron_veldisp], saurononly), pool=pool)
     print("Starting MCMC...")
 
     t1 = time.time() 
@@ -820,7 +863,8 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,\
         f = open(savefl, "a")
         for k in range(position.shape[0]):    
             #f.write("%d\t%s\t%s\n" % (k, " ".join(map(str, position[k])), result[1][k]))
-            f.write("%d\t%s\t%s\n" % (k, " ".join(map(str, position[k])), result.log_prob[k]))
+            f.write("%d\t%s\t%s\n" % (k, " ".join(map(str, position[k])), 
+                result.log_prob[k]))
         f.close()
 
         if (i+1) % 100 == 0:
@@ -856,11 +900,12 @@ if __name__ == '__main__':
         except:
             print("No skip parameter, not skipping")
         print(mcmcinputs[i])
-        sampler = do_mcmc(mcmcinputs[i]['target'], mcmcinputs[i]['workers'],\
-            mcmcinputs[i]['steps'],mcmcinputs[i]['targetz'],\
-            mcmcinputs[i]['targetsigma'],mcmcinputs[i]['paramdict'],\
-            mcmcinputs[i]['lineinclude'],threads = 16, fl = mcmcinputs[i]['fl']\
-            ,sauron=mcmcinputs[i]['sfl'],sauron_z = mcmcinputs[i]['sz'],\
-            sauron_veldisp=mcmcinputs[i]['ssigma'],\
-            saurononly=mcmcinputs[i]['saurononly'],\
+        sampler = do_mcmc(mcmcinputs[i]['target'], mcmcinputs[i]['workers'],
+            mcmcinputs[i]['steps'],mcmcinputs[i]['targetz'],
+            mcmcinputs[i]['targetsigma'],mcmcinputs[i]['paramdict'],
+            mcmcinputs[i]['lineinclude'],threads = 16, 
+            fl = mcmcinputs[i]['fl'],sauron=mcmcinputs[i]['sfl'],
+            sauron_z = mcmcinputs[i]['sz'],
+            sauron_veldisp=mcmcinputs[i]['ssigma'],
+            saurononly=mcmcinputs[i]['saurononly'],
             comments = mcmcinputs[i]['comments']) 
