@@ -1,4 +1,5 @@
 widths/*.txt
+widths/widths.zip
 mcmcresults/*.dat
 mcmcresults/*.pdf
 mcmcresults/*.npy
