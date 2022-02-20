@@ -1,6 +1,7 @@
 ################################################################################
-#   MCMC program based on Prof Charlie Conroy's SSP Models
-#   Based off of emcee 
+#   WIFIS MCMC spectral fitting - 'full-index' version
+#   Algorithm based on the emcee affine-invariant ensemble sampler mcmc 
+#       implementation by Foreman-Mackey et al. (2013)
 #   Author: Elliot Meyer, Dept Astronomy & Astrophysics University of Toronto
 ################################################################################
 
@@ -30,27 +31,14 @@ warnings.simplefilter('ignore', np.RankWarning)
 base = os.path.dirname(os.path.realpath(sys.argv[0])) + '/'
 
 # MCMC Parameters
-# Metallicity: -1.5 < [Z/H] < 0.2 steps of 0.1?
-# Age: depends on galaxy, steps of 1 Gyr?
-# IMF: x1 and x2 full range
-# [Na/H]: -0.4 <-> +1.3
+# Metallicity: -0.2 < [Z/H] < 0.2 (Continuous)
+# Age: 1.0--13.5 (Continuous)
+# IMF - x1 & x2: both from 0.5-3.5 in steps of 0.2
+# Various chemical abundances: -0.5 -- [X/H] -- 0.5
 
-lineexclude = False
-ratiofit = False
-
-#Setting some of the mcmc priors
-Z_m = np.array([-1.5,-1.0, -0.5, -0.25, 0.0, 0.1, 0.2])
-Age_m = np.array([1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.25,13.5])
+#Global imf slope array
 x1_m = 0.5 + np.arange(16)/5.0
 x2_m = 0.5 + np.arange(16)/5.0
-
-Z_pm = np.array(['m','m','m','m','p','p','p'])
-ChemAge_m = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13])
-
-chem_names = ['Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', 'C+', 'C-', \
-                'a/Fe+', 'N+', 'N-', 'as/Fe+', 'Ti+', 'Ti-', 'Mg+', 'Mg-', \
-                'Si+', 'Si-', 'T+', 'T-', 'Cr+', 'Mn+', 'Ba+', 'Ba-', 'Ni+', \
-                'Co+', 'Eu+', 'Sr+', 'K+', 'V+', 'Cu+', 'Na+0.6', 'Na+0.9']
 
 #Dictionary to help easily access the IMF index
 imfsdict = {}
@@ -58,12 +46,28 @@ for i in range(16):
     for j in range(16):
         imfsdict[(x1_m[i],x1_m[j])] = i*16 + j
 
-vcj = {}
+#Init dict for global access to interpolated models
+#vcj = {}
 
 def preload_vcj(overwrite_base = False, sauron=False, saurononly=False, 
         MLR=False):
-    '''Loads the SSP models into memory so the mcmc model creation takes a
-    shorter time. Returns a dict with the filenames as the keys'''
+    '''Loads the SSP models, performs multidimensional interpolation,
+    then creates a dictionary to speed up model creation in the mcmc.
+
+    Inputs: 
+        overwrite_base: forcing a base path for running the code
+        sauron: including sauron spectra, will extend the output model bandpass
+        saurononly: only for sauron spectra, will restrict the model bandpass
+        MLR: for calculating K-band based MLR estimates
+    
+    Return:
+        vcj: a dictionary of both the imf and chemical abundance models
+                keyed by Age_Z
+        imf_interp: An array of interpolated models for each x1 & x2 pair
+        ele_interp: An array of interpolated models for each chemical 
+                        abundance
+    '''
+
     #global vcjfull
     #global base
 
@@ -80,35 +84,38 @@ def preload_vcj(overwrite_base = False, sauron=False, saurononly=False,
             'Ba-', 'Ni+', 'Co+', 'Eu+', 'Sr+', 'K+','V+', 'Cu+', 'Na+0.6',\
             'Na+0.9']
 
+    # Loading the IMF models for each Age/Z pair 
     print("PRELOADING SSP MODELS INTO MEMORY")
     fls = glob(base+'models/vcj_ssp/*')    
-
     for fl in fls:
-        #print fl
         flspl = fl.split('/')[-1]
         mnamespl = flspl.split('_')
+
         age = float(mnamespl[3][1:])
         Zsign = mnamespl[4][1]
         Zval = float(mnamespl[4][2:5])
+
         if Zsign == "m":
             Zval = -1.0 * Zval
+
         x = pd.read_csv(fl, delim_whitespace = True, header=None)
         x = np.array(x)
         vcj["%.1f_%.1f" % (age, Zval)] = [x[:,1:]]
 
+    # Loading the chemical abundance models for each Age/Z pair
     print("PRELOADING ABUNDANCE MODELS INTO MEMORY")
     fls = glob(base+'models/atlas/*')    
     for fl in fls:
-        #print fl
         flspl = fl.split('/')[-1]
-
         mnamespl = flspl.split('_')
+
         age = float(mnamespl[2][1:])
         Zsign = mnamespl[3][1]
         Zval = float(mnamespl[3][2:5])
+
         if Zsign == "m":
             Zval = -1.0 * Zval
-        if age == 13.0:
+        if age == 13.0: # Small correction based on the model age range differences
             age = 13.5
 
         x = pd.read_csv(fl, skiprows=2, names = chem_names, 
@@ -116,24 +123,28 @@ def preload_vcj(overwrite_base = False, sauron=False, saurononly=False,
         x = np.array(x)
         vcj["%.1f_%.1f" % (age, Zval)].append(x[:,1:])
 
+    # Saving the model wavelength array
     vcj["WL"] = x[:,0]
     print("FINISHED LOADING MODELS")
 
-    print("Calculating IMF interpolators")
+    # Determine the bandpass for the model output
     wlfull = vcj["WL"]
     if sauron:
-        rel = np.where((wlfull > 4000) & (wlfull < 14000))[0]
+        bp = np.where((wlfull > 4000) & (wlfull < 14000))[0]
     elif saurononly:
-        rel = np.where((wlfull > 4000) & (wlfull < 6000))[0]
+        bp = np.where((wlfull > 4000) & (wlfull < 6000))[0]
     elif MLR:
-        rel = np.where((wlfull > 20000) & (wlfull < 24000))[0]
+        bp = np.where((wlfull > 20000) & (wlfull < 24000))[0]
     else:
-        rel = np.where((wlfull > 8500) & (wlfull < 14000))[0]
-    wl = wlfull[rel]
+        bp = np.where((wlfull > 8500) & (wlfull < 14000))[0]
+    wl = wlfull[bp]
 
+    # Grids for model age and metallicity for multi-variate interpolation
     fullage = np.array([1.0,3.0,5.0,7.0,9.0,11.0,13.5])
     fullZ = np.array([-1.5, -1.0, -0.5, 0.0, 0.2])
 
+    # Create the imf interpolation array
+    print("Calculating IMF interpolators")
     imf_interp = []
     for k in range(vcj['3.0_0.0'][0].shape[1]):
         out = np.meshgrid(fullage,fullZ,wl)
@@ -141,11 +152,12 @@ def preload_vcj(overwrite_base = False, sauron=False, saurononly=False,
         newgrid = np.zeros(out[0].shape)
         for i,age in enumerate(fullage):
             for j,z in enumerate(fullZ):
-                #print(vcj["%.1f_%.1f" % (age, z)][0][rel,73].shape)
-                newgrid[j,i,:] = vcj["%.1f_%.1f" % (age, z)][0][rel,k]
+                #print(vcj["%.1f_%.1f" % (age, z)][0][bp,73].shape)
+                newgrid[j,i,:] = vcj["%.1f_%.1f" % (age, z)][0][bp,k]
         fulli = spi.RegularGridInterpolator((fullZ,fullage,wl), newgrid)
         imf_interp.append(fulli)
     
+    # Create the chemical abundance interpolation array
     print("Calculating elemental interpolators")
     ele_interp = []
     for k in range(vcj['3.0_0.0'][1].shape[1]):
@@ -154,7 +166,7 @@ def preload_vcj(overwrite_base = False, sauron=False, saurononly=False,
         newgrid = np.zeros(out[0].shape)
         for i,age in enumerate(fullage):
             for j,z in enumerate(fullZ):
-                newgrid[j,i,:] = vcj["%.1f_%.1f" % (age, z)][1][rel,k]
+                newgrid[j,i,:] = vcj["%.1f_%.1f" % (age, z)][1][bp,k]
         fulli = spi.RegularGridInterpolator((fullZ,fullage,wl), newgrid)
         ele_interp.append(fulli)
     
@@ -164,25 +176,38 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False,
         vcjset = False, timing = False, full = False, MLR=False, 
         fixZ = False):
     '''
-    Core function which takes the input model parameters, finds the 
-    appropriate models, and adjusts them for the input abundance ratios. 
+    Core function which takes input model parameters, acquires the appropriate
+    base model (age, Z, imf), then adjusts the model for the chemical
+    abundances. Returns an un-broadened model spectrum.
+
+    Inputs:
+        inputs: The input parameter values
+        paramnames: The model fit parameters (e.g. age, z, x1, x2, etc)
+        paramdict: Model fit parameter dictionary, used to set constant values
+        saurononly: Flag to only fit sauron spectra
+        vcjset: Parameter to pass the model variables so this function can be
+                    used outside the main mcmc program
+        timing (debug): Flag to output timing information
+        full: Flag for sauron + WIFIS spectra
+        MLR: Flag for calculating K-band MLR estimates
+        fixZ: Flag to fix all chemical abundances to the general metallicity
     
-    Returns a broadened model spectrum to be matched with a data spectrum.
+    Returns:
+        wl: The model wavelength array
+        newm: The chemically adjusted model based on the input parameters
+        basemodel: The base model (see above) with a Kroupa IMF
     '''
 
     global vcj
 
-    #fixZ = True
-
     if vcjset:
         vcj = vcjset
-    #else:
-    #    global vcj
 
     if timing:
         print("Starting Model Spec Time")
         t1 = time.time()
 
+    # Separating input parameters into variables
     for j in range(len(paramnames)):
         if paramnames[j] == 'Age':
             Age = inputs[j]
@@ -203,12 +228,16 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False,
         elif paramnames[j] == 'Alpha':
             alpha = inputs[j]
 
+    # Action in case x1 or x2 not in the list of parameters
+    # Generally used to set x1 = x2 for special case IMF
     if 'x1' not in paramnames:
         x1 = 1.3
     if 'x2' not in paramnames:
         #x2 = 2.3
         x2 = x1
 
+    # If any of the items in the paramdict are not None, 
+    #   set the associated variable to that value
     for key in paramdict.keys():
         if paramdict[key] == None:
             continue
@@ -232,15 +261,7 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False,
         elif key == 'Alpha':
             alpha = paramdict[key]
 
-    #if 'Age' not in paramnames:
-    #    Age = 3.82
-    #    if gal == 'M85':
-    #        Age = 5.0
-    #    elif gal == 'M87':
-    #        Age = 13.5
-    #if 'Z' not in paramnames:
-    #    Z = 0.0
-
+    # Finding closest IMF values in the IMF grid
     if x1 not in x1_m:
         x1min = np.argmin(np.abs(x1_m - x1))
         x1 = x1_m[x1min]
@@ -248,15 +269,13 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False,
         x2min = np.argmin(np.abs(x2_m - x2))
         x2 = x2_m[x2min]
 
-    #Finding the appropriate base model files.
-
     if timing:
         t2 = time.time()
         print("MSPEC T1: ",t2 - t1)
     
+    # Finding the relevant bandpass to adjust the 
+    # computational complexity
     wlfull = vcj[0]["WL"]
-    #Finding the relevant section of the models to reduce the 
-    #computational complexity
     if full:
         rel = np.where((wlfull > 4000) & (wlfull < 14000))[0]
     elif saurononly:
@@ -267,35 +286,29 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False,
         rel = np.where((wlfull > 8500) & (wlfull < 14000))[0]
     wl = vcj[0]["WL"][rel]
         
-    # If the Age of Z is inbetween models then this will average the 
-    # respective models to produce one that is closer to what is expected.
-    # NOTE THAT THIS IS AN ASSUMPTION AND THE CHANGE IN THE MODELS IS NOT 
-    # NECESSARILY LINEAR
-
-    #fullage = np.array([1.0,3.0,5.0,7.0,9.0,11.0,13.5])
-    #fullZ = np.array([-1.5, -1.0, -0.5, 0.0, 0.2])
-    #abundi = [0,1,2,-2,-1,29,16,15,6,5,4,3]
-
+    # Some indexing for the chemical abundances
     abundi = [0,1,2,-2,-1,29,16,15,6,5,4,3,8,7,18,17,14,13,21]
+    # Getting the appropriate base model including one with a Kroupa IMF
+    # Input parameter base model
     imfinterp = vcj[1][imfsdict[(x1,x2)]]
     mimf = imfinterp((Z,Age,wl))
+    # Kroupa IMF base model
     baseinterp = vcj[1][imfsdict[(1.3,2.3)]]
     basemodel = baseinterp((Z,Age,wl))
 
-    c = np.zeros((len(wl), vcj[0]['3.0_0.0'][1].shape[1]))
+    # Create empty array to hold interpolated chemical abdundance response
+    #   functions
+    chems = np.zeros((len(wl), vcj[0]['3.0_0.0'][1].shape[1]))
+    # Load in interpolated response functions
     for k in abundi:
-        c[:,k] = vcj[2][k]((Z,Age,wl))
+        chems[:,k] = vcj[2][k]((Z,Age,wl))
 
     if timing:
         t3 = time.time()
         print("MSPEC T2: ", t3 - t2)
-
         
-    # If the Age of Z is inbetween models then this will average the respective 
-    #   models to produce one that is closer to what is expected.
-    # NOTE THAT THIS IS AN ASSUMPTION AND THE CHANGE IN THE MODELS IS NOT 
-    #   NECESSARILY LINEAR
-
+    # Chemical abundances just for sauron spectra
+    ### Old Code -- Do not follow ###
     if saurononly:
         if 'Alpha' in paramdict.keys():
             alpha_contribution = 0.0
@@ -323,6 +336,7 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False,
 
             basemodel = basemodel*(1 + alpha_contribution)
         return wl, mimf, basemodel
+    ###############################
 
     # Reminder of the abundance model columns
     # ['Solar', 'Na+', 'Na-',   'Ca+',  'Ca-', 'Fe+', 'Fe-', 'C+',  'C-',  'a/Fe+', 
@@ -331,110 +345,111 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False,
     #  'V+',    'Cu+', 'Na+0.6','Na+0.9']
 
     # DETERMINING THE ABUNDANCE RATIO EFFECTS
-    # The assumption here is that the abundance effects scale linearly...for 
-    # all except sodium which covers a much wider range of acceptable values.
-    # The models are interpolated at the various given abundances to allow for 
-    # abundance values to be continuous.
-    # The interpolated value is then normalized by the solar metallicity model 
-    # and then subtracted by 1 to retain the percentage
+    # We assume that the abundance effects scale linearly, except for sodium
+    # as it covers a wider range of abundance values.
+    # The models are interpolated between the given abundances to allow for 
+    # continuous variables.
+    # The interpolated function is then normalized by the base metallicity model
+    # 
+    # The chemical contribution is calculated by multiplying the individual
+    # chemical contributions together. 
 
     #Na adjustment
-    ab_contribution = np.ones(c[:,0].shape)
+    ab_contribution = np.ones(chems[:,0].shape)
 
     if 'Na' in paramdict.keys():
-        Naextend = (c[:,2]-c[:,0])*(-0.5/-0.3) + c[:,0]
+        Naextend = (chems[:,2]-chems[:,0])*(-0.5/-0.3) + chems[:,0]
         interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.6,0.9], 
-                np.stack((Naextend,c[:,2],c[:,0],c[:,1],c[:,-2],c[:,-1])), 
+                np.stack((Naextend,chems[:,2],chems[:,0],chems[:,1],
+                            chems[:,-2],chems[:,-1])), 
                 kind = 'cubic')
-        #NaP = interp(wl,Na) / c[:,0] - 1.
-        #ab_contribution += NaP
         if fixZ:
-            ab_contribution *= interp(wl,Z) / c[:,0]
+            ab_contribution *= interp(wl,Z) / chems[:,0]
         else:
-            ab_contribution *= interp(wl,Na) / c[:,0]
+            ab_contribution *= interp(wl,Na) / chems[:,0]
 
     #K adjustment (assume symmetrical K adjustment)
     if 'K' in paramdict.keys():
-        Kminus = (2. - (c[:,29] / c[:,0]))*c[:,0]
-        Kmextend = (Kminus - c[:,0])*(-0.5/-0.3) + c[:,0]
-        Kpextend = (c[:,29] - c[:,0]) * (0.5/0.3) + c[:,0]
+        Kminus = (2. - (chems[:,29] / chems[:,0]))*chems[:,0]
+        Kmextend = (Kminus - chems[:,0])*(-0.5/-0.3) + chems[:,0]
+        Kpextend = (chems[:,29] - chems[:,0]) * (0.5/0.3) + chems[:,0]
         interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], 
-                np.stack((Kmextend,Kminus,c[:,0],c[:,29],Kpextend)), 
+                np.stack((Kmextend,Kminus,chems[:,0],chems[:,29],Kpextend)), 
                 kind = 'linear')
-        #KP = interp(wl,K) / c[:,0] - 1.
-        #ab_contribution += KP
         if fixZ:
-            ab_contribution *= interp(wl,Z) / c[:,0]
+            ab_contribution *= interp(wl,Z) / chems[:,0]
         else:
-            ab_contribution *= interp(wl,K) / c[:,0] 
+            ab_contribution *= interp(wl,K) / chems[:,0] 
 
     #Fe Adjustment
     if 'Fe' in paramdict.keys():
-        Femextend = (c[:,6] - c[:,0])*(-0.5/-0.3) + c[:,0]
-        Fepextend = (c[:,5] - c[:,0])*(0.5/0.3) + c[:,0]
+        Femextend = (chems[:,6] - chems[:,0])*(-0.5/-0.3) + chems[:,0]
+        Fepextend = (chems[:,5] - chems[:,0])*(0.5/0.3) + chems[:,0]
         interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], 
-                np.stack((Femextend,c[:,6], c[:,0],c[:,5],Fepextend)), 
+                np.stack((Femextend,chems[:,6], chems[:,0],chems[:,5],Fepextend)), 
                 kind = 'linear')
         #FeP = interp(wl,Fe) / c[:,0] - 1.
         #ab_contribution += FeP
         if fixZ:
-            ab_contribution *= interp(wl,Z) / c[:,0]
+            ab_contribution *= interp(wl,Z) / chems[:,0]
         else:
-            ab_contribution *= interp(wl,Fe) / c[:,0]
+            ab_contribution *= interp(wl,Fe) / chems[:,0]
 
     #Ca Adjustment
     if 'Ca' in paramdict.keys():
-        Cmextend = (c[:,4] - c[:,0])*(-0.5/-0.3) + c[:,0]
-        Cpextend = (c[:,3] - c[:,0])*(0.5/0.3) + c[:,0]
+        Cmextend = (chems[:,4] - chems[:,0])*(-0.5/-0.3) + chems[:,0]
+        Cpextend = (chems[:,3] - chems[:,0])*(0.5/0.3) + chems[:,0]
         interp = spi.interp2d(wl, [-0.5,-0.3,0.0,0.3,0.5], 
-                np.stack((Cmextend,c[:,4], c[:,0],c[:,3],Cpextend)), 
+                np.stack((Cmextend,chems[:,4], chems[:,0],chems[:,3],Cpextend)), 
                 kind = 'linear')
-        #CaP = interp(wl,Ca) / c[:,0] - 1.
-        #ab_contribution += CaP
         if fixZ:
-            ab_contribution *= interp(wl,Z) / c[:,0]
+            ab_contribution *= interp(wl,Z) / chems[:,0]
         else:
-            ab_contribution *= interp(wl,Ca) / c[:,0]
-        
+            ab_contribution *= interp(wl,Ca) / chems[:,0]
+
+    # Special alpha parameter that combines positive abundances in several
+    # included alpha elements
     if 'Alpha' in paramdict.keys():
-        alpha_contribution = np.ones(c[:,0].shape)
+        alpha_contribution = np.ones(chems[:,0].shape)
 
         #Ca
-        interp = spi.interp2d(wl, [0.0,0.3], np.stack((c[:,0],c[:,3])), 
+        interp = spi.interp2d(wl, [0.0,0.3], np.stack((chems[:,0],chems[:,3])), 
                 kind = 'linear')
-        alpha_contribution *= interp(wl, alpha) / c[:,0] 
+        alpha_contribution *= interp(wl, alpha) / chems[:,0] 
 
         #C
-        Cextend = (c[:,7]-c[:,0])*(0.3/0.15) + c[:,0]
+        Cextend = (chems[:,7]-chems[:,0])*(0.3/0.15) + chems[:,0]
         interp = spi.interp2d(wl, [0.0,0.15,0.3], 
-                np.stack((c[:,0],c[:,7],Cextend)), kind = 'linear')
-        alpha_contribution *= interp(wl, alpha) / c[:,0]
+                np.stack((chems[:,0],chems[:,7],Cextend)), kind = 'linear')
+        alpha_contribution *= interp(wl, alpha) / chems[:,0]
 
         #Mg
-        interp = spi.interp2d(wl, [0.0,0.3], np.stack((c[:,0],c[:,15])), 
+        interp = spi.interp2d(wl, [0.0,0.3], np.stack((chems[:,0],chems[:,15])), 
                 kind = 'linear')
-        alpha_contribution *= interp(wl, alpha) / c[:,0]
+        alpha_contribution *= interp(wl, alpha) / chems[:,0]
 
         #Si
-        interp = spi.interp2d(wl, [0.0,0.3], np.stack((c[:,0],c[:,17])), 
+        interp = spi.interp2d(wl, [0.0,0.3], np.stack((chems[:,0],chems[:,17])), 
                 kind = 'linear')
-        alpha_contribution *= interp(wl, alpha) / c[:,0]
+        alpha_contribution *= interp(wl, alpha) / chems[:,0]
 
         ab_contribution *= alpha_contribution
 
-
+    ### Depreciated ###
     #model_ratio = mimf / basemodel
     #model_ratio = basemodel / mimf
     #model_ratio = 1.0
-
+    ####
+     
     # The model formula is as follows....
-    # The new model is = the base IMF model * abundance effects. 
-    # The abundance effect %ages are scaled by the ratio of the selected IMF 
+    # The model is = the base IMF model * abundance effects. 
+    # The abundance effect percentages are scaled by the ratio of the selected IMF 
     #   model to the Kroupa IMF model
-    # The formula ensures that if the abundances are solar then the base IMF 
-    #   model is recovered. 
-    #newm = mimf*(1. + model_ratio*ab_contribution)
-    #newm = mimf*(1. + ab_contribution)
+    # The formula ensures that if the abundances are the 0 (i.e. base)
+    # then the base IMF  model is recovered. 
+
+    #newm = mimf*(1. + model_ratio*ab_contribution) ## Depreciated ##
+    #newm = mimf*(1. + ab_contribution) ## Depreciated ##
     newm = mimf*ab_contribution
 
     if timing:
@@ -445,10 +460,31 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False,
 def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict, 
         lineinclude, linedefsfull, sauron, saurononly, plot=False, 
         timing = False):
-    ''' Important function that produces the value that essentially
-    represents the likelihood of the mcmc equation. Produces the model
-    spectrum then returns a normal chisq value.'''
+    '''
+    Main function that produces the chisquared value that drives the mcmc
+    simulation, i.e. the likelihood of the mcmc algorithm.
+    Takes the input parameter values, creates a model, broadens the model,
+    then compares the data and model spectrum. Returns the chisq value.
 
+    Inputs:
+        params: Input parameter values
+        wl: wavelength array for the observed spectrum
+        data: observed spectrum
+        err: uncertainty array for the observed spectrum
+        veldisp: velocity dispersion of the observed spectrum (if not a
+                    fitting parameter)
+        paramnames: The fitting parameters
+        paramdict: Dictionary of the parameters including fixed inputs
+        lineinclude: spectral features used in the fitting
+        linedefsfull: line bandpass definitions
+        sauron: Array of sauron information (if used) including wavelength
+                    array, spectrum, uncertainty, and included lines
+        saurononly: Flag for only sauron fitting
+        plot (debug): Plot spectra for debugging
+        timing (debug): Timing for debugging and optimizing
+    '''
+
+    # Unpack line defintiions
     linedefs = linedefsfull[0]
     line_names = linedefsfull[1]
     index_names = linedefsfull[2]
@@ -456,8 +492,7 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict,
     if timing:
         t1 = time.time()
 
-    # Creating model spectrum then interpolate to matched with the observed
-    # wavegrid.
+    # Creating model spectrum based on the input parameters
     if sauron:
         if saurononly:
             wlm, newm, base = model_spec(params, paramnames, paramdict, 
@@ -469,7 +504,9 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict,
         wlm, newm, base = model_spec(params, paramnames, paramdict, 
                 timing=timing)
 
-    # Convolve model to velocity dispersion
+    # Convolve model to observed velocity dispersion
+    # Depends on whether sauron spectra is included and whether
+    # velocity dispersion is a parameter
     if not saurononly:
         if 'VelDisp' in paramdict.keys():
             if 'VelDisp' in paramnames:
@@ -481,6 +518,7 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict,
         else:
             wlc, mconv = mcsp.convolvemodels(wlm, newm, veldisp)
 
+    # Do the same for the sauron spectra (differing velocity dispersions)
     if sauron:
         if saurononly:
             if 'VelDisp' in paramdict.keys():
@@ -498,6 +536,7 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict,
             wlc_s, mconv_s = mcsp.convolvemodels(wlm, base, sauron[4],
                     reglims=[4000,6000])
 
+    # Handling the 'f' error adjustment parameter
     if 'f' in paramdict.keys():
         if 'f' in paramnames:
             whf = np.where(np.array(paramnames) == 'f')[0][0]
@@ -509,10 +548,11 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict,
         t2 = time.time()
         print("CHISQ T1: ", t2 - t1)
 
+    # Interpolating the broadened model spectrum and placing it on the
+    # observed (and sauron) wavegrid.
     if not saurononly:
         mconvinterp = spi.interp1d(wlc, mconv, kind='cubic', 
                 bounds_error=False)
-
     if sauron:
         mconvinterp_s = spi.interp1d(wlc_s, mconv_s, kind='cubic', 
                 bounds_error=False)
@@ -521,10 +561,7 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict,
         t3 = time.time()
         print("CHISQ T2: ", t3 - t2)
     
-    #bluelow, bluehigh, linelow, linehigh, redlow, redhigh, \
-            #mlow, mhigh, morder, line_name, index_name
-
-    #Measuring the chisq
+    # Measuring the chisq by comparing the model and observed spectra
     chisq = 0
 
     if not saurononly:
@@ -532,21 +569,6 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict,
             if line_names[i] not in lineinclude:
                 #print line_name[i]
                 continue
-
-            #line_name = ['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'AlI']
-            if lineexclude:
-                if 'Na' not in paramnames:
-                    if line_names[i] == 'NaI':
-                        continue
-                if 'Ca' not in paramnames:
-                    if line_names[i] == 'CaI':
-                        continue
-                if 'Fe' not in paramnames:
-                    if line_names[i] == 'FeH':
-                        continue
-                if 'K' not in paramnames:
-                    if line_names[i] in ['KI_a','KI_b','KI_1.25']:
-                        continue
 
             #Getting a slice of the model
             wli = wl[i]
@@ -627,12 +649,18 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict,
         t4 = time.time()
         print("CHISQ T3: ", t4 - t3)
 
+    # Returns chisq
     return -0.5*chisq
 
 def lnprior(theta, paramnames):
     '''
-    Setting the priors for the mcmc. 
-    Returns 0.0 if the inputs are clean and -inf if otherwise.'''
+    Ensuring the inputs fit the priors for the mcmc. 
+    Returns 0.0 if the inputs are clean and -inf if otherwise.
+    
+    Inputs:
+        theta: parameter values
+        paramnames: names of the input parameters
+    '''
 
     goodpriors = True
     for j in range(len(paramnames)):
@@ -674,24 +702,68 @@ def lnprior(theta, paramnames):
 def lnprob(theta, wl, data, err, paramnames, paramdict, lineinclude, linedefs,
         veldisp, sauron, saurononly):
     '''
-    Primary function of the mcmc. Checks priors and returns the likelihood.
+    Primary function of the mcmc. 
+    Checks priors and returns the likelihood. Essentially a wrapper for 
+    calc_chisq above.
+    
+    Inputs:
+        theta: Input parameter values
+        wl: wavelength array for the observed spectrum
+        data: observed spectrum
+        err: uncertainty array for the observed spectrum
+        veldisp: velocity dispersion of the observed spectrum (if not a
+                    fitting parameter)
+        paramnames: The fitting parameters
+        paramdict: Dictionary of the parameters including fixed inputs
+        lineinclude: spectral features used in the fitting
+        linedefs: line bandpass definitions
+        sauron: Array of sauron information (if used) including wavelength
+                    array, spectrum, uncertainty, and included lines
+        saurononly: Flag for only sauron fitting
     '''
-
+    
+    # Check priors
     lp = lnprior(theta, paramnames)
     if not np.isfinite(lp):
         return -np.inf
 
+    # Calculate chisq
     chisqv = calc_chisq(theta, wl, data, err, veldisp, 
             paramnames, paramdict, lineinclude, linedefs, 
             sauron, saurononly, timing=False)
+
+    # Return likelihood
     return lp + chisqv
 
 def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
         threads = 6, restart=False, scale=False, fl=None, sauron=None, 
         sauron_z=None, sauron_veldisp=None, saurononly=False,
         comments='No Comment'):
-    '''Main program. Runs the mcmc'''
+    '''Main program. Extracts the observed spectral data and features and
+    sets up the mcmc call. Handles logging and other outputs.
+    
+    Inputs:
+        gal: Name of target galaxy
+        nwalkers: Number of mcmc walkers
+        n_iter: Number of iterations of the mcmc
+        z: redshift of galaxy (currently not a fitting parameter
+        veldisp: velocity dispersion of the galaxy (can be a fitting 
+                    parameter)
+        paramdict: dictionary of input parameters that can include
+                    fixed values for particular parameters
+        lineinclude: spectral features included in this analysis
+        threads: number of cpu threads to employ
+        restart: clean output file that did not finish (POTENTIALLY BROKEN)
+        scale: scale the spectrum (basic adjustment DEPRECIATED)
+        fl: observed spectrum filepath
+        sauron: sauron spectrum filepath (if included)
+        sauron_z: sauron spectrum redshift
+        sauron_veldisp: sauron spectrum velocity dispersion
+        saurononly: only running on sauron spectrum
+        comments: Comment to include in output file
+    '''
 
+    # handing inputs
     if fl == None:
         print('Please input filename for WIFIS data')
         return
@@ -733,20 +805,27 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
         mhigh.append(i[1])
     morder = [1,1,1,1,1,1,1,1,1,1]
 
+    # Line name definitions
     line_name = np.array(['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'PaB',\
             'NaI127', 'NaI123','CaII119'])
 
+    # Line bandpass summary array
     linedefs = [np.array([bluelow, bluehigh, linelow, linehigh, redlow,\
             redhigh, mlow, mhigh, morder]), line_name, line_name]
 
+    # Load wifis data
     wl, data, err, datanomask, mask = preps.preparespecwifis(fl, z)
 
+    # Split the spectrum into individual features including wavelength
+    #   and uncertainty arrays
     if scale:
         wl, data, err = preps.splitspec(wl, data, linedefs, err = err, 
                 scale = scale)
     else:
         wl, data, err = preps.splitspec(wl, data, linedefs, err = err)
 
+    # Handling sauron data (Currently only HBeta, but can be extended to 
+    #   other features. 
     if sauron != None:
         print("Using SAURON data")
         #SAURON Lines
@@ -780,18 +859,13 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
     else:
         print("No SAURON")
 
-    #    if 'Alpha' in paramdict.keys():
-    #        paramnames = ['Age','Z','Alpha']
-    #        paramdict = {'Age':None, 'Z':None, 'Alpha':None}
-    #    else:
-    #        paramnames = ['Age','Z']
-    #        paramdict = {'Age':None, 'Z':None}
-
     ndim = len(paramnames)
 
     print(paramnames)
     print(lineinclude)
 
+    # Initializing the mcmc walker starting positions
+    # Random valid values of every parameter for every walker
     pos = []
     if not restart:
         for i in range(nwalkers):
@@ -822,6 +896,7 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
        realdata, postprob, infol, lastdata = mcsp.load_mcmc_file(restart)
        pos = lastdata
 
+    # Handle output file and print important header information
     savefl = base + "mcmcresults/"+time.strftime("%Y%m%dT%H%M%S")+\
             "_%s_fullindex.dat" % (gal)
     f = open(savefl, "w")
@@ -840,6 +915,7 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
     f.write('#'+comments+'\n')
     f.close()
 
+    # Initialize MCMC sampler
     pool = Pool(processes=16)
 
     #sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = \
@@ -856,6 +932,7 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
                 sauron_veldisp], saurononly), pool=pool)
     print("Starting MCMC...")
 
+    # Run the MCMC and output the step data
     t1 = time.time() 
     for i, result in enumerate(sampler.sample(pos, iterations=n_iter)):
         #position = result[0]
@@ -867,6 +944,7 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
                 result.log_prob[k]))
         f.close()
 
+        # Print status every 100 steps
         if (i+1) % 100 == 0:
             ct = time.time() - t1
             pfinished = (i+1.)*100. / float(n_iter)
