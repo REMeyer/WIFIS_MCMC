@@ -21,9 +21,12 @@ import matplotlib.pyplot as mpl
 ################################################
 
 def flatten_cube(data, region = 'None', method = 'mean'):
-    '''Flattens array by averaging. Assumes its in the form (Z,X,Y) where the X and Y axes are the ones to 
-    flatten. Can flatten a specific region bounded by X1Y1X2Y2. Can flatten in the spatial regions via mean, median
-    or a 'meanclip' where each wavelength is masked for values above 0 and then sigmaclipped.'''
+    '''Flattens array by averaging. Assumes its in the form (Z,X,Y) 
+    where the X and Y axes are the ones to flatten. Can flatten a specific 
+    region bounded by X1Y1X2Y2. 
+    Can flatten in the spatial regions via mean, median
+    or a 'meanclip' where each wavelength is masked for values 
+    above 0 and then sigmaclipped.'''
    
     if region != 'None':
         dataregion = data[:, region[0]:region[1], region[2]:region[3]]

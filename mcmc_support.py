@@ -1,21 +1,26 @@
+################################################################################
+# Compilation of support functions for the WIFIS mcmc module
+################################################################################
+
 from __future__ import print_function
 
+import corner
+import sys
+import scipy.ndimage
 import numpy as np
 import scipy.optimize as spo
 import matplotlib.pyplot as mpl
-import corner
-from glob import glob
 import scipy.interpolate as spi
-import sys
 import pandas as pd
 import plot_corner as pc
 import imf_mass as imf
-import scipy.ndimage
+from glob import glob
 
 from matplotlib import rc
 rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 rc('text', usetex=True)
 
+# Gaussian fitting functions
 def gaussian(xs, a, sigma, x0):
     second = ((xs - x0)/sigma)**2.0
     full = a*np.exp((-1.0/2.0) * second)
@@ -36,6 +41,7 @@ def gaussian_fit_os(xdata,ydata,p0, gaussian=gaussian_os):
     popt, pcov = spo.curve_fit(gaussian, xdata, ydata, p0=p0)
     return [popt, pcov]
 
+# Natural Gaussian fitting functions
 def gauss_nat(xs, p0):
     '''
     Returns a gaussian function with inputs p0 over xs. p0 = [sigma, mean]
@@ -47,9 +53,15 @@ def load_mcmc_file(fl, linesoverride=False):
     '''Loads the mcmc chain ouput. Returns
     the full walker data, the calculated statistcal data, 
     and the run info.
-    
+   
+    Note: this is somewhat hamfisted as it was adjusted over several years
+          to handle an evolving mcmc output file. It contains legacy code
+          to read those old formats.
+
     Inputs:
-        fl -- The mcmc chain data file.'''
+        fl: The mcmc chain data file.
+        linesoverride: Flag for old implementations
+    '''
 
     fittype = fl.split('_')[-1][:-4]
 
@@ -97,7 +109,6 @@ def load_mcmc_file(fl, linesoverride=False):
         dictline = f.readline()
         if dictline[0] != '#':
             extralines += 1
-
 
         commentline = f.readline()
         if commentline[0] != '#':
@@ -264,242 +275,36 @@ def save_sliced_mcmc(mcmcfile, save, start, end=None):
         
     return
 
-def convolvemodels(wlfull, datafull, veldisp, reglims = False):
-
-    if reglims:
-        reg = (wlfull >= reglims[0]) & (wlfull <= reglims[1])
-        m_center = reglims[0] + (reglims[1] - reglims[0])/2.
-        #print("Reglims")
-    else:
-        reg = (wlfull >= 9500) & (wlfull <= 13500)
-        m_center = 11500
-        #print("Not Reglims")
-    
-    wl = wlfull[reg]
-    dw = wl[1]-wl[0]
-    data = datafull[reg]
-
-    c = 299792.458
-
-    #Sigma from description of models
-    m_sigma = np.abs((m_center / (1 + 100./c)) - m_center)
-    #f = m_center + m_sigma
-    #v = c * ((f/m_center) - 1)
-    
-    sigma_gal = np.abs((m_center / (veldisp/c + 1.)) - m_center)
-    sigma_conv = np.sqrt(sigma_gal**2. - m_sigma**2.)
-
-    #convolvex = np.arange(-5*sigma_conv,5*sigma_conv, 2.0)
-    #gaussplot = gauss_nat(convolvex, [sigma_conv,0.])
-
-    #out = np.convolve(datafull, gaussplot, mode='same')
-    out = scipy.ndimage.gaussian_filter(datafull, sigma_conv / dw)
-
-    return wlfull, out
-
-def removeLineSlope(wlc, mconv, linedefs, i):
-    bluelow,bluehigh,redlow,redhigh = linedefs
-
-    #Define the bandpasses for each line 
-    bluepass = np.where((wlc >= bluelow[i]) & (wlc <= bluehigh[i]))[0]
-    redpass = np.where((wlc >= redlow[i]) & (wlc <= redhigh[i]))[0]
-
-    #Cacluating center value of the blue and red bandpasses
-    blueavg = np.mean([bluelow[i],bluehigh[i]])
-    redavg = np.mean([redlow[i],redhigh[i]])
-
-    blueval = np.mean(mconv[bluepass])
-    redval = np.mean(mconv[redpass])
-
-    pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
-    polyfit = np.poly1d(pf)
-
-    return polyfit
-
-def calculate_MLR_test():
-
-    oldm = np.loadtxt('t13.5_solar.ssp')
-    wlm = oldm[:,0]
-    bh = oldm[:,2]
-    salp = oldm[:,3]
-    chab = oldm[:,4]
-
-    #Get interpolation function
-    interps = imf.mass_ratio_prepare_isochrone()
-    #Calculate Kroupa IMF integrals
-    MWremaining, to_mass, normconstant = imf.determine_mass_ratio_isochrone(1.3,2.3, 13.5, interps)
-    #Calculate Remnant mass at turnoff mass
-    massremnant = imf.massremnant(interps[-1], to_mass)
-    #Caluclate final remaining mass
-    MWremaining += massremnant*normconstant
-    print("MW Mass: ", MWremaining)
-    
-    whK = np.where((wlm >= 20300) & (wlm <= 23700))[0] 
-
-    MLR_MW = np.sum(chab[whK])
-    mlrarr = []
-
-    vals = [(1.3,1.3),(1.3,2.3),(2.3,2.3),(2.9,2.9),(3.1,3.1),(3.5,3.5)]
-    MLRDict = {}
-
-    MLR_BH = np.sum(bh[whK])
-    MLR_SALP = np.sum(salp[whK])
-
-            #if (x1,x2) in vals:
-            #    MLRDict[(x1,x2)] = MLR_IMF
-
-    IMFBH, to_massBH, normconstantBH = imf.determine_mass_ratio_isochrone(3.0,3.0, 13.5, interps)
-    IMFSALP, to_massSALP, normconstantSALP = imf.determine_mass_ratio_isochrone(2.3,2.3, 13.5, interps)
-    IMFBH += massremnant*normconstantBH
-    IMFSALP += massremnant*normconstantSALP
-
-    alphaBH = MLR_MW / MLR_BH
-    alphaSALP = MLR_MW / MLR_SALP
-
-    alphaAdjBH = (IMFBH * MLR_MW) / (MWremaining * MLR_BH)
-    alphaAdjSALP =(IMFSALP * MLR_MW) / (MWremaining * MLR_SALP)
-
-    print(alphaBH, alphaAdjBH)
-    print(alphaSALP, alphaAdjSALP)
-
 def parsemodelname(modelname):
+    '''
+    Helper function to parse the Conroy et al. SED model filenames.
+    '''
 
-        end = modelname.split('/')[-1][:-5]
-        namespl = end.split('_')
-        age = float(namespl[3][1:])
-        zfull = namespl[4]
+    end = modelname.split('/')[-1][:-5]
+    namespl = end.split('_')
+    age = float(namespl[3][1:])
+    zfull = namespl[4]
 
-        if zfull[1] == 'p':
-            pm = 1.0
-        else:
-            pm = -1.0
-        Z = pm * float(zfull[2:5])
-
-        return age, Z
-
-def measure_line(wl, spec, i, errors = False, contcorrect=False):
-
-    #Define the bandpasses for each line 
-    bluepass = np.where((wl >= bluelow[i]) & (wl <= bluehigh[i]))[0]
-    redpass = np.where((wl >= redlow[i]) & (wl <= redhigh[i]))[0]
-    mainpass = np.where((wl >= linelow[i]) & (wl <= linehigh[i]))[0]
-    fullpass = np.where((wl >= bluelow[i]) & (wl <= redhigh[i]))[0]
-
-    #Cacluating center value of the blue and red bandpasses
-    blueavg = np.mean([bluelow[i],bluehigh[i]])
-    redavg = np.mean([redlow[i],redhigh[i]])
-
-    #Calculate the mean of each continuum bandpass for fitting
-    blueval = np.mean(spec[bluepass])
-    redval = np.mean(spec[redpass])
-
-    if errors:
-        blueerrorarr = errors[bluepass]
-        rederrorarr = errors[redpass]
-        errorarr = errors[mainpass]
-        eqwerrprop = 0
-        meanSN = np.median(spec[mainpass] / errorarr)
-        #conterror = np.mean([bluestd, redstd]) / np.sqrt(len(data[bluepass]))
-
-    if contcorrect:
-        bluevalM87 = 0.15*blueval
-        redvalM87 = 0.15*redval
-        #blueval -= bluevalM87
-        #redval -= redvalM87
-
-        #Do the linear fit
-        pf = np.polyfit([blueavg, redavg], [bluevalM87, redvalM87], 1)
-        polyfit = np.poly1d(pf)
-        cont = polyfit(wl[fullpass])
-
-        #linedata -= cont
-        spec[fullpass] -= cont
-
-    #The main line bandpass
-    linewl = wl[mainpass]
-    linedata = spec[mainpass]
-    
-    #Do the linear fit
-    pf = np.polyfit([blueavg, redavg], [blueval, redval], 1)
-    polyfit = np.poly1d(pf)
-    cont = polyfit(linewl)
-    
-    if errors:
-        bluecont = polyfit(wl[bluepass])
-        redcont = polyfit(wl[redpass])
-        bluestd = rms(bluecont - spec[bluepass])
-        redstd = rms(redcont - spec[redpass])
-        conterr = np.max([bluestd,redstd])
-
-    #Calculate the equivalent width
-    eqw = 0
-    for j,k in enumerate(mainpass):
-        eqw += (1 - (linedata[j]/cont[j])) * (wl[k+1] - wl[k])
-        if errors:
-            eqwerrprop += ((errorarr[j]**2 / cont[j]**2) + ((conterr*linedata[j])/cont[j]**2)**2) * (wl[k+1] - wl[k])**2
-
-    if errors:
-        eqwerrprop = np.sqrt(eqwerrprop)
-        return eqw, eqwerrprop
+    if zfull[1] == 'p':
+        pm = 1.0
     else:
-        return eqw
+        pm = -1.0
+    Z = pm * float(zfull[2:5])
 
-def preload_vcj(overwrite_base = False):
-    '''Loads the SSP models into memory so the mcmc model creation takes a
-    shorter time. Returns a dict with the filenames as the keys'''
-
-    if overwrite_base:
-        base = overwrite_base
-    else:
-        base = os.path.dirname(os.path.realpath(sys.argv[0])) + '/'
-
-    chem_names = ['WL', 'Solar', 'Na+', 'Na-', 'Ca+', 'Ca-', 'Fe+', 'Fe-', \
-            'C+', 'C-', 'a/Fe+', 'N+', 'N-', 'as/Fe+', 'Ti+', 'Ti-',\
-            'Mg+', 'Mg-', 'Si+', 'Si-', 'T+', 'T-', 'Cr+', 'Mn+', 'Ba+', \
-            'Ba-', 'Ni+', 'Co+', 'Eu+', 'Sr+', 'K+','V+', 'Cu+', 'Na+0.6', 'Na+0.9']
-
-    print("PRELOADING SSP MODELS INTO MEMORY")
-    fls = glob(base+'spec/vcj_ssp/*')    
-
-    for fl in fls:
-        #print fl
-        flspl = fl.split('/')[-1]
-        mnamespl = flspl.split('_')
-        age = float(mnamespl[3][1:])
-        Zsign = mnamespl[4][1]
-        Zval = float(mnamespl[4][2:5])
-        if Zsign == "m":
-            Zval = -1.0 * Zval
-        x = pd.read_csv(fl, delim_whitespace = True, header=None)
-        x = np.array(x)
-        vcj["%.1f_%.1f" % (age, Zval)] = [x[:,1:]]
-
-    print("PRELOADING ABUNDANCE MODELS INTO MEMORY")
-    fls = glob(base+'spec/atlas/*')    
-    for fl in fls:
-        #print fl
-        flspl = fl.split('/')[-1]
-
-        mnamespl = flspl.split('_')
-        age = float(mnamespl[2][1:])
-        Zsign = mnamespl[3][1]
-        Zval = float(mnamespl[3][2:5])
-        if Zsign == "m":
-            Zval = -1.0 * Zval
-        if age == 13.0:
-            age = 13.5
-
-        x = pd.read_csv(fl, skiprows=2, names = chem_names, delim_whitespace = True, header=None)
-        x = np.array(x)
-        vcj["%.1f_%.1f" % (age, Zval)].append(x[:,1:])
-
-    vcj["WL"] = x[:,0]
-
-    print("FINISHED LOADING MODELS")
-
-    return vcj
+    return age, Z
 
 def load_mcmc_inputs(fl):
+    '''
+    Reads and parses mcmc input files. MCMC input files simplify the process
+    of running multiple mcmc simulations. Each input block is parsed into a
+    dict then added to a list.
+
+    Inputs:
+        fl: filepath of input file
+
+    Returns:
+        inputs: list of input dicts
+    '''
 
     f = open(fl,'r')
     lines = f.readlines()

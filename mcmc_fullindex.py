@@ -1,8 +1,22 @@
-################################################################################
+}###############################################################################
 #   WIFIS MCMC spectral fitting - 'full-index' version
 #   Algorithm based on the emcee affine-invariant ensemble sampler mcmc 
 #       implementation by Foreman-Mackey et al. (2013)
 #   Author: Elliot Meyer, Dept Astronomy & Astrophysics University of Toronto
+################################################################################
+#
+# This program is run on the command line by invoking python mcmc_fullindex.py
+# 
+# Please refer to the __main__ component for the beginning of the program.
+# An input file placed in the inputs directory is used to provide the 
+#   required input parameters for the mcmc simulation
+# A logfile keeps track of the mcmc runs in the logs directory.
+#
+# Please refer to the functions in the mcmc_spectra.py module for the format of
+#   the input spectra.
+# 
+# This suite is programmed to work with the Conroy et al. (2018) SPS models.
+#
 ################################################################################
 
 from __future__ import print_function
@@ -12,12 +26,11 @@ import pandas as pd
 import emcee
 import time
 import matplotlib.pyplot as mpl
-import nifsmethods as nm
 import scipy.interpolate as spi
 import warnings
 import sys, os
-import mcmc_support as mcsp
-import prepare_spectra as preps
+import mcmc_support as mcsupp
+import mcmc_spectra as mcspec
 import plot_corner as plcr
 import logging
 from random import uniform
@@ -512,12 +525,12 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict,
         if 'VelDisp' in paramdict.keys():
             if 'VelDisp' in paramnames:
                 whsig = np.where(np.array(paramnames) == 'VelDisp')[0]
-                wlc, mconv = mcsp.convolvemodels(wlm, newm, params[whsig])
+                wlc, mconv = mcspec.convolvemodels(wlm, newm, params[whsig])
             else:
-                wlc, mconv = mcsp.convolvemodels(wlm, newm, 
+                wlc, mconv = mcspec.convolvemodels(wlm, newm, 
                         paramdict['VelDisp'])
         else:
-            wlc, mconv = mcsp.convolvemodels(wlm, newm, veldisp)
+            wlc, mconv = mcspec.convolvemodels(wlm, newm, veldisp)
 
     # Do the same for the sauron spectra (differing velocity dispersions)
     if sauron:
@@ -525,16 +538,16 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict,
             if 'VelDisp' in paramdict.keys():
                 if 'VelDisp' in paramnames:
                     whsig = np.where(np.array(paramnames) == 'VelDisp')[0]
-                    wlc_s, mconv_s = mcsp.convolvemodels(wlm, base, 
+                    wlc_s, mconv_s = mcspec.convolvemodels(wlm, base, 
                             params[whsig], reglims=[4000,6000])
                 else:
-                    wlc_s, mconv_s = mcsp.convolvemodels(wlm, base, 
+                    wlc_s, mconv_s = mcspec.convolvemodels(wlm, base, 
                             paramdict['VelDisp'], reglims=[4000,6000])
             else:
-                wlc_s, mconv_s = mcsp.convolvemodels(wlm, base, sauron[4], 
+                wlc_s, mconv_s = mcspec.convolvemodels(wlm, base, sauron[4], 
                         reglims=[4000,6000])
         else:
-            wlc_s, mconv_s = mcsp.convolvemodels(wlm, base, sauron[4],
+            wlc_s, mconv_s = mcspec.convolvemodels(wlm, base, sauron[4],
                     reglims=[4000,6000])
 
     # Handling the 'f' error adjustment parameter
@@ -625,7 +638,7 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict,
             linedefs_s = [sauron[3][0][0,:], sauron[3][0][1,:],\
                     sauron[3][0][4,:], sauron[3][0][5,:]]
 
-            polyfit_model = mcsp.removeLineSlope(wlc_s, mconv_s, linedefs_s, i)
+            polyfit_model = mcspec.removeLineSlope(wlc_s, mconv_s, linedefs_s, i)
             cont = polyfit_model(wli)
 
             #Normalizing the model
@@ -895,7 +908,7 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
                     newinit.append(np.random.random())
             pos.append(np.array(newinit))
     else:
-       realdata, postprob, infol, lastdata = mcsp.load_mcmc_file(restart)
+       realdata, postprob, infol, lastdata = mcsupp.load_mcmc_file(restart)
        pos = lastdata
 
     # Handle output file and print important header information
@@ -994,7 +1007,7 @@ if __name__ == '__main__':
     #inputfl = 'inputs/20210613_Paper.txt'
     #inputfl = 'inputs/20210614_OtherIMFPaper.txt'
     inputfl = 'inputs/20220210_revisedpaper_alpha.txt'
-    mcmcinputs = mcsp.load_mcmc_inputs(inputfl)
+    mcmcinputs = mcsupp.load_mcmc_inputs(inputfl)
 
     # Set up logging
     logging.basicConfig(filename="logs/mcmc_runinfo.log",format='%(message)s',
