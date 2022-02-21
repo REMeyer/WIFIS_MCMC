@@ -8,9 +8,6 @@
 from __future__ import print_function
 
 import numpy as np
-from astropy.io import fits
-from sys import exit
-from glob import glob
 import pandas as pd
 import emcee
 import time
@@ -22,8 +19,12 @@ import sys, os
 import mcmc_support as mcsp
 import prepare_spectra as preps
 import plot_corner as plcr
+import logging
 from random import uniform
 from multiprocessing import Pool
+from astropy.io import fits
+from sys import exit
+from glob import glob
 
 warnings.simplefilter('ignore', np.RankWarning)
 
@@ -738,7 +739,7 @@ def lnprob(theta, wl, data, err, paramnames, paramdict, lineinclude, linedefs,
 def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
         threads = 6, restart=False, scale=False, fl=None, sauron=None, 
         sauron_z=None, sauron_veldisp=None, saurononly=False,
-        comments='No Comment'):
+        comments='No Comment', logger=None):
     '''Main program. Extracts the observed spectral data and features and
     sets up the mcmc call. Handles logging and other outputs.
     
@@ -761,6 +762,7 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
         sauron_veldisp: sauron spectrum velocity dispersion
         saurononly: only running on sauron spectrum
         comments: Comment to include in output file
+        logger: python logger instance
     '''
 
     # handing inputs
@@ -897,8 +899,9 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
        pos = lastdata
 
     # Handle output file and print important header information
-    savefl = base + "mcmcresults/"+time.strftime("%Y%m%dT%H%M%S")+\
+    savefl_end = time.strftime("%Y%m%dT%H%M%S")+\
             "_%s_fullindex.dat" % (gal)
+    savefl = base + "mcmcresults/"+ savefl_end
     f = open(savefl, "w")
     strparams = '\t'.join(paramnames)
     strparamdict = '    '.join(['%s: %s' % (key, paramdict[key]) \
@@ -914,6 +917,27 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
     f.write("#%s\n" % (strparamdict))
     f.write('#'+comments+'\n')
     f.close()
+
+    # Handle logging 
+    if "VelDisp" in paramdict.keys():
+        veldisp_str = 'Fit Parameter'
+    else:
+        veldisp_str = str(veldisp)
+
+    logger.info(savefl_end)
+    logger.info("NWalk: %i, NStep: %i, Gal: %s, Fit: FullIndex" % (nwalkers,
+                    n_iter, gal))
+    logger.info("Galaxy File: " + fl)
+    logger.info("Galaxy z: " + str(z))
+    logger.info("Galaxy sigma: "+veldisp_str)
+    logger.info("Sauron File: " + str(sauron))
+    logger.info("Sauron z: " + str(sauron_z))
+    logger.info("Sauron sigma: " + str(sauron_veldisp))
+    logger.info("Lines: " + strlines)
+    logger.info("Params: " + strparams)
+    logger.info("ParamDict: " + strparamdict)
+    logger.info("Sauron Only: " + str(saurononly))
+    logger.info("Comments: " + comments)
 
     # Initialize MCMC sampler
     pool = Pool(processes=16)
@@ -954,24 +978,33 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
             print(((ct / (pfinished/100.)) - ct) / 3600., "Hours left")
             print()
 
+    # Finish logging to confirm mcmc completion
+    logger.info("Runtime: " + str(ct / 60.) + " Minutes")
+    logger.info("")
+
     return sampler
 
 if __name__ == '__main__':
-    #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
+    # Preload the model files
     vcj = preload_vcj(sauron=True, saurononly=False) 
 
-    #Load the inputs for each MCMC run
+    # Load the inputs for each MCMC run
     #inputfl = 'inputs/20210326_PaperPaBTest.txt'
     #inputfl = 'inputs/20210324_Paper.txt'
     #inputfl = 'inputs/20210613_Paper.txt'
-    inputfl = 'inputs/20210614_OtherIMFPaper.txt'
+    #inputfl = 'inputs/20210614_OtherIMFPaper.txt'
+    inputfl = 'inputs/20220210_revisedpaper_alpha.txt'
     mcmcinputs = mcsp.load_mcmc_inputs(inputfl)
 
+    # Set up logging
+    logging.basicConfig(filename="logs/mcmc_runinfo.log",format='%(message)s',
+            filemode='a')
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
     #Run the MCMC for each set of inputs
-    #mcmcinputs = mcmcinputs[:1]
     for i in range(len(mcmcinputs)):
         try:
-            #print(mcmcinputs[i]['skip'], type(mcmcinputs[i]['skip']))
             if mcmcinputs[i]['skip'] == 1:
                 print("Skipping: ",i)
                 continue
@@ -986,4 +1019,4 @@ if __name__ == '__main__':
             sauron_z = mcmcinputs[i]['sz'],
             sauron_veldisp=mcmcinputs[i]['ssigma'],
             saurononly=mcmcinputs[i]['saurononly'],
-            comments = mcmcinputs[i]['comments']) 
+            comments = mcmcinputs[i]['comments'], logger=logger) 
