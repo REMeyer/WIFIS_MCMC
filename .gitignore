@@ -6,8 +6,6 @@ mcmcresults/*.npy
 *.pyc
 *.swp
 *.swo
-models/atlas/
-modesl/vcj_ssp/
 models/*.zip
 *.png
 inputs/*.txt

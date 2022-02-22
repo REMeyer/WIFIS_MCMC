@@ -11,6 +11,7 @@ sz              0.0022
 ssigma          187
 saurononly      False
 comments        Full - 20210226 extraction - all IMF
+skip			0
 
 fl              /data2/wifis_reduction/elliot/NGC5557/20180302/processed/NGC5557_combined_cube_1_telluricreduced_20210304_Full.fits
 lineinclude     FeH NaI KI_a KI_b KI_1.25 NaI127
@@ -25,3 +26,4 @@ sz              0.010
 ssigma          234
 saurononly      False
 comments        Full - 20210304 extraction - all IMF
+skip			0
