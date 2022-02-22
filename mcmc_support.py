@@ -13,7 +13,6 @@ import matplotlib.pyplot as mpl
 import scipy.interpolate as spi
 import pandas as pd
 import plot_corner as pc
-import imf_mass as imf
 from glob import glob
 
 from matplotlib import rc
@@ -367,47 +366,4 @@ def load_mcmc_inputs(fl):
 
 if __name__ == '__main__':
 
-    vcj = mcfs.preload_vcj(overwrite_base='/home/elliot/mcmcgemini/') #Preload the model files so the mcmc runs rapidly (<0.03s per iteration)
-    wl, gal = compare_bestfit('mcmcresults/20181204T211732_M85_fullfit.dat', vcjset = vcj, addshift = True)
-    #compare_bestfit('20190103T035753_M85_fullfit.dat', vcjset = vcj, addshift = True)
-    #compare_bestfit('20190103T052837_M85_fullfit.dat', vcjset = vcj, addshift = True)
-    #compare_bestfit('20181204T211732_M85_fullfit.dat', vcjset = vcj, addshift = True)
-    #compare_bestfit('20181204T195631_M87_fullfit.dat', vcjset = vcj, addshift = True)
-    #calculate_MLR_test()
-    #sys.exit()
-    #widths = plotAgeZcontours()
-    #sys.exit()
-
-    #plotZlines(3.0, 'M85')
-    #plotZlines(13.5, 'M85')
-    #sys.exit()
-
-    #modelfile = '/home/elliot/mcmcgemini/spec/vcj_ssp/VCJ_v8_mcut0.08_t03.0_Zp0.2.ssp.imf_varydoublex.s100'
-    #modelfile = '/home/elliot/mcmcgemini/spec/vcj_ssp/VCJ_v8_mcut0.08_t13.5_Zp0.2.ssp.imf_varydoublex.s100'
-    #chemfile = '/home/elliot/mcmcgemini/spec/atlas/atlas_ssp_t03_Zp0.2.abund.krpa.s100'
-    #plotModels(modelfile, chemfile, 'M85')
-    #sys.exit()
-
-    #compare_bestfit('mcmcresults/20181129T014719_M85_fullfit.dat', instrument = 'nifs',burnin=-1000, onesigma = False, addshift = True, vcjset = vcj)
-    #compare_bestfit('mcmcresults/20181201T142457_M87_fullfit.dat', instrument = 'nifs',burnin=-1000, onesigma = False, addshift = True, vcjset = vcj)
-
-##
-    #M85base = calculate_MLR('mcmcresults/20181130T161910_M85_fullfit.dat', vcjset = vcj)
-    #M87base = calculate_MLR('mcmcresults/20181201T003101_M87_fullfit.dat', vcjset = vcj)
-    #M85base = calculate_MLR('mcmcresults/20181129T093431_M85_fullfit.dat', vcjset = vcj)
-    #M87base = calculate_MLR('mcmcresults/20181129T032004_M87_fullfit.dat', vcjset = vcj)
-    #M85extended = calculate_MLR('mcmcresults/20181204T170523_M85_fullfit.dat', vcjset = vcj)
-    #M87extended = calculate_MLR('mcmcresults/20181204T183647_M87_fullfit.dat', vcjset = vcj)
-    #M85 = calculate_MLR('mcmcresults/20181204T211732_M85_fullfit.dat', vcjset = vcj)
-    #M87 = calculate_MLR('mcmcresults/20181204T195631_M87_fullfit.dat', vcjset = vcj)
-##
-    #WIFISM851 = calculate_MLR('mcmcresults/20190319T233200_M85_fullfit.dat',vcjset = vcj)
-    #WIFISM852 = calculate_MLR('mcmcresults/20190320T014215_M85_fullfit.dat',vcjset = vcj)
-    #WIFISM871 = calculate_MLR('mcmcresults/20190321T025651_M87_fullfit.dat',vcjset = vcj)
-    #WIFISM872 = calculate_MLR('mcmcresults/20190321T040458_M87_fullfit.dat',vcjset = vcj)
-
-
-    #plotMLRhist(M87, M85)
-
-    #shfit = deriveShifts('20180807T090719_M85_fullfit.dat', vcjset = vcj, plot = False)
-    #deriveVelDisp('M85')
+    pass
