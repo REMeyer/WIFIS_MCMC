@@ -7,5 +7,7 @@ mcmcresults/*.npy
 *.swp
 *.swo
 models/*.zip
+models/vcj_ssp/*.s100
+models/atlas/*.s100
 *.png
 inputs/*.txt
