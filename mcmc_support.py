@@ -359,7 +359,12 @@ def load_mcmc_inputs(fl):
             inputset['comments'] = ' '.join(line_split[1:])
         elif key == 'skip':
             inputset['skip'] = int(line_split[1])
-        
+        elif key == 'twossp':
+            if line_split[1] == 'False':
+                inputset['twossp'] = False
+            else:
+                inputset['twossp'] = True
+
     inputs.append(inputset)
 
     return inputs

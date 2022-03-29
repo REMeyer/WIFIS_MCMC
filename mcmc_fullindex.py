@@ -750,8 +750,8 @@ def lnprob(theta, wl, data, err, paramnames, paramdict, lineinclude, linedefs,
     return lp + chisqv
 
 def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
-        threads = 6, restart=False, scale=False, fl=None, sauron=None, 
-        sauron_z=None, sauron_veldisp=None, saurononly=False,
+        threads = 6, scale=False, fl=None, sauron=None, 
+        sauron_z=None, sauron_veldisp=None, saurononly=False, twossp=False,
         comments='No Comment', logger=None):
     '''Main program. Extracts the observed spectral data and features and
     sets up the mcmc call. Handles logging and other outputs.
@@ -767,7 +767,6 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
                     fixed values for particular parameters
         lineinclude: spectral features included in this analysis
         threads: number of cpu threads to employ
-        restart: clean output file that did not finish (POTENTIALLY BROKEN)
         scale: scale the spectrum (basic adjustment DEPRECIATED)
         fl: observed spectrum filepath
         sauron: sauron spectrum filepath (if included)
@@ -876,40 +875,36 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
 
     ndim = len(paramnames)
 
-    print(paramnames)
-    print(lineinclude)
+    print("Params: ", paramnames)
+    print("Lines: ", lineinclude)
 
     # Initializing the mcmc walker starting positions
     # Random valid values of every parameter for every walker
     pos = []
-    if not restart:
-        for i in range(nwalkers):
-            newinit = []
-            for j in range(len(paramnames)):
-                if paramnames[j] == 'Age':
-                    newinit.append(np.random.random()*12.5 + 1.0)
-                elif paramnames[j] == 'Z':
-                    newinit.append(np.random.random()*0.45 - 0.25)
-                    #newinit.append(np.random.random()*0.1 + 0.1)
-                elif paramnames[j] == 'Alpha':
-                    newinit.append(np.random.random()*0.3)
-                elif paramnames[j] in ['x1', 'x2']:
-                    newinit.append(np.random.choice(x1_m))
-                elif paramnames[j] == 'Na':
-                    newinit.append(np.random.random()*1.3 - 0.3)
-                elif paramnames[j] in ['K','Ca','Fe','Mg']:
-                    newinit.append(np.random.random()*0.6 - 0.3)
-                elif paramnames[j] == 'VelDisp':
-                    newinit.append(np.random.random()*240 + 120)
-                elif paramnames[j] == 'Vel':
-                    newinit.append(np.random.random()*0.015 + 0.002)
-                elif paramnames[j] == 'f':
-                    #newinit.append(np.random.random()*11 - 10.)
-                    newinit.append(np.random.random())
-            pos.append(np.array(newinit))
-    else:
-       realdata, postprob, infol, lastdata = mcsupp.load_mcmc_file(restart)
-       pos = lastdata
+    for i in range(nwalkers):
+        newinit = []
+        for j in range(len(paramnames)):
+            if paramnames[j] == 'Age':
+                newinit.append(np.random.random()*12.5 + 1.0)
+            elif paramnames[j] == 'Z':
+                newinit.append(np.random.random()*0.45 - 0.25)
+                #newinit.append(np.random.random()*0.1 + 0.1)
+            elif paramnames[j] == 'Alpha':
+                newinit.append(np.random.random()*0.3)
+            elif paramnames[j] in ['x1', 'x2']:
+                newinit.append(np.random.choice(x1_m))
+            elif paramnames[j] == 'Na':
+                newinit.append(np.random.random()*1.3 - 0.3)
+            elif paramnames[j] in ['K','Ca','Fe','Mg']:
+                newinit.append(np.random.random()*0.6 - 0.3)
+            elif paramnames[j] == 'VelDisp':
+                newinit.append(np.random.random()*240 + 120)
+            elif paramnames[j] == 'Vel':
+                newinit.append(np.random.random()*0.015 + 0.002)
+            elif paramnames[j] == 'f':
+                #newinit.append(np.random.random()*11 - 10.)
+                newinit.append(np.random.random())
+        pos.append(np.array(newinit))
 
     # Handle output file and print important header information
     savefl_end = time.strftime("%Y%m%dT%H%M%S")+\
@@ -1002,11 +997,7 @@ if __name__ == '__main__':
     vcj = preload_vcj(sauron=True, saurononly=False) 
 
     # Load the inputs for each MCMC run
-    #inputfl = 'inputs/20210326_PaperPaBTest.txt'
-    #inputfl = 'inputs/20210324_Paper.txt'
-    #inputfl = 'inputs/20210613_Paper.txt'
-    #inputfl = 'inputs/20210614_OtherIMFPaper.txt'
-    inputfl = 'inputs/20220210_revisedpaper_alpha.txt'
+    inputfl = 'inputs/twossp_test.txt'
     mcmcinputs = mcsupp.load_mcmc_inputs(inputfl)
 
     # Set up logging
@@ -1024,12 +1015,19 @@ if __name__ == '__main__':
         except:
             print("No skip parameter, not skipping")
         print(mcmcinputs[i])
-        sampler = do_mcmc(mcmcinputs[i]['target'], mcmcinputs[i]['workers'],
-            mcmcinputs[i]['steps'],mcmcinputs[i]['targetz'],
-            mcmcinputs[i]['targetsigma'],mcmcinputs[i]['paramdict'],
-            mcmcinputs[i]['lineinclude'],threads = 16, 
-            fl = mcmcinputs[i]['fl'],sauron=mcmcinputs[i]['sfl'],
+        sampler = do_mcmc(mcmcinputs[i]['target'], 
+            mcmcinputs[i]['workers'],
+            mcmcinputs[i]['steps'],
+            mcmcinputs[i]['targetz'],
+            mcmcinputs[i]['targetsigma'],
+            mcmcinputs[i]['paramdict'],
+            mcmcinputs[i]['lineinclude'],
+            threads = 16, 
+            fl = mcmcinputs[i]['fl'],
+            sauron=mcmcinputs[i]['sfl'],
             sauron_z = mcmcinputs[i]['sz'],
             sauron_veldisp=mcmcinputs[i]['ssigma'],
-            saurononly=mcmcinputs[i]['saurononly'],
-            comments = mcmcinputs[i]['comments'], logger=logger) 
+            saurononly=mcmcinputs[i]['saurononly'], 
+            twossp = mcmcinputs[i]['twossp'],
+            comments = mcmcinputs[i]['comments'], 
+            logger=logger) 
