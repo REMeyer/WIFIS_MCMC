@@ -93,3 +93,119 @@ Sauron Only: False
 Comments: Re/4 - Alpha no CaI - Paper Revision
 Runtime: 107.236111434Minutes
 
+20220329T171727_M85_fullindex.dat
+NWalk: 512, NStep: 4000, Gal: M85, Fit: FullIndex
+Galaxy File: /data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20210324_Cen.fits
+Galaxy z: 0.0023
+Galaxy sigma: Fit Parameter
+Sauron File: /home/elliot/sauronspec/M85_ATLAS3D_R1.fits
+Sauron z: 0.0022
+Sauron sigma: 215.0
+Lines: FeH	CaI	NaI	KI_a	KI_b	KI_1.25	NaI123	HBeta
+Params: x1	Na	Age	VelDisp	Fe	x2	Z	K
+ParamDict: x1: None    Ca: 0.0    Na: None    Age: None    VelDisp: None    Fe: None    x2: None    Z: None    K: None
+Sauron Only: False
+Comments: Center - Ca/H = 0 - Paper Revision
+20220329T171807_M85_fullindex.dat
+NWalk: 512, NStep: 4000, Gal: M85, Fit: FullIndex
+Galaxy File: /data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20210324_Cen.fits
+Galaxy z: 0.0023
+Galaxy sigma: Fit Parameter
+Sauron File: /home/elliot/sauronspec/M85_ATLAS3D_R1.fits
+Sauron z: 0.0022
+Sauron sigma: 215.0
+Lines: FeH	CaI	NaI	KI_a	KI_b	KI_1.25	NaI123	HBeta
+Params: x1	Na	Age	VelDisp	Fe	x2	Z	K
+ParamDict: x1: None    Ca: 0.0    Na: None    Age: None    VelDisp: None    Fe: None    x2: None    Z: None    K: None
+Sauron Only: False
+Comments: Center - Ca/H = 0 - Paper Revision
+Runtime: 102.578629768 Minutes
+
+20220329T190042_M85_fullindex.dat
+NWalk: 512, NStep: 4000, Gal: M85, Fit: FullIndex
+Galaxy File: /data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20210324_Cen.fits
+Galaxy z: 0.0023
+Galaxy sigma: Fit Parameter
+Sauron File: /home/elliot/sauronspec/M85_ATLAS3D_R1.fits
+Sauron z: 0.0022
+Sauron sigma: 215.0
+Lines: FeH	NaI	KI_a	KI_b	KI_1.25	NaI123	HBeta
+Params: x1	Na	Age	VelDisp	Fe	x2	Z	K
+ParamDict: x1: None    Na: None    Age: None    VelDisp: None    Fe: None    x2: None    Z: None    K: None
+Sauron Only: False
+Comments: Centre - No CaI - Paper Revision
+Runtime: 99.9756929517 Minutes
+
+20220330T153354_NGC5557_fullindex.dat
+NWalk: 512, NStep: 4000, Gal: NGC5557, Fit: FullIndex
+Galaxy File: /data2/wifis_reduction/elliot/NGC5557/20180302/processed/NGC5557_combined_cube_1_telluricreduced_20200709_R1.fits
+Galaxy z: 0.0106
+Galaxy sigma: Fit Parameter
+Sauron File: /home/elliot/sauronspec/NGC5557_ATLAS3D_R1.fits
+Sauron z: 0.0106
+Sauron sigma: 310.0
+Lines: FeH	NaI	KI_a	KI_b	KI_1.25	NaI127	PaB	HBeta
+Params: x1	Na	Age	VelDisp	Fe	x2	Z	K
+ParamDict: x1: None    Na: None    Age: None    VelDisp: None    Fe: None    x2: None    Z: None    K: None
+Sauron Only: False
+Comments: Centre - with PaB - Paper Revision
+Runtime: 88.4491468509 Minutes
+
+20220330T173612_M85_fullindex.dat
+NWalk: 512, NStep: 4000, Gal: M85, Fit: FullIndex
+Galaxy File: /data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20210324_Cen.fits
+Galaxy z: 0.0023
+Galaxy sigma: Fit Parameter
+Sauron File: /home/elliot/sauronspec/M85_ATLAS3D_R1.fits
+Sauron z: 0.0022
+Sauron sigma: 215.0
+Lines: FeH	CaI	NaI	KI_a	KI_b	KI_1.25	NaI123	HBeta
+Params: x1	Ca	Na	Age	VelDisp	Fe	x2	Z	K
+ParamDict: x1: None    Ca: None    Na: None    Age: None    VelDisp: None    Fe: None    x2: None    Z: None    K: None
+Sauron Only: False
+Comments: Center - with PaB - Paper Revision
+Runtime: 98.2177577337 Minutes
+
+20220331T105410_M85_fullindex.dat
+NWalk: 512, NStep: 4000, Gal: M85, Fit: FullIndex
+Galaxy File: /data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20210324_Cen.fits
+Galaxy z: 0.0023
+Galaxy sigma: Fit Parameter
+Sauron File: /home/elliot/sauronspec/M85_ATLAS3D_R1.fits
+Sauron z: 0.0022
+Sauron sigma: 215.0
+Lines: FeH	NaI	KI_a	KI_b	KI_1.25	NaI123	CaI	HBeta
+Params: x1	Na	Age	VelDisp	Fe	x2	Alpha	Z	K
+ParamDict: x1: None    Na: None    Age: None    VelDisp: None    Fe: None    x2: None    Alpha: None    Z: None    K: None
+Sauron Only: False
+Comments: Center - Alpha w/ CaI - Paper Revision
+Runtime: 103.124217002 Minutes
+
+20220331T164810_NGC5557_fullindex.dat
+NWalk: 512, NStep: 4000, Gal: NGC5557, Fit: FullIndex
+Galaxy File: /data2/wifis_reduction/elliot/NGC5557/20180302/processed/NGC5557_combined_cube_1_telluricreduced_20200709_R1.fits
+Galaxy z: 0.0107
+Galaxy sigma: Fit Parameter
+Sauron File: /home/elliot/sauronspec/NGC5557_ATLAS3D_R1.fits
+Sauron z: 0.0106
+Sauron sigma: 310.0
+Lines: FeH	NaI	KI_a	KI_b	KI_1.25	NaI127	HBeta
+Params: x1	Na	Age	VelDisp	Fe	x2	Alpha	Z	K
+ParamDict: x1: None    Na: None    Age: None    VelDisp: None    Fe: None    x2: None    Alpha: None    Z: None    K: None
+Sauron Only: False
+Comments: Center - Alpha - Paper Revision
+Runtime: 91.011999166 Minutes
+
+20220331T181911_M85_fullindex.dat
+NWalk: 512, NStep: 4000, Gal: M85, Fit: FullIndex
+Galaxy File: /data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20210324_Cen.fits
+Galaxy z: 0.0023
+Galaxy sigma: Fit Parameter
+Sauron File: /home/elliot/sauronspec/M85_ATLAS3D_R1.fits
+Sauron z: 0.0022
+Sauron sigma: 215.0
+Lines: FeH	NaI	KI_a	KI_b	KI_1.25	NaI123	HBeta
+Params: x1	Na	Age	VelDisp	Fe	x2	Alpha	Z	K
+ParamDict: x1: None    Na: None    Age: None    VelDisp: None    Fe: None    x2: None    Alpha: None    Z: None    K: None
+Sauron Only: False
+Comments: Center - Alpha no CaI - Paper Revision

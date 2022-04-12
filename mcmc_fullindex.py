@@ -1,4 +1,4 @@
-}###############################################################################
+###############################################################################
 #   WIFIS MCMC spectral fitting - 'full-index' version
 #   Algorithm based on the emcee affine-invariant ensemble sampler mcmc 
 #       implementation by Foreman-Mackey et al. (2013)
@@ -100,7 +100,7 @@ def preload_vcj(overwrite_base = False, sauron=False, saurononly=False,
 
     # Loading the IMF models for each Age/Z pair 
     print("PRELOADING SSP MODELS INTO MEMORY")
-    fls = glob(base+'models/vcj_ssp/*')    
+    fls = glob(base+'models/vcj_ssp/*.s100')    
     for fl in fls:
         flspl = fl.split('/')[-1]
         mnamespl = flspl.split('_')
@@ -118,7 +118,7 @@ def preload_vcj(overwrite_base = False, sauron=False, saurononly=False,
 
     # Loading the chemical abundance models for each Age/Z pair
     print("PRELOADING ABUNDANCE MODELS INTO MEMORY")
-    fls = glob(base+'models/atlas/*')    
+    fls = glob(base+'models/atlas/*.s100')    
     for fl in fls:
         flspl = fl.split('/')[-1]
         mnamespl = flspl.split('_')
@@ -829,34 +829,34 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
             redhigh, mlow, mhigh, morder]), line_name, line_name]
 
     # Load wifis data
-    wl, data, err, datanomask, mask = preps.preparespecwifis(fl, z)
+    wl, data, err, datanomask, mask = mcspec.preparespecwifis(fl, z)
 
     # Split the spectrum into individual features including wavelength
     #   and uncertainty arrays
     if scale:
-        wl, data, err = preps.splitspec(wl, data, linedefs, err = err, 
+        wl, data, err = mcspec.splitspec(wl, data, linedefs, err = err, 
                 scale = scale)
     else:
-        wl, data, err = preps.splitspec(wl, data, linedefs, err = err)
+        wl, data, err = mcspec.splitspec(wl, data, linedefs, err = err)
 
     # Handling sauron data (Currently only HBeta, but can be extended to 
     #   other features. 
     if sauron != None:
         print("Using SAURON data")
         #SAURON Lines
-        bluelow_s =  [4827.875]#, 4946.500, 5142.625]
-        bluehigh_s = [4847.875]#, 4977.750, 5161.375]
-        linelow_s =  [4847.875]#, 4977.750, 5160.125]
-        linehigh_s = [4876.625]#, 5054.000, 5192.625]
-        redlow_s =   [4876.625]#, 5054.000, 5191.375]
-        redhigh_s =  [4891.625]#, 5065.250, 5206.375]
+        bluelow_s =  [4827.875, 4946.500, 5142.625]
+        bluehigh_s = [4847.875, 4977.750, 5161.375]
+        linelow_s =  [4847.875, 4977.750, 5160.125]
+        linehigh_s = [4876.625, 5054.000, 5192.625]
+        redlow_s =   [4876.625, 5054.000, 5191.375]
+        redhigh_s =  [4891.625, 5065.250, 5206.375]
 
         mlow_s, mhigh_s = [],[]
         for i in zip(bluelow_s, redhigh_s):
             mlow_s.append(i[0])
             mhigh_s.append(i[1])
         morder_s = [1]#,1,1]
-        line_names_s = np.array(['HBeta'])#,'Fe5015','MgB'])
+        line_names_s = np.array(['HBeta','Fe5015','MgB'])
 
         sauronlines = [np.array([bluelow_s,bluehigh_s,linelow_s,linehigh_s,\
                 redlow_s,redhigh_s,mlow_s,mhigh_s,morder_s]),line_names_s,\
@@ -869,7 +869,7 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
             wl_s = wl_s / (1. + sauron_z)
         noise_s = ff[2].data
 
-        wl_s, data_s, err_s = preps.splitspec(wl_s, spec_s, sauronlines, \
+        wl_s, data_s, err_s = mcspec.splitspec(wl_s, spec_s, sauronlines, \
                 err = noise_s)
     else:
         print("No SAURON")
@@ -1006,7 +1006,9 @@ if __name__ == '__main__':
     #inputfl = 'inputs/20210324_Paper.txt'
     #inputfl = 'inputs/20210613_Paper.txt'
     #inputfl = 'inputs/20210614_OtherIMFPaper.txt'
-    inputfl = 'inputs/20220210_revisedpaper_alpha.txt'
+    #inputfl = 'inputs/20220210_revisedpaper_alpha.txt'
+    #inputfl = 'inputs/20220329_revisedpaper_noCaI.txt'
+    inputfl = 'inputs/20220331_revisedpaper_alpha_center.txt'
     mcmcinputs = mcsupp.load_mcmc_inputs(inputfl)
 
     # Set up logging
