@@ -1,4 +1,4 @@
-}###############################################################################
+###############################################################################
 #   WIFIS MCMC spectral fitting - 'full-index' version
 #   Algorithm based on the emcee affine-invariant ensemble sampler mcmc 
 #       implementation by Foreman-Mackey et al. (2013)
@@ -100,7 +100,7 @@ def preload_vcj(overwrite_base = False, sauron=False, saurononly=False,
 
     # Loading the IMF models for each Age/Z pair 
     print("PRELOADING SSP MODELS INTO MEMORY")
-    fls = glob(base+'models/vcj_ssp/*')    
+    fls = glob(base+'models/vcj_ssp/*.s100')    
     for fl in fls:
         flspl = fl.split('/')[-1]
         mnamespl = flspl.split('_')
@@ -118,7 +118,7 @@ def preload_vcj(overwrite_base = False, sauron=False, saurononly=False,
 
     # Loading the chemical abundance models for each Age/Z pair
     print("PRELOADING ABUNDANCE MODELS INTO MEMORY")
-    fls = glob(base+'models/atlas/*')    
+    fls = glob(base+'models/atlas/*.s100')
     for fl in fls:
         flspl = fl.split('/')[-1]
         mnamespl = flspl.split('_')
@@ -506,155 +506,163 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict,
     if timing:
         t1 = time.time()
 
-    # Creating model spectrum based on the input parameters
-    if sauron:
-        if saurononly:
-            wlm, newm, base = model_spec(params, paramnames, paramdict, 
-                    saurononly = True, timing=timing)
-        else:
-            wlm, newm, base = model_spec(params, paramnames, paramdict, 
-                    full = True, timing=timing)
-    else:
-        wlm, newm, base = model_spec(params, paramnames, paramdict, 
-                timing=timing)
-
-    # Convolve model to observed velocity dispersion
-    # Depends on whether sauron spectra is included and whether
-    # velocity dispersion is a parameter
-    if not saurononly:
-        if 'VelDisp' in paramdict.keys():
-            if 'VelDisp' in paramnames:
-                whsig = np.where(np.array(paramnames) == 'VelDisp')[0]
-                wlc, mconv = mcspec.convolvemodels(wlm, newm, params[whsig])
-            else:
-                wlc, mconv = mcspec.convolvemodels(wlm, newm, 
-                        paramdict['VelDisp'])
-        else:
-            wlc, mconv = mcspec.convolvemodels(wlm, newm, veldisp)
-
-    # Do the same for the sauron spectra (differing velocity dispersions)
-    if sauron:
-        if saurononly:
-            if 'VelDisp' in paramdict.keys():
-                if 'VelDisp' in paramnames:
-                    whsig = np.where(np.array(paramnames) == 'VelDisp')[0]
-                    wlc_s, mconv_s = mcspec.convolvemodels(wlm, base, 
-                            params[whsig], reglims=[4000,6000])
-                else:
-                    wlc_s, mconv_s = mcspec.convolvemodels(wlm, base, 
-                            paramdict['VelDisp'], reglims=[4000,6000])
-            else:
-                wlc_s, mconv_s = mcspec.convolvemodels(wlm, base, sauron[4], 
-                        reglims=[4000,6000])
-        else:
-            wlc_s, mconv_s = mcspec.convolvemodels(wlm, base, sauron[4],
-                    reglims=[4000,6000])
-
-    # Handling the 'f' error adjustment parameter
-    if 'f' in paramdict.keys():
-        if 'f' in paramnames:
-            whf = np.where(np.array(paramnames) == 'f')[0][0]
-            f = params[whf]
-        else:
-            f = paramdict['f']
-    
-    if timing:
-        t2 = time.time()
-        print("CHISQ T1: ", t2 - t1)
-
-    # Interpolating the broadened model spectrum and placing it on the
-    # observed (and sauron) wavegrid.
-    if not saurononly:
-        mconvinterp = spi.interp1d(wlc, mconv, kind='cubic', 
-                bounds_error=False)
-    if sauron:
-        mconvinterp_s = spi.interp1d(wlc_s, mconv_s, kind='cubic', 
-                bounds_error=False)
-
-    if timing:
-        t3 = time.time()
-        print("CHISQ T2: ", t3 - t2)
-    
     # Measuring the chisq by comparing the model and observed spectra
     chisq = 0
 
-    if not saurononly:
-        for i in range(len(linedefs[0,:])):
-            if line_names[i] not in lineinclude:
-                #print line_name[i]
-                continue
-
-            #Getting a slice of the model
-            wli = wl[i]
-
-            modelslice = mconvinterp(wli)
-
-            #Removing a high-order polynomial from the slice
-            #Define the bandpasses for each line 
-            bluepass = np.where((wlc >= linedefs[0,i]) & \
-                    (wlc <= linedefs[1,i]))[0]
-            redpass = np.where((wlc >= linedefs[4,i]) & \
-                    (wlc <= linedefs[5,i]))[0]
-
-            #Cacluating center value of the blue and red bandpasses
-            blueavg = np.mean([linedefs[0,i], linedefs[1,i]])
-            redavg = np.mean([linedefs[4,i], linedefs[5,i]])
-
-            blueval = np.mean(mconv[bluepass])
-            redval = np.mean(mconv[redpass])
-
-            pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
-            polyfit = np.poly1d(pf) 
-            cont = polyfit(wli)
-
-            #Normalizing the model
-            modelslice = modelslice / cont
-
-            #if 'f' in paramdict.keys():
-            #    errterm = (err[i] ** 2.0) + (data[i]**2.0 * np.exp(2*f))
-            #    addterm = np.log(2.0 * np.pi * errterm)
-            #else:
-            #    errterm = err[i] ** 2.0
-            #    addterm = err[i] * 0.0
-            errterm = err[i] ** 2.0
-            addterm = err[i] * 0.0
-
-            #Performing the chisq calculation
-            chisq += np.nansum(((data[i] - modelslice)**2.0 / errterm) +\
-                    addterm)
-
-            if plot:
-                mpl.plot(wl[i], modelslice, 'r')
-                mpl.plot(wl[i], data[i], 'b')
-
-    if sauron:
-        for i in range(len(sauron[0])):
-
-            #Getting a slice of the model
-            wli = sauron[0][i]
-
-            modelslice = mconvinterp_s(wli)
-
-            linedefs_s = [sauron[3][0][0,:], sauron[3][0][1,:],\
-                    sauron[3][0][4,:], sauron[3][0][5,:]]
-
-            polyfit_model = mcspec.removeLineSlope(wlc_s, mconv_s, linedefs_s, i)
-            cont = polyfit_model(wli)
-
-            #Normalizing the model
-            modelslice = modelslice / cont
-
-            if 'f' in paramdict.keys():
-                errterm = (sauron[2][i] ** 2.0) + modelslice**2.0 * \
-                        np.exp(2*np.log(f))
-                addterm = np.log(2.0 * np.pi * errterm)
+    # Creating the model(s)
+    for i in range(len(paramnames)):
+        # Creating model spectrum based on the input parameters
+        if sauron:
+            if saurononly:
+                wlm, newm, base = model_spec(params[i], paramnames[i], paramdict, 
+                        saurononly = True, timing=timing)
             else:
-                errterm = sauron[2][i] ** 2.0
-                addterm = sauron[2][i] * 0.0
+                wlm, newm, base = model_spec(params[i], paramnames[i], paramdict, 
+                        full = True, timing=timing)
+        else:
+            wlm, newm, base = model_spec(params[i], paramnames[i], paramdict, 
+                    timing=timing)
 
-            #Performing the chisq calculation
-            chisq += np.nansum(((sauron[1][i] - modelslice)**2.0 / errterm) +\
-                    addterm)
+        # Convolve model to observed velocity dispersion
+        # Depends on whether sauron spectra is included and whether
+        # velocity dispersion is a parameter
+        if not saurononly:
+            if 'VelDisp' in paramdict.keys():
+                if 'VelDisp' in paramnames[i]:
+                    whsig = np.where(np.array(paramnames[i]) == 'VelDisp')[0]
+                    wlc, mconv = mcspec.convolvemodels(wlm, newm, params[i][whsig])
+                else:
+                    wlc, mconv = mcspec.convolvemodels(wlm, newm, 
+                            paramdict['VelDisp'])
+            else:
+                wlc, mconv = mcspec.convolvemodels(wlm, newm, veldisp)
+
+        # Do the same for the sauron spectra (differing velocity dispersions)
+        if sauron:
+            if saurononly:
+                if 'VelDisp' in paramdict.keys():
+                    if 'VelDisp' in paramnames[i]:
+                        whsig = np.where(np.array(paramnames[i]) == 'VelDisp')[0]
+                        wlc_s, mconv_s = mcspec.convolvemodels(wlm, base, 
+                                params[i][whsig], reglims=[4000,6000])
+                    else:
+                        wlc_s, mconv_s = mcspec.convolvemodels(wlm, base, 
+                                paramdict['VelDisp'], reglims=[4000,6000])
+                else:
+                    wlc_s, mconv_s = mcspec.convolvemodels(wlm, base, sauron[4], 
+                            reglims=[4000,6000])
+            else:
+                wlc_s, mconv_s = mcspec.convolvemodels(wlm, base, sauron[4],
+                        reglims=[4000,6000])
+
+        # Handling the 'f' error adjustment parameter
+        if 'f' in paramdict.keys():
+            if 'f' in paramnames[i]:
+                whf = np.where(np.array(paramnames[i]) == 'f')[0][0]
+                f = params[i][whf]
+            else:
+                f = paramdict['f']
+        
+        if timing:
+            t2 = time.time()
+            print("CHISQ T1: ", t2 - t1)
+
+        # Interpolating the broadened model spectrum and placing it on the
+        # observed (and sauron) wavegrid.
+        if not saurononly:
+            mconvinterp = spi.interp1d(wlc, mconv, kind='cubic', 
+                    bounds_error=False)
+        if sauron:
+            mconvinterp_s = spi.interp1d(wlc_s, mconv_s, kind='cubic', 
+                    bounds_error=False)
+
+        if timing:
+            t3 = time.time()
+            print("CHISQ T2: ", t3 - t2)
+
+    if 'a1' in paramnames[0]:
+        wh_coeff = np.where(np.array(paramnames[i]) == 'a1')[0]
+        a1 = params[0][wh_coeff]
+        a2 = 1. - a1
+
+    for i in range(len(paramnames)):
+        if not saurononly:
+            for j in range(len(linedefs[0,:])):
+                if line_names[j] not in lineinclude:
+                    #print line_name[i]
+                    continue
+
+                #Getting a slice of the model
+                wli = wl[j]
+
+                modelslice = mconvinterp(wli)
+
+                #Removing a high-order polynomial from the slice
+                #Define the bandpasses for each line 
+                bluepass = np.where((wlc >= linedefs[0,j]) & \
+                        (wlc <= linedefs[1,j]))[0]
+                redpass = np.where((wlc >= linedefs[4,j]) & \
+                        (wlc <= linedefs[5,j]))[0]
+
+                #Cacluating center value of the blue and red bandpasses
+                blueavg = np.mean([linedefs[0,j], linedefs[1,j]])
+                redavg = np.mean([linedefs[4,j], linedefs[5,j]])
+
+                blueval = np.mean(mconv[bluepass])
+                redval = np.mean(mconv[redpass])
+
+                pf = np.polyfit([blueavg, redavg], [blueval,redval], 1)
+                polyfit = np.poly1d(pf) 
+                cont = polyfit(wli)
+
+                #Normalizing the model
+                modelslice = modelslice / cont
+
+                #if 'f' in paramdict.keys():
+                #    errterm = (err[i] ** 2.0) + (data[i]**2.0 * np.exp(2*f))
+                #    addterm = np.log(2.0 * np.pi * errterm)
+                #else:
+                #    errterm = err[i] ** 2.0
+                #    addterm = err[i] * 0.0
+                errterm = err[j] ** 2.0
+                addterm = err[j] * 0.0
+
+                #Performing the chisq calculation
+                chisq += np.nansum(params[i][wh_coeff]*(((data[j] - 
+                        modelslice)**2.0 / errterm) + addterm))
+
+                if plot:
+                    mpl.plot(wl[j], modelslice, 'r')
+                    mpl.plot(wl[j], data[j], 'b')
+
+        if sauron:
+            for j in range(len(sauron[0])):
+
+                #Getting a slice of the model
+                wli = sauron[0][j]
+
+                modelslice = mconvinterp_s(wli)
+
+                linedefs_s = [sauron[3][0][0,:], sauron[3][0][1,:],\
+                        sauron[3][0][4,:], sauron[3][0][5,:]]
+
+                polyfit_model = mcspec.removeLineSlope(wlc_s, mconv_s, linedefs_s, j)
+                cont = polyfit_model(wli)
+
+                #Normalizing the model
+                modelslice = modelslice / cont
+
+                if 'f' in paramdict.keys():
+                    errterm = (sauron[2][j] ** 2.0) + modelslice**2.0 * \
+                            np.exp(2*np.log(f))
+                    addterm = np.log(2.0 * np.pi * errterm)
+                else:
+                    errterm = sauron[2][j] ** 2.0
+                    addterm = sauron[2][j] * 0.0
+
+                #Performing the chisq calculation
+                chisq += np.nansum(params[i][wh_coeff]*(((sauron[1][j] - 
+                        modelslice)**2.0 / errterm) + addterm))
 
     if plot:
         mpl.show()
@@ -678,35 +686,48 @@ def lnprior(theta, paramnames):
 
     goodpriors = True
     for j in range(len(paramnames)):
-        if paramnames[j] == 'Age':
+        if paramnames[j] in ['Age','Age_2']:
             if not (1.0 <= theta[j] <= 13.5):
                 goodpriors = False
-        elif paramnames[j] == 'Z':
+                print('Age',theta[j])
+        elif paramnames[j] in ['Z','Z_2']:
             #if not (-1.5 <= theta[j] <= 0.2):
             #    goodpriors = False
             if not (-0.25 <= theta[j] <= 0.2):
                 goodpriors = False
-        elif paramnames[j] == 'Alpha':
+                print('Z',theta[j])
+        elif paramnames[j] in ['Alpha','Alpha_2']:
             if not (0.0 <= theta[j] <= 0.3):
                 goodpriors = False
-        elif paramnames[j] in ['x1', 'x2']:
+                print('alpha', theta[j])
+        elif paramnames[j] in ['x1', 'x2', 'x1_2', 'x2_2']:
             if not (0.5 <= theta[j] <= 3.5):
                 goodpriors = False
-        elif paramnames[j] == 'Na':
+                print('x1',theta[j])
+        elif paramnames[j] in ['Na','Na_2']:
             if not (-0.5 <= theta[j] <= 0.9):
                 goodpriors = False
-        elif paramnames[j] in ['K','Ca','Fe','Mg']:
+                print('Na',theta[j])
+        elif paramnames[j] in ['K','Ca','Fe','Mg','K_2','Ca_2','Fe_2','Mg_2']:
             if not (-0.5 <= theta[j] <= 0.5):
                 goodpriors = False
-        elif paramnames[j] == 'VelDisp':
+                print("Chem",theta[j])
+        elif paramnames[j] in ['VelDisp','VelDisp_2']:
             if not (120 <= theta[j] <= 390):
                 goodpriors = False
-        elif paramnames[j] == 'Vel':
+                print("VelDisp",theta[j])
+        elif paramnames[j] in ['Vel','Vel_2']:
             if not (0.0001 <= theta[j] <= 0.03):
                 goodpriors = False
-        elif paramnames[j] == 'f':
+                print("Vel")
+        elif paramnames[j] in ['f','f_2']:
             if not (-10. <= np.log(theta[j]) <= 1.):
                 goodpriors = False
+                print("F")
+        elif paramnames[j] in ['a1']:
+            if not (0.000001 <= theta[j] <= 1.):
+                goodpriors = False
+                print('a1a2',theta[j])
 
     if goodpriors == True:
         return 0.0
@@ -714,7 +735,7 @@ def lnprior(theta, paramnames):
         return -np.inf
 
 def lnprob(theta, wl, data, err, paramnames, paramdict, lineinclude, linedefs,
-        veldisp, sauron, saurononly):
+        veldisp, sauron, saurononly, twossp):
     '''
     Primary function of the mcmc. 
     Checks priors and returns the likelihood. Essentially a wrapper for 
@@ -735,11 +756,17 @@ def lnprob(theta, wl, data, err, paramnames, paramdict, lineinclude, linedefs,
                     array, spectrum, uncertainty, and included lines
         saurononly: Flag for only sauron fitting
     '''
+
+    if twossp:
+        theta = [theta[:len(theta)/2],theta[len(theta)/2:]]
+    else:
+        theta = [theta]
     
     # Check priors
-    lp = lnprior(theta, paramnames)
-    if not np.isfinite(lp):
-        return -np.inf
+    for i in range(len(paramnames)):
+        lp = lnprior(theta[i], paramnames[i])
+        if not np.isfinite(lp):
+            return -np.inf
 
     # Calculate chisq
     chisqv = calc_chisq(theta, wl, data, err, veldisp, 
@@ -786,33 +813,40 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
         sauron = None
 
     #Handle parameters and walker initialization
-    paramnames = []
+    if twossp:
+        paramnames = [[],[]]
+    else:
+        paramnames = [[]]
+    
     for key in paramdict.keys():
         if paramdict[key] == None:
-            paramnames.append(key)
+            paramnames[0].append(key)
+            if twossp:
+                paramnames[1].append(key)
     if saurononly:
-        for param in paramnames:
+        for param in paramnames[0]:
             if param in ['Ca','Mg','Fe','x1','x2','K']:
                 print("Please remove elemental abundances")
                 return
+    if twossp:
+        paramnames[0].append('a1')
+        #paramnames[1].append('a2')
 
     #Line definitions & other definitions
     #WIFIS Defs
-    bluelow =  [9855, 10300, 11340, 11667, 11710, 12460, 12780, 12648, \
+    bluelow =  [9855, 10300, 11340, 11667, 11710, 12460, 12780, 12648, 
                     12240, 11905]
-    bluehigh = [9880, 10320, 11370, 11680, 11750, 12495, 12800, 12660, \
+    bluehigh = [9880, 10320, 11370, 11680, 11750, 12495, 12800, 12660, 
                     12260, 11935]
-    linelow =  [9905, 10337, 11372, 11680, 11765, 12505, 12810, 12670, \
+    linelow =  [9905, 10337, 11372, 11680, 11765, 12505, 12810, 12670, 
                     12309, 11935]
-    linehigh = [9935, 10360, 11415, 11705, 11793, 12545, 12840, 12690, \
+    linehigh = [9935, 10360, 11415, 11705, 11793, 12545, 12840, 12690, 
                     12333, 11965]
-    redlow =   [9940, 10365, 11417, 11710, 11793, 12555, 12860, 12700, \
+    redlow =   [9940, 10365, 11417, 11710, 11793, 12555, 12860, 12700, 
                     12360, 12005]
-    redhigh =  [9970, 10390, 11447, 11750, 11810, 12590, 12870, 12720, \
+    redhigh =  [9970, 10390, 11447, 11750, 11810, 12590, 12870, 12720, 
                     12390, 12025]
 
-    #mlow =     [9855, 10300, 11340, 11667, 11710, 12460, 12780, 12648, 12240]
-    #mhigh =    [9970, 10390, 11447, 11750, 11810, 12590, 12870, 12720, 12390]
     mlow, mhigh = [],[]
     for i in zip(bluelow, redhigh):
         mlow.append(i[0])
@@ -828,34 +862,35 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
             redhigh, mlow, mhigh, morder]), line_name, line_name]
 
     # Load wifis data
-    wl, data, err, datanomask, mask = preps.preparespecwifis(fl, z)
+    wl, data, err, datanomask, mask = mcspec.preparespecwifis(fl, z)
 
     # Split the spectrum into individual features including wavelength
     #   and uncertainty arrays
     if scale:
-        wl, data, err = preps.splitspec(wl, data, linedefs, err = err, 
+        wl, data, err = mcspec.splitspec(wl, data, linedefs, err = err, 
                 scale = scale)
     else:
-        wl, data, err = preps.splitspec(wl, data, linedefs, err = err)
+        wl, data, err = mcspec.splitspec(wl, data, linedefs, err = err)
 
-    # Handling sauron data (Currently only HBeta, but can be extended to 
-    #   other features. 
+    # Handling sauron data 
+    #[wl_s, data_s, err_s, sauronlines, \
+    #            sauron_veldisp]
     if sauron != None:
         print("Using SAURON data")
         #SAURON Lines
-        bluelow_s =  [4827.875]#, 4946.500, 5142.625]
-        bluehigh_s = [4847.875]#, 4977.750, 5161.375]
-        linelow_s =  [4847.875]#, 4977.750, 5160.125]
-        linehigh_s = [4876.625]#, 5054.000, 5192.625]
-        redlow_s =   [4876.625]#, 5054.000, 5191.375]
-        redhigh_s =  [4891.625]#, 5065.250, 5206.375]
+        bluelow_s =  [4827.875, 4946.500, 5142.625]
+        bluehigh_s = [4847.875, 4977.750, 5161.375]
+        linelow_s =  [4847.875, 4977.750, 5160.125]
+        linehigh_s = [4876.625, 5054.000, 5192.625]
+        redlow_s =   [4876.625, 5054.000, 5191.375]
+        redhigh_s =  [4891.625, 5065.250, 5206.375]
 
         mlow_s, mhigh_s = [],[]
         for i in zip(bluelow_s, redhigh_s):
             mlow_s.append(i[0])
             mhigh_s.append(i[1])
-        morder_s = [1]#,1,1]
-        line_names_s = np.array(['HBeta'])#,'Fe5015','MgB'])
+        morder_s = [1,1,1]
+        line_names_s = np.array(['HBeta','Fe5015','MgB'])
 
         sauronlines = [np.array([bluelow_s,bluehigh_s,linelow_s,linehigh_s,\
                 redlow_s,redhigh_s,mlow_s,mhigh_s,morder_s]),line_names_s,\
@@ -868,12 +903,12 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
             wl_s = wl_s / (1. + sauron_z)
         noise_s = ff[2].data
 
-        wl_s, data_s, err_s = preps.splitspec(wl_s, spec_s, sauronlines, \
+        wl_s, data_s, err_s = mcspec.splitspec(wl_s, spec_s, sauronlines, \
                 err = noise_s)
     else:
         print("No SAURON")
 
-    ndim = len(paramnames)
+    ndim = len([i for spn in paramnames for i in spn])
 
     print("Params: ", paramnames)
     print("Lines: ", lineinclude)
@@ -883,27 +918,32 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
     pos = []
     for i in range(nwalkers):
         newinit = []
-        for j in range(len(paramnames)):
-            if paramnames[j] == 'Age':
-                newinit.append(np.random.random()*12.5 + 1.0)
-            elif paramnames[j] == 'Z':
-                newinit.append(np.random.random()*0.45 - 0.25)
-                #newinit.append(np.random.random()*0.1 + 0.1)
-            elif paramnames[j] == 'Alpha':
-                newinit.append(np.random.random()*0.3)
-            elif paramnames[j] in ['x1', 'x2']:
-                newinit.append(np.random.choice(x1_m))
-            elif paramnames[j] == 'Na':
-                newinit.append(np.random.random()*1.3 - 0.3)
-            elif paramnames[j] in ['K','Ca','Fe','Mg']:
-                newinit.append(np.random.random()*0.6 - 0.3)
-            elif paramnames[j] == 'VelDisp':
-                newinit.append(np.random.random()*240 + 120)
-            elif paramnames[j] == 'Vel':
-                newinit.append(np.random.random()*0.015 + 0.002)
-            elif paramnames[j] == 'f':
-                #newinit.append(np.random.random()*11 - 10.)
-                newinit.append(np.random.random())
+        for k in range(len(paramnames)):
+            for j in range(len(paramnames[k])):
+                if paramnames[k][j] in ['Age','Age_2']:
+                    newinit.append(np.random.random()*12.5 + 1.0)
+                elif paramnames[k][j] in ['Z','Z_2']:
+                    newinit.append(np.random.random()*0.45 - 0.25)
+                    #newinit.append(np.random.random()*0.1 + 0.1)
+                elif paramnames[k][j] in ['Alpha','Alpha_2']:
+                    newinit.append(np.random.random()*0.3)
+                elif paramnames[k][j] in ['x1', 'x2', 'x1_2', 'x2_2']:
+                    newinit.append(np.random.choice(x1_m))
+                elif paramnames[k][j] in ['Na', 'Na_2']:
+                    newinit.append(np.random.random()*1.3 - 0.3)
+                elif paramnames[k][j] in ['K','Ca','Fe','Mg','K_2','Ca_2','Fe_2'
+                        ,'Mg_2']:
+                    newinit.append(np.random.random()*0.6 - 0.3)
+                elif paramnames[k][j] in ['VelDisp','VelDisp_2']:
+                    newinit.append(np.random.random()*240 + 120)
+                elif paramnames[k][j] in ['Vel','Vel_2']:
+                    newinit.append(np.random.random()*0.015 + 0.002)
+                elif paramnames[k][j] == 'f':
+                    #newinit.append(np.random.random()*11 - 10.)
+                    newinit.append(np.random.random())
+                elif paramnames[k][j] in ['a1','a2']:
+                    newinit.append(np.random.random())
+        
         pos.append(np.array(newinit))
 
     # Handle output file and print important header information
@@ -911,15 +951,20 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
             "_%s_fullindex.dat" % (gal)
     savefl = base + "mcmcresults/"+ savefl_end
     f = open(savefl, "w")
-    strparams = '\t'.join(paramnames)
+    strparams = '\t'.join(['\t'.join(i) for i in paramnames])
     strparamdict = '    '.join(['%s: %s' % (key, paramdict[key]) \
             for key in paramdict.keys()])
     if sauron:
         strlines = '\t'.join(lineinclude+list(sauronlines[1]))
     else:
         strlines = '\t'.join(lineinclude)
+    if twossp:
+        twossp_str = 'TwoSSP'
+    else:
+        twossp_str = 'OneSSP'
     f.write("#NWalk\tNStep\tGal\tFit\n")
-    f.write("#%d\t%d\t%s\tFullIndex\n" % (nwalkers, n_iter,gal))
+    f.write("#%d\t%d\t%s\t%s\tFullIndex\n" % (nwalkers, n_iter, gal, 
+        twossp_str))
     f.write("#%s\n" % (strparams))
     f.write("#%s\n" % (strlines))
     f.write("#%s\n" % (strparamdict))
@@ -935,6 +980,7 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
     logger.info(savefl_end)
     logger.info("NWalk: %i, NStep: %i, Gal: %s, Fit: FullIndex" % (nwalkers,
                     n_iter, gal))
+    logger.info("N_SSP: " + twossp_str)
     logger.info("Galaxy File: " + fl)
     logger.info("Galaxy z: " + str(z))
     logger.info("Galaxy sigma: "+veldisp_str)
@@ -956,12 +1002,12 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
     if not sauron:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = \
                 (wl, data, err, paramnames, paramdict, lineinclude, linedefs, \
-                veldisp, False, saurononly), pool=pool)
+                veldisp, False, saurononly, twossp), pool=pool)
     else:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = \
                 (wl, data, err, paramnames, paramdict, lineinclude, linedefs, 
                 veldisp, [wl_s, data_s, err_s, sauronlines, \
-                sauron_veldisp], saurononly), pool=pool)
+                sauron_veldisp], saurononly, twossp), pool=pool)
     print("Starting MCMC...")
 
     # Run the MCMC and output the step data
@@ -971,7 +1017,8 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
         position = result.coords
         f = open(savefl, "a")
         for k in range(position.shape[0]):    
-            #f.write("%d\t%s\t%s\n" % (k, " ".join(map(str, position[k])), result[1][k]))
+            #f.write("%d\t%s\t%s\n" % (k, " ".join(map(str, position[k])), 
+                #result[1][k]))
             f.write("%d\t%s\t%s\n" % (k, " ".join(map(str, position[k])), 
                 result.log_prob[k]))
         f.close()
