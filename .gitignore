@@ -11,3 +11,4 @@ models/vcj_ssp/*.s100
 models/atlas/*.s100
 *.png
 inputs/*.txt
+devfiles/*

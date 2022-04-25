@@ -177,6 +177,11 @@ def load_mcmc_file(fl, linesoverride=False):
             names.append('[Alpha/H]')
             high.append(0.3)
             low.append(0.0)
+        elif paramnames[j] == 'a1':
+            names.append('a1')
+            high.append(1.0)
+            low.append(0.0)
+
 
     names.insert(0,"Worker")
     names.insert(len(names), "ChiSq")
@@ -202,6 +207,7 @@ def load_mcmc_file(fl, linesoverride=False):
         initdata = pd.read_csv(fl, comment='#', header = None, \
                 names=names, delim_whitespace=True)
         data = np.array(initdata)
+        print(data.shape)
         #data = np.loadtxt(fl)
         n_steps = int(data.shape[0]/nworkers)
     else:
@@ -212,8 +218,9 @@ def load_mcmc_file(fl, linesoverride=False):
         n_steps = niter
 
     paramorder = np.array(['Age','Z','Alpha','x1','x2','Na','K','Ca',\
-            'Fe','Mg','Si','C','Ti','Cr','Vel','VelDisp','f'])
-    rearrange = []
+            'Fe','Mg','Si','C','Ti','Cr','Vel','VelDisp','f','a1'])
+    rearrange1 = []
+    rearrange2 = []
     #for param in paramnames:
     #   o = np.where(paramorder == param)[0][0]
     #   rearrange.append(o)
@@ -221,8 +228,11 @@ def load_mcmc_file(fl, linesoverride=False):
     for param in paramorder:
         o = np.where(paramnames == param)[0]
         if len(o) > 0:
-            rearrange.append(o[0])
+            rearrange1.append(o[0])
+            if len(o) > 1:
+                rearrange2.append(o[1])
 
+    rearrange = rearrange1 + rearrange2
     rearrange = np.array(rearrange)
     high = np.array(high)[rearrange]
     low = np.array(low)[rearrange]
