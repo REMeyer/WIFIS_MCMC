@@ -969,7 +969,10 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
             "_%s_fullindex.dat" % (gal)
     savefl = base + "mcmcresults/"+ savefl_end
     f = open(savefl, "w")
-    strparams = '\t'.join(['\t'.join(i) for i in paramnames])
+    paramnames_str = list(paramnames)
+    if len(paramnames_str) > 1:
+        paramnames_str[1] = [s + '_2' for s in paramnames_str[1]]
+    strparams = '\t'.join(['\t'.join(i) for i in paramnames_str])
     strparamdict = '    '.join(['%s: %s' % (key, paramdict[key]) \
             for key in paramdict.keys()])
     if sauron:

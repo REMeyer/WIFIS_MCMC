@@ -58,8 +58,6 @@ def plot_corner(fl, burnin, variables=[], nolimits=False, latexout=False, \
         whf = np.where(paramnames == 'f')[0][0]
         samples[:,whf] = np.log(samples[:,whf])
 
-    #sys.exit()
-
     if len(variables) > 0:
         print("Using only variables: ", variables)
         var_i = []

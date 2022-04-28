@@ -129,62 +129,63 @@ def load_mcmc_file(fl, linesoverride=False):
     gal = values[2]
 
     #Parse paramnames and assign ploting text and limits
-    names = []
+    basic_paramnames = []
     high = []
     low = []
     for j in range(len(paramnames)):
-        if paramnames[j] == 'Age':
-            names.append('Age')
+        if paramnames[j] in ['Age','Age_2']:
+            basic_paramnames.append(paramnames[j])
             high.append(13.5)
             low.append(1.0)
-        elif paramnames[j] == 'Z':
-            names.append('[Z/H]')
+        elif paramnames[j] in ['Z','Z_2']:
+            basic_paramnames.append('['+paramnames[j]+'/H]')
             high.append(0.2)
             #low.append(-1.5)
             low.append(-0.25)
-        elif paramnames[j] in ['x1', 'x2']:
-            if paramnames[j] == 'x1':
-                names.append('x1')
-            else:
-                names.append('x2')
+        elif paramnames[j] in ['x1', 'x2', 'x1_2', 'x2_2']:
+            basic_paramnames.append(paramnames[j])
             high.append(3.5)
             low.append(0.5)
-        elif paramnames[j] == 'Na':
-            names.append('[%s/H]' % (paramnames[j]))
+        elif paramnames[j] in ['Na','Na_2']:
+            basic_paramnames.append('[%s/H]' % (paramnames[j]))
             high.append(0.9)
             low.append(-0.5)
-        elif paramnames[j] in ['K','Ca','Fe','Mg','Si','Ti','Cr']:
-            names.append('[%s/H]' % (paramnames[j]))
+        elif paramnames[j] in ['K','Ca','Fe','Mg','Si','Ti','Cr',
+                               'K_2','Ca_2','Fe_2','Mg_2','Si_2','Ti_2','Cr_2']:
+            basic_paramnames.append('[%s/H]' % (paramnames[j]))
             high.append(0.5)
             low.append(-0.5)
-        elif paramnames[j] == 'C':
-            names.append('[%s/H]' % (paramnames[j]))
+        elif paramnames[j] in ['C','C_2']:
+            basic_paramnames.append('[%s/H]' % (paramnames[j]))
             high.append(0.3)
             low.append(-0.3)
         elif paramnames[j] == 'Vel':
-            names.append('z')
+            basic_paramnames.append('z')
             high.append(0)
             low.append(0.015)
-        elif paramnames[j] == 'VelDisp':
-            names.append(r'$\sigma_{v}$')
+        elif paramnames[j] in ['VelDisp','VelDisp_2']:
+            if paramnames[j] == 'VelDisp':
+                basic_paramnames.append(r'$\sigma_{v}$')
+            else:
+                basic_paramnames.append(r'$\sigma_{v}$_2')
             high.append(390)
             low.append(120)
         elif paramnames[j] == 'f':
-            names.append('log-f')
+            basic_paramnames.append('log-f')
             high.append(1.0)
             low.append(-10.0)
-        elif paramnames[j] == 'Alpha':
-            names.append('[Alpha/H]')
+        elif paramnames[j] in ['Alpha','Alpha_2']:
+            basic_paramnames.append('[%s/H]' % (paramanems[j]))
             high.append(0.3)
             low.append(0.0)
         elif paramnames[j] == 'a1':
-            names.append('a1')
+            basic_paramnames.append('a1')
             high.append(1.0)
             low.append(0.0)
 
 
-    names.insert(0,"Worker")
-    names.insert(len(names), "ChiSq")
+    basic_paramnames.insert(0,"Worker")
+    basic_paramnames.insert(len(basic_paramnames), "ChiSq")
     print("Params: ", paramnames)
     if lines:
         print("Lines: ", linenames)
@@ -198,27 +199,29 @@ def load_mcmc_file(fl, linesoverride=False):
         print("FILE HAS INCOMPLETE STEP...REMOVING")
         n_steps = int(lc / nworkers)
         initdata = pd.read_csv(fl, comment='#', header = None, \
-                names=names, delim_whitespace=True)
+                names=basic_paramnames, delim_whitespace=True)
         #initdata = np.loadtxt(fl)
         data = np.array(initdata)
         data = data[:n_steps*nworkers,:]
     elif lc != n_lines:
         print("FILE NOT COMPLETE")
         initdata = pd.read_csv(fl, comment='#', header = None, \
-                names=names, delim_whitespace=True)
+                names=basic_paramnames, delim_whitespace=True)
         data = np.array(initdata)
         print(data.shape)
         #data = np.loadtxt(fl)
         n_steps = int(data.shape[0]/nworkers)
     else:
         initdata = pd.read_csv(fl, comment='#', header = None, \
-                names=names, delim_whitespace=True)
+                names=basic_paramnames, delim_whitespace=True)
         data = np.array(initdata)
         #data = np.loadtxt(fl)
         n_steps = niter
 
     paramorder = np.array(['Age','Z','Alpha','x1','x2','Na','K','Ca',\
-            'Fe','Mg','Si','C','Ti','Cr','Vel','VelDisp','f','a1'])
+            'Fe','Mg','Si','C','Ti','Cr','Vel','VelDisp','f','a1','Age_2','Z_2','Alpha_2',
+            'x1_2','x2_2','Na_2','K_2','Ca_2',\
+            'Fe_2','Mg_2','Si_2','C_2','Ti_2','Cr_2','Vel_2','VelDisp_2'])
     rearrange1 = []
     rearrange2 = []
     #for param in paramnames:
@@ -237,18 +240,19 @@ def load_mcmc_file(fl, linesoverride=False):
     high = np.array(high)[rearrange]
     low = np.array(low)[rearrange]
 
-    names = names[1:-1]
-    for k,name in enumerate(names):
+    basic_paramnames = basic_paramnames[1:-1]
+    for k,name in enumerate(basic_paramnames):
         if name == 'x1':
-            names[k] = r'\textbf{$x_{1}$}'
+            basic_paramnames[k] = r'\textbf{$x_{1}$}'
         if name == 'x2':
-            names[k] = r'\textbf{$x_{2}$}'
-    names = np.array(names)[rearrange]
+            basic_paramnames[k] = r'\textbf{$x_{2}$}'
+    basic_paramnames = np.array(basic_paramnames)[rearrange]
     paramnames = np.array(paramnames)[rearrange]
 
-    infol = [nworkers, niter, gal, names, high, low, paramnames, linenames, lines, paramdict]
+    infol = [nworkers, niter, gal, basic_paramnames, high, low, 
+            paramnames, linenames, lines, paramdict]
 
-    folddata = data.reshape((n_steps, nworkers,len(names)+2))
+    folddata = data.reshape((n_steps, nworkers,len(basic_paramnames)+2))
     postprob = folddata[:,:,-1]
     realdata = folddata[:,:,1:-1]
     realdata = realdata[:,:,rearrange]
