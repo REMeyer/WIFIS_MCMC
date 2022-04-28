@@ -93,19 +93,22 @@ Sauron Only: False
 Comments: Re/4 - Alpha no CaI - Paper Revision
 Runtime: 107.236111434Minutes
 
-20220329T171727_M85_fullindex.dat
+20220425T184935_M85_fullindex.dat
 NWalk: 512, NStep: 4000, Gal: M85, Fit: FullIndex
+N_SSP: TwoSSP
 Galaxy File: /data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20210324_Cen.fits
 Galaxy z: 0.0023
 Galaxy sigma: Fit Parameter
 Sauron File: /home/elliot/sauronspec/M85_ATLAS3D_R1.fits
 Sauron z: 0.0022
 Sauron sigma: 215.0
-Lines: FeH	CaI	NaI	KI_a	KI_b	KI_1.25	NaI123	HBeta
-Params: x1	Na	Age	VelDisp	Fe	x2	Z	K
-ParamDict: x1: None    Ca: 0.0    Na: None    Age: None    VelDisp: None    Fe: None    x2: None    Z: None    K: None
+Lines: FeH	CaI	NaI	KI_a	KI_b	KI_1.25	NaI123	HBeta	Fe5015	MgB
+Params: x1	Ca	Na	Age	VelDisp	Fe	x2	Z	K	a1	x1	Ca	Na	Age	VelDisp	Fe	x2	Z	K
+ParamDict: x1: None    Ca: None    Na: None    Age: None    VelDisp: None    Fe: None    x2: None    Z: None    K: None
 Sauron Only: False
-Comments: Center - Ca/H = 0 - Paper Revision
+Comments: Two SSP testing
+Runtime: 131.9969341 Minutes
+
 20220329T171807_M85_fullindex.dat
 NWalk: 512, NStep: 4000, Gal: M85, Fit: FullIndex
 Galaxy File: /data2/wifis_reduction/elliot/M85/20171229/science/processed/M85_combined_cube_1_telluricreduced_20210324_Cen.fits
