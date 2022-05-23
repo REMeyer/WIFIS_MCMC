@@ -976,10 +976,7 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
     strparams = '\t'.join(['\t'.join(i) for i in paramnames_str])
     strparamdict = '    '.join(['%s: %s' % (key, paramdict[key]) \
             for key in paramdict.keys()])
-    if sauron:
-        strlines = '\t'.join(lineinclude+list(sauronlines[1]))
-    else:
-        strlines = '\t'.join(lineinclude)
+    strlines = '\t'.join(lineinclude)
     if twossp:
         twossp_str = 'TwoSSP'
     else:
@@ -1072,7 +1069,9 @@ if __name__ == '__main__':
     #inputfl = 'inputs/20210614_OtherIMFPaper.txt'
     #inputfl = 'inputs/20220210_revisedpaper_alpha.txt'
     #inputfl = 'inputs/20220329_revisedpaper_noCaI.txt'
-    inputfl = 'inputs/20220331_revisedpaper_alpha_center.txt'
+    #inputfl = 'inputs/20220331_revisedpaper_alpha_center.txt'
+    #inputfl = 'inputs/20220428_revisedpaper_allsauron.txt'
+    inputfl = 'inputs/20220522_revisedpaper_litinputs.txt'
 
     mcmcinputs = mcsupp.load_mcmc_inputs(inputfl)
 
