@@ -286,7 +286,7 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False,
     if timing:
         t2 = time.time()
         print("MSPEC T1: ",t2 - t1)
-    
+
     # Finding the relevant bandpass to adjust the 
     # computational complexity
     wlfull = vcj[0]["WL"]
@@ -1071,7 +1071,9 @@ if __name__ == '__main__':
     #inputfl = 'inputs/20220329_revisedpaper_noCaI.txt'
     #inputfl = 'inputs/20220331_revisedpaper_alpha_center.txt'
     #inputfl = 'inputs/20220428_revisedpaper_allsauron.txt'
-    inputfl = 'inputs/20220522_revisedpaper_litinputs.txt'
+    #inputfl = 'inputs/20220522_revisedpaper_litinputs.txt'
+    #inputfl = 'inputs/20220523_revisedpaper_extraruns.txt'
+    inputfl = 'inputs/20220615_final_extra_runs.txt'
 
     mcmcinputs = mcsupp.load_mcmc_inputs(inputfl)
 

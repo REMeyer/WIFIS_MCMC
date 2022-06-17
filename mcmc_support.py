@@ -175,7 +175,7 @@ def load_mcmc_file(fl, linesoverride=False):
             high.append(1.0)
             low.append(-10.0)
         elif paramnames[j] in ['Alpha','Alpha_2']:
-            basic_paramnames.append('[%s/H]' % (paramanems[j]))
+            basic_paramnames.append('[%s/H]' % (paramnames[j]))
             high.append(0.3)
             low.append(0.0)
         elif paramnames[j] == 'a1':
@@ -246,6 +246,9 @@ def load_mcmc_file(fl, linesoverride=False):
             basic_paramnames[k] = r'\textbf{$x_{1}$}'
         if name == 'x2':
             basic_paramnames[k] = r'\textbf{$x_{2}$}'
+        if len(name.split('_')) > 1:
+            spl = name.split('_')
+            basic_paramnames[k] = ' '.join(spl)
     basic_paramnames = np.array(basic_paramnames)[rearrange]
     paramnames = np.array(paramnames)[rearrange]
 
