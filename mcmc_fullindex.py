@@ -1,5 +1,5 @@
 ###############################################################################
-#   WIFIS MCMC spectral fitting - 'full-index' version
+#   WIFIS MCMC spectral fitting - 'full-index' implementation
 #   Algorithm based on the emcee affine-invariant ensemble sampler mcmc 
 #       implementation by Foreman-Mackey et al. (2013)
 #   Author: Elliot Meyer, Dept Astronomy & Astrophysics University of Toronto
@@ -8,13 +8,28 @@
 # This program is run on the command line by invoking python mcmc_fullindex.py
 # 
 # Please refer to the __main__ component for the beginning of the program.
+#
+#   MAIN FUNCTIONS
+#   __main__:       pre-loads and creates an interpolated grid of all model 
+#                       spectra, then loads input information from the 
+#                       input file
+#   do_mcmc:        loads the spectral data and sets up the MCMC
+#   lnprob:         checks input against priors and calls calc_chisq
+#   calc_chisq:     produces model spectra and measures them against the 
+#                       observed spectra
+#   model_spec:     takes input model parameters and outputs a model spectrum
+#
 # An input file placed in the inputs directory is used to provide the 
 #   required input parameters for the mcmc simulation
+#
 # A logfile keeps track of the mcmc runs in the logs directory.
 #
 # Please refer to the functions in the mcmc_spectra.py module for the format of
 #   the input spectra.
-# 
+#
+# There are also functions in mcmc_support.py that are used in the following 
+#   functions. 
+#
 # This suite is programmed to work with the Conroy et al. (2018) SPS models.
 #
 ################################################################################
@@ -302,6 +317,7 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False,
         
     # Some indexing for the chemical abundances
     abundi = [0,1,2,-2,-1,29,16,15,6,5,4,3,8,7,18,17,14,13,21]
+
     # Getting the appropriate base model including one with a Kroupa IMF
     # Input parameter base model
     imfinterp = vcj[1][imfsdict[(x1,x2)]]
@@ -322,7 +338,7 @@ def model_spec(inputs, paramnames, paramdict, saurononly = False,
         print("MSPEC T2: ", t3 - t2)
         
     # Chemical abundances just for sauron spectra
-    ### Old Code -- Do not follow ###
+    ##### Old Implementation -- Do not follow #####
     if saurononly:
         if 'Alpha' in paramdict.keys():
             alpha_contribution = 0.0
@@ -599,18 +615,20 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict,
         t3 = time.time()
         print("CHISQ T2: ", t3 - t2)
 
+    ## Calculate the 'chisq' value
     if not saurononly:
         for j in range(len(linedefs[0,:])):
+            # Skip line if not in inputs
             if line_names[j] not in lineinclude:
                 #print line_name[i]
                 continue
 
-            #Getting a slice of the model
+            #Getting a slice of the model and wl
             wli = wl[j]
-
             modelslice = mconvinterp(wli)
 
             #Removing a high-order polynomial from the slice
+            #
             #Define the bandpasses for each line 
             bluepass = np.where((wlc >= linedefs[0,j]) & \
                     (wlc <= linedefs[1,j]))[0]
@@ -647,7 +665,7 @@ def calc_chisq(params, wl, data, err, veldisp, paramnames, paramdict,
             if plot:
                 mpl.plot(wl[j], modelslice, 'r')
                 mpl.plot(wl[j], data[j], 'b')
-
+    # If Sauron data is included do the same as above
     if sauron:
         for j in range(len(sauron[0])):
             if s_line_names[j] not in lineinclude:
@@ -699,9 +717,6 @@ def lnprior(theta, paramnames, debug=False):
         theta: parameter values
         paramnames: names of the input parameters
     '''
-    #print(paramnames)
-    #print(theta)
-    #print()
 
     goodpriors = True
     for j in range(len(paramnames)):
