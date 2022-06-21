@@ -791,12 +791,13 @@ def lnprob(theta, wl, data, err, paramnames, paramdict, lineinclude, linedefs,
         saurononly: Flag for only sauron fitting
     '''
 
+    # Splitting the input parameters into two sets if using twossp
     if twossp:
         theta = [theta[:int(len(theta)/2)+1],theta[int(len(theta)/2)+1:]]
     else:
         theta = [theta]
     
-    # Check priors
+    # Check priors for validity
     for i in range(len(paramnames)):
         lp = lnprior(theta[i], paramnames[i])
         if not np.isfinite(lp):
@@ -885,7 +886,7 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
     for i in zip(bluelow, redhigh):
         mlow.append(i[0])
         mhigh.append(i[1])
-    morder = [1,1,1,1,1,1,1,1,1,1]
+    morder = [1,1,1,1,1,1,1,1,1,1] #Fitorder (linear)
 
     # Line name definitions
     line_name = np.array(['FeH','CaI','NaI','KI_a','KI_b', 'KI_1.25', 'PaB',\
@@ -907,8 +908,6 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
         wl, data, err = mcspec.splitspec(wl, data, linedefs, err = err)
 
     # Handling sauron data 
-    #[wl_s, data_s, err_s, sauronlines, \
-    #            sauron_veldisp]
     if sauron != None:
         print("Using SAURON data")
         #SAURON Lines
@@ -931,6 +930,7 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
                 redlow_s,redhigh_s,mlow_s,mhigh_s,morder_s]),line_names_s,\
                 line_names_s]
 
+        # Import and handle sauron spectra
         ff = fits.open(sauron)
         spec_s = ff[0].data
         wl_s = ff[1].data
@@ -1030,9 +1030,6 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
     # Initialize MCMC sampler
     pool = Pool(processes=16)
 
-    #sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = \
-    #        (wl, data, err, gal, paramnames, lineinclude, linedefs), \
-    #        threads=threads)
     if not sauron:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = \
                 (wl, data, err, paramnames, paramdict, lineinclude, linedefs, \
@@ -1042,6 +1039,7 @@ def do_mcmc(gal, nwalkers, n_iter, z, veldisp, paramdict, lineinclude,
                 (wl, data, err, paramnames, paramdict, lineinclude, linedefs, 
                 veldisp, [wl_s, data_s, err_s, sauronlines, \
                 sauron_veldisp], saurononly, twossp), pool=pool)
+
     print("Starting MCMC...")
 
     # Run the MCMC and output the step data
